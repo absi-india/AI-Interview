@@ -1,0 +1,89 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id           String      @id @default(cuid())
+  email        String      @unique
+  firebaseUid  String?     @unique
+  passwordHash String?
+  name         String
+  role         String      @default("RECRUITER") // ADMIN | RECRUITER
+  isActive     Boolean     @default(true)
+  createdAt    DateTime    @default(now())
+  candidates   Candidate[]
+  tests        Test[]
+}
+
+model Candidate {
+  id          String   @id @default(cuid())
+  name        String
+  email       String
+  phone       String
+  resumeUrl   String?
+  recruiterId String
+  recruiter   User     @relation(fields: [recruiterId], references: [id])
+  createdAt   DateTime @default(now())
+  tests       Test[]
+}
+
+model Test {
+  id              String       @id @default(cuid())
+  candidateId     String
+  candidate       Candidate    @relation(fields: [candidateId], references: [id])
+  recruiterId     String
+  recruiter       User         @relation(fields: [recruiterId], references: [id])
+  jobDescription  String
+  jobTitle        String
+  level           String // BASIC | INTERMEDIATE | ADVANCED | PRACTICAL
+  status          String       @default("QUESTIONS_PENDING")
+  // QUESTIONS_PENDING | QUESTIONS_APPROVED | INVITED | IN_PROGRESS | COMPLETED | EXPIRED
+  inviteToken     String       @unique @default(cuid())
+  shareToken      String       @unique @default(cuid())
+  inviteExpiresAt DateTime?
+  startedAt       DateTime?
+  completedAt     DateTime?
+  timeUsedSeconds Int?
+  overallScore    Float?
+  overallRating   String?
+  questions       Question[]
+  fraudEvents     FraudEvent[]
+  createdAt       DateTime     @default(now())
+}
+
+model Question {
+  id               String   @id @default(cuid())
+  testId           String
+  test             Test     @relation(fields: [testId], references: [id])
+  order            Int
+  questionText     String
+  category         String
+  expectedSummary  String
+  maxScore         Int      @default(10)
+  codeLanguageHint String?
+  isModified       Boolean  @default(false)
+  videoUrl         String?
+  audioUrl         String?
+  transcript       String?
+  codeResponse     String?
+  aiScore          Float?
+  aiRationale      String?
+  createdAt        DateTime @default(now())
+}
+
+model FraudEvent {
+  id         String   @id @default(cuid())
+  testId     String
+  test       Test     @relation(fields: [testId], references: [id])
+  type       String
+  // TAB_SWITCH | WINDOW_BLUR | FULLSCREEN_EXIT | COPY_PASTE_DETECTED
+  // MULTIPLE_FACES | NO_FACE_DETECTED | PHONE_DETECTED | SCREEN_SHARE_STOPPED | RAPID_ANSWER
+  severity   String // LOW | MEDIUM | HIGH
+  detail     String
+  occurredAt DateTime @default(now())
+}

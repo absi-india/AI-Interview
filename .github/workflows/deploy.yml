@@ -1,0 +1,8 @@
+# Deployment is handled by Vercel's native GitHub integration.
+# Connect your repo at https://vercel.com/new — Vercel auto-deploys
+# on every push to main and creates preview deploys for PRs.
+# No secrets or tokens needed here.
+#
+# This file intentionally has no jobs.
+name: Deploy (via Vercel GitHub Integration)
+on: {}

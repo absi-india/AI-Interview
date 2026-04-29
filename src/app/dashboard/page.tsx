@@ -1,0 +1,128 @@
+import { auth } from "@/auth";
+import { prisma } from "@/lib/prisma";
+import { redirect } from "next/navigation";
+import Link from "next/link";
+import { SignOutButton } from "@/components/SignOutButton";
+import { DeleteCandidateButton } from "@/components/DeleteCandidateButton";
+
+const STATUS_LABEL: Record<string, string> = {
+  QUESTIONS_PENDING: "Questions Pending",
+  QUESTIONS_APPROVED: "Questions Approved",
+  INVITED: "Invited",
+  IN_PROGRESS: "In Progress",
+  COMPLETED: "Completed",
+  EXPIRED: "Expired",
+};
+
+const STATUS_COLOR: Record<string, string> = {
+  QUESTIONS_PENDING: "bg-amber-500/15 text-amber-300 border border-amber-500/20",
+  QUESTIONS_APPROVED: "bg-blue-500/15 text-blue-300 border border-blue-500/20",
+  INVITED: "bg-indigo-500/15 text-indigo-300 border border-indigo-500/20",
+  IN_PROGRESS: "bg-orange-500/15 text-orange-300 border border-orange-500/20",
+  COMPLETED: "bg-emerald-500/15 text-emerald-300 border border-emerald-500/20",
+  EXPIRED: "bg-slate-500/15 text-slate-400 border border-slate-500/20",
+};
+
+export default async function DashboardPage() {
+  const session = await auth();
+  if (!session) redirect("/login");
+
+  const where = session.user.role === "ADMIN" ? {} : { recruiterId: session.user.id };
+  const candidates = await prisma.candidate.findMany({
+    where,
+    orderBy: { createdAt: "desc" },
+    include: {
+      tests: { select: { id: true, status: true, jobTitle: true, createdAt: true }, orderBy: { createdAt: "desc" }, take: 1 },
+    },
+  });
+
+  return (
+    <div className="min-h-screen" style={{ background: "linear-gradient(180deg, #0f172a 0%, #1a2332 100%)" }}>
+      {/* Nav */}
+      <nav className="nav-absi px-6 py-4 flex justify-between items-center">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-md">
+            <span className="text-sm font-black text-white">A</span>
+          </div>
+          <div>
+            <h1 className="text-base font-bold text-white leading-tight">ABSI <span className="text-slate-400 font-normal text-sm">Interview Portal</span></h1>
+          </div>
+        </div>
+        <div className="flex items-center gap-4">
+          <span className="text-sm text-slate-400">
+            {session.user.name}
+            <span className="ml-1.5 badge bg-blue-500/15 text-blue-300 border border-blue-500/20 text-xs">{session.user.role}</span>
+          </span>
+          {session.user.role === "ADMIN" && (
+            <Link href="/admin" className="text-sm text-blue-400 hover:text-blue-300 font-medium transition-colors">Admin Panel</Link>
+          )}
+          <SignOutButton />
+        </div>
+      </nav>
+
+      <main className="max-w-6xl mx-auto px-6 py-8">
+        <div className="flex justify-between items-center mb-6 animate-fade-in">
+          <h2 className="text-xl font-bold text-white">Candidates</h2>
+          <Link
+            href="/candidates/new"
+            className="btn-primary flex items-center gap-2"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+            Add Candidate
+          </Link>
+        </div>
+
+        {candidates.length === 0 ? (
+          <div className="text-center py-16 glass-card animate-fade-in-up">
+            <div className="text-4xl mb-4">👤</div>
+            <p className="text-slate-400">No candidates yet.</p>
+            <Link href="/candidates/new" className="text-blue-400 hover:text-blue-300 font-medium transition-colors">Add your first candidate</Link>
+          </div>
+        ) : (
+          <div className="glass-card overflow-hidden animate-fade-in-up">
+            <table className="w-full text-sm table-dark">
+              <thead>
+                <tr>
+                  <th>Candidate</th>
+                  <th>Latest Test</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {candidates.map((c) => {
+                  const latest = c.tests[0];
+                  return (
+                    <tr key={c.id}>
+                      <td>
+                        <Link href={`/candidates/${c.id}`} className="font-medium text-white hover:text-blue-400 transition-colors">{c.name}</Link>
+                        <div className="text-slate-500 text-xs mt-0.5">{c.email}</div>
+                      </td>
+                      <td className="text-slate-400">{latest?.jobTitle ?? "—"}</td>
+                      <td>
+                        {latest ? (
+                          <span className={`badge ${STATUS_COLOR[latest.status] ?? "bg-slate-500/15 text-slate-400"}`}>
+                            {STATUS_LABEL[latest.status] ?? latest.status}
+                          </span>
+                        ) : (
+                          <span className="text-slate-600 text-xs">No tests</span>
+                        )}
+                      </td>
+                      <td>
+                        <div className="flex gap-3">
+                          <Link href={`/candidates/${c.id}`} className="text-blue-400 hover:text-blue-300 font-medium transition-colors">View</Link>
+                          <Link href={`/tests/new?candidateId=${c.id}`} className="text-emerald-400 hover:text-emerald-300 font-medium transition-colors">Schedule Test</Link>
+                          <DeleteCandidateButton candidateId={c.id} candidateName={c.name} />
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </main>
+    </div>
+  );
+}
