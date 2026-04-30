@@ -52,3 +52,6 @@ dev.db
 
 # local candidate uploads / recordings
 /public/uploads/
+
+.vercel
+.env*.local

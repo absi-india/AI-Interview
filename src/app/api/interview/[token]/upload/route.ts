@@ -34,16 +34,17 @@ export async function POST(
     try {
       const objectKey = await uploadRecording(test.id, questionId, buffer);
       videoUrl = createRecordingMinioRef(objectKey);
-    } catch {
+    } catch (err) {
       if (process.env.NODE_ENV === "production") {
-        throw new Error("Failed to upload video recording");
+        console.warn("[interview/upload] Video storage unavailable; saving answer without recording", err);
+        videoUrl = null;
+      } else {
+        const relativePublicPath = `/uploads/recordings/${test.id}/${questionId}.webm`;
+        const absoluteDir = path.join(process.cwd(), "public", "uploads", "recordings", test.id);
+        await mkdir(absoluteDir, { recursive: true });
+        await writeFile(path.join(absoluteDir, `${questionId}.webm`), buffer);
+        videoUrl = createRecordingLocalRef(relativePublicPath);
       }
-
-      const relativePublicPath = `/uploads/recordings/${test.id}/${questionId}.webm`;
-      const absoluteDir = path.join(process.cwd(), "public", "uploads", "recordings", test.id);
-      await mkdir(absoluteDir, { recursive: true });
-      await writeFile(path.join(absoluteDir, `${questionId}.webm`), buffer);
-      videoUrl = createRecordingLocalRef(relativePublicPath);
     }
   }
 
