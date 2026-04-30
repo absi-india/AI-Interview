@@ -11,6 +11,22 @@ interface AiDebugInfo {
   rawResponse: string;
 }
 
+async function readJsonResponse(res: Response) {
+  const text = await res.text();
+  if (!text) return {};
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    const compactText = text.replace(/\s+/g, " ").trim().slice(0, 180);
+    return {
+      error: compactText
+        ? `Server returned a non-JSON response: ${compactText}`
+        : "Server returned a non-JSON response",
+    };
+  }
+}
+
 const LEVELS = [
   { value: "BASIC", label: "Basic", desc: "Definitions, fundamentals, conceptual", icon: "📘" },
   { value: "INTERMEDIATE", label: "Intermediate", desc: "Applied knowledge, scenario-based", icon: "📗" },
@@ -105,7 +121,7 @@ function ScheduleTestForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ candidateId, jobTitle, jobDescription, level }),
       });
-      const data = await res.json();
+      const data = await readJsonResponse(res);
 
       if (!res.ok) {
         setError(data.error ?? "Failed to generate questions");

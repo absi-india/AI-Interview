@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { generateQuestions } from "@/lib/claude";
 import { getResumeContext } from "@/lib/resumeContext";
 
+export const maxDuration = 60;
+
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -27,7 +29,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const resumeContext = await getResumeContext(candidate.resumeUrl);
+    let resumeContext = "";
+    try {
+      resumeContext = await getResumeContext(candidate.resumeUrl);
+    } catch (err) {
+      console.warn("[tests/generate] Resume context unavailable", err);
+    }
+
+    console.info("[tests/generate] Generating questions", {
+      candidateId,
+      level,
+      jobTitle,
+      hasResumeContext: Boolean(resumeContext),
+    });
+
     const result = await generateQuestions(level, jobTitle, jobDescription, resumeContext);
 
     const test = await prisma.test.create({
@@ -53,6 +68,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ testId: test.id, debug: result.debug }, { status: 201 });
   } catch (err: unknown) {
+    console.error("[tests/generate] Failed", err);
     const message = err instanceof Error ? err.message : "Failed to generate questions";
     return NextResponse.json({ error: message }, { status: 500 });
   }
