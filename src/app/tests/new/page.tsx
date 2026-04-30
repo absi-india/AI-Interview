@@ -99,30 +99,36 @@ function ScheduleTestForm() {
     setDebug(null);
     setGeneratedTestId(null);
 
-    const res = await fetch("/api/tests/generate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ candidateId, jobTitle, jobDescription, level }),
-    });
-    const data = await res.json();
-    setLoading(false);
+    try {
+      const res = await fetch("/api/tests/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ candidateId, jobTitle, jobDescription, level }),
+      });
+      const data = await res.json();
 
-    if (!res.ok) {
-      setError(data.error ?? "Failed to generate questions");
-      return;
-    }
-
-    // Store debug info so review-questions page can display it
-    if (data.debug) {
-      setDebug(data.debug);
-      setGeneratedTestId(data.testId);
-      try {
-        sessionStorage.setItem(`ai_debug_${data.testId}`, JSON.stringify(data.debug));
-      } catch {
-        // sessionStorage not available (e.g., private browsing)
+      if (!res.ok) {
+        setError(data.error ?? "Failed to generate questions");
+        return;
       }
-    } else {
-      router.push(`/tests/${data.testId}/review-questions`);
+
+      // Store debug info so review-questions page can display it
+      if (data.debug) {
+        setDebug(data.debug);
+        setGeneratedTestId(data.testId);
+        try {
+          sessionStorage.setItem(`ai_debug_${data.testId}`, JSON.stringify(data.debug));
+        } catch {
+          // sessionStorage not available (e.g., private browsing)
+        }
+      } else {
+        router.push(`/tests/${data.testId}/review-questions`);
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Network request failed";
+      setError(`Failed to generate questions: ${message}`);
+    } finally {
+      setLoading(false);
     }
   }
 

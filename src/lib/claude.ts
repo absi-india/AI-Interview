@@ -1,7 +1,8 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import pRetry from "p-retry";
 
-const GEMINI_MODEL = "gemini-1.5-flash";
+const GEMINI_MODEL = process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash";
+const GEMINI_TIMEOUT_MS = 8000;
 
 const STOP_WORDS = new Set([
   "a",
@@ -88,10 +89,10 @@ async function callGemini(system: string, user: string): Promise<string> {
         model: GEMINI_MODEL,
         systemInstruction: system,
       });
-      const result = await model.generateContent(user);
+      const result = await model.generateContent(user, { timeout: GEMINI_TIMEOUT_MS });
       return result.response.text();
     },
-    { retries: 2, minTimeout: 800, factor: 2 }
+    { retries: 1, minTimeout: 500, factor: 2 }
   );
 }
 
@@ -102,6 +103,11 @@ function isGeminiConfigOrAuthError(err: unknown): boolean {
     message.includes("gemini_not_configured") ||
     message.includes("api key") ||
     message.includes("403") ||
+    message.includes("404") ||
+    message.includes("not found") ||
+    message.includes("not supported") ||
+    message.includes("aborted") ||
+    message.includes("timeout") ||
     message.includes("permission_denied") ||
     message.includes("unregistered callers") ||
     message.includes("googlegenerativeai error")
