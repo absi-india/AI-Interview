@@ -29,6 +29,18 @@ function isFirebaseHostAuthError(code: string | undefined) {
   return code === "auth/app-not-authorized" || code === "auth/unauthorized-domain";
 }
 
+function hasFirebaseClientConfig() {
+  return Boolean(
+    process.env.NEXT_PUBLIC_FIREBASE_API_KEY &&
+      process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN &&
+      process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  );
+}
+
+const isLocalDev = process.env.NODE_ENV !== "production";
+const localDevEmail = "devansh04356@gmail.com";
+const localDevPassword = "admin123";
+
 function StatusDot({ ok }: { ok: boolean }) {
   return (
     <span
@@ -164,6 +176,7 @@ function ForgotPasswordForm({ onBack }: { onBack: () => void }) {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
+              suppressHydrationWarning
               className="input-dark"
               placeholder="you@example.com"
             />
@@ -179,6 +192,7 @@ function ForgotPasswordForm({ onBack }: { onBack: () => void }) {
       </form>
       <button
         onClick={onBack}
+        suppressHydrationWarning
         className="mt-4 w-full text-sm text-slate-400 hover:text-slate-300 text-center transition-colors"
       >
         Back to sign in
@@ -195,6 +209,39 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [showReset, setShowReset] = useState(false);
 
+  async function signInWithPassword() {
+    return signInWithCredentials(email, password);
+  }
+
+  async function signInWithCredentials(loginEmail: string, loginPassword: string) {
+    const dashboardCallbackUrl = `${window.location.origin}/dashboard`;
+    const result = await signIn("credentials", {
+      email: loginEmail,
+      password: loginPassword,
+      redirect: false,
+      callbackUrl: dashboardCallbackUrl,
+    });
+
+    if (result?.error) {
+      setError("Invalid email or password");
+      return false;
+    }
+
+    router.push("/dashboard");
+    return true;
+  }
+
+  async function handleDevSignIn() {
+    setLoading(true);
+    setError("");
+
+    try {
+      await signInWithCredentials(localDevEmail, localDevPassword);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
@@ -202,6 +249,11 @@ export default function LoginPage() {
     const dashboardCallbackUrl = `${window.location.origin}/dashboard`;
 
     try {
+      if (!hasFirebaseClientConfig()) {
+        await signInWithPassword();
+        return;
+      }
+
       // Sign in with Firebase to get an ID token
       const credential = await signInWithEmailAndPassword(getFirebaseAuth(), email, password);
       const idToken = await credential.user.getIdToken();
@@ -215,17 +267,7 @@ export default function LoginPage() {
       if (result?.error) {
         // Firebase auth succeeded but token exchange failed (e.g. missing Admin SDK config).
         // Fall back to local bcrypt credentials.
-        const fallback = await signIn("credentials", {
-          email,
-          password,
-          redirect: false,
-          callbackUrl: dashboardCallbackUrl,
-        });
-        if (fallback?.error) {
-          setError("Account not found or inactive. Contact your administrator.");
-        } else {
-          router.push("/dashboard");
-        }
+        await signInWithPassword();
       } else {
         router.push("/dashboard");
       }
@@ -238,22 +280,13 @@ export default function LoginPage() {
       }
       // Firebase user not found, wrong password, SDK not configured, or any other
       // Firebase error → fall back to legacy bcrypt credentials (covers seeded admin accounts).
-      const result = await signIn("credentials", {
-        email,
-        password,
-        redirect: false,
-        callbackUrl: dashboardCallbackUrl,
-      });
-      if (result?.error) {
+      const signedIn = await signInWithPassword();
+      if (!signedIn) {
         if (isFirebaseHostAuthError(code)) {
           setError(
             `Firebase blocked this host (${window.location.hostname}). Add it in Firebase Authentication -> Settings -> Authorized domains.`,
           );
-        } else {
-          setError("Invalid email or password");
         }
-      } else {
-        router.push("/dashboard");
       }
     } finally {
       setLoading(false);
@@ -285,7 +318,7 @@ export default function LoginPage() {
             </div>
 
             <p className="text-slate-400 mb-6 text-sm text-center">Sign in to your account</p>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-1">Email</label>
                 <input
@@ -293,6 +326,9 @@ export default function LoginPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
+                  suppressHydrationWarning
+                  autoComplete="username"
+                  name="email"
                   className="input-dark"
                   placeholder="you@example.com"
                 />
@@ -303,6 +339,7 @@ export default function LoginPage() {
                   <button
                     type="button"
                     onClick={() => setShowReset(true)}
+                    suppressHydrationWarning
                     className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
                   >
                     Forgot password?
@@ -313,6 +350,9 @@ export default function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
+                  suppressHydrationWarning
+                  autoComplete="new-password"
+                  name="password"
                   className="input-dark"
                 />
               </div>
@@ -320,11 +360,23 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={loading}
+                suppressHydrationWarning
                 className="btn-primary w-full py-2.5"
               >
                 {loading ? "Signing in…" : "Sign in"}
               </button>
             </form>
+            {isLocalDev && (
+              <button
+                type="button"
+                onClick={handleDevSignIn}
+                disabled={loading}
+                suppressHydrationWarning
+                className="mt-3 w-full text-sm text-slate-400 hover:text-slate-200 transition-colors"
+              >
+                Use local dev account
+              </button>
+            )}
             <p className="mt-6 text-center text-sm text-slate-500">
               Don&apos;t have an account?{" "}
               <Link href="/register" className="text-blue-400 hover:text-blue-300 font-medium transition-colors">
