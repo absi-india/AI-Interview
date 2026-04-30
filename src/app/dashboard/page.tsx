@@ -27,7 +27,15 @@ export default async function DashboardPage() {
   const session = await auth();
   if (!session) redirect("/login");
 
-  const where = session.user.role === "ADMIN" ? {} : { recruiterId: session.user.id };
+  const currentUser = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { name: true, email: true, role: true },
+  });
+  if (!currentUser) redirect("/login");
+
+  const displayName = currentUser.name || currentUser.email || session.user.name || "User";
+  const role = currentUser.role;
+  const where = role === "ADMIN" ? {} : { recruiterId: session.user.id };
   const candidates = await prisma.candidate.findMany({
     where,
     orderBy: { createdAt: "desc" },
@@ -50,10 +58,10 @@ export default async function DashboardPage() {
         </div>
         <div className="flex items-center gap-4">
           <span className="text-sm text-slate-400">
-            {session.user.name}
-            <span className="ml-1.5 badge bg-blue-500/15 text-blue-300 border border-blue-500/20 text-xs">{session.user.role}</span>
+            {displayName}
+            <span className="ml-1.5 badge bg-blue-500/15 text-blue-300 border border-blue-500/20 text-xs">{role}</span>
           </span>
-          {session.user.role === "ADMIN" && (
+          {role === "ADMIN" && (
             <Link href="/admin" className="text-sm text-blue-400 hover:text-blue-300 font-medium transition-colors">Admin Panel</Link>
           )}
           <SignOutButton />
