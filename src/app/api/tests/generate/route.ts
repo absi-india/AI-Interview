@@ -1,9 +1,6 @@
 import { auth } from "@/auth";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getResumeContext } from "@/lib/resumeContext";
-
-export const maxDuration = 60;
 
 function inferCodeLanguageHint(jobTitle: string, jobDescription: string) {
   const text = `${jobTitle} ${jobDescription}`.toLowerCase();
@@ -84,12 +81,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    let resumeContext = "";
-    try {
-      resumeContext = await getResumeContext(candidate.resumeUrl);
-    } catch (err) {
-      console.warn("[tests/generate] Resume context unavailable", err);
-    }
+    const resumeContext = candidate.resumeUrl ?? "";
 
     console.info("[tests/generate] Generating built-in questions", {
       candidateId,
