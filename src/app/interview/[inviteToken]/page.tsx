@@ -16,8 +16,15 @@ export default async function InterviewPage({
   params: Promise<{ inviteToken: string }>;
 }) {
   const { inviteToken } = await params;
-  const test = await prisma.test.findUnique({
-    where: { inviteToken },
+  const decodedToken = decodeURIComponent(inviteToken).trim();
+  const test = await prisma.test.findFirst({
+    where: {
+      OR: [
+        { inviteToken: decodedToken },
+        { inviteToken: { contains: decodedToken } },
+        { inviteToken: { endsWith: decodedToken } },
+      ],
+    },
     include: {
       candidate: { select: { name: true } },
       questions: { orderBy: { order: "asc" }, select: { id: true, order: true, questionText: true, category: true, codeLanguageHint: true } },
@@ -47,7 +54,7 @@ export default async function InterviewPage({
   }
 
   if (test.status === "COMPLETED") {
-    redirect(`/interview/${inviteToken}/complete`);
+    redirect(`/interview/${test.inviteToken}/complete`);
   }
 
   if (!["INVITED", "IN_PROGRESS"].includes(test.status)) {
@@ -63,7 +70,7 @@ export default async function InterviewPage({
 
   return (
     <InterviewExperience
-      inviteToken={inviteToken}
+      inviteToken={test.inviteToken}
       candidateName={test.candidate.name}
       jobTitle={test.jobTitle}
       level={test.level}
