@@ -170,59 +170,59 @@ export default function EditCandidatePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
+    <div className="min-h-screen p-8" style={{ background: "linear-gradient(180deg, #0f172a 0%, #1a2332 100%)" }}>
       <div className="max-w-2xl mx-auto">
-        <div className="mb-6">
-          <Link href={`/candidates/${candidateId}`} className="text-sm text-blue-600 hover:underline">
+        <div className="mb-6 animate-fade-in">
+          <Link href={`/candidates/${candidateId}`} className="text-sm text-blue-400 hover:text-blue-300 font-medium transition-colors">
             Back to candidate
           </Link>
         </div>
 
-        <div className="bg-white rounded-xl shadow p-8">
-          <h1 className="text-xl font-bold text-gray-900 mb-2">Edit Candidate</h1>
-          <p className="text-sm text-gray-500 mb-6">
+        <div className="glass-card p-8 animate-fade-in-up">
+          <h1 className="text-xl font-bold text-white mb-2">Edit Candidate</h1>
+          <p className="text-sm text-slate-400 mb-6">
             Update contact details and paste resume text or a resume URL.
           </p>
 
           {loading ? (
-            <p className="text-sm text-gray-500">Loading...</p>
+            <p className="text-sm text-slate-400">Loading...</p>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Full Name *</label>
+                <label className="block text-sm font-medium text-slate-300 mb-1">Full Name *</label>
                 <input
                   type="text"
                   value={form.name}
                   onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
                   required
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="input-dark"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+                <label className="block text-sm font-medium text-slate-300 mb-1">Email *</label>
                 <input
                   type="email"
                   value={form.email}
                   onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
                   required
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="input-dark"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Phone *</label>
+                <label className="block text-sm font-medium text-slate-300 mb-1">Phone *</label>
                 <CountryPhoneInput
                   value={form.phone}
                   onChange={(phone) => setForm((f) => ({ ...f, phone }))}
                   required
-                  inputClassName="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  selectClassName="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  inputClassName="input-dark"
+                  selectClassName="input-dark"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Resume (paste text or URL)</label>
+                <label className="block text-sm font-medium text-slate-300 mb-1">Resume (paste text or URL)</label>
                 <textarea
                   value={form.resume}
                   onChange={(e) => {
@@ -231,30 +231,30 @@ export default function EditCandidatePage() {
                   }}
                   rows={8}
                   placeholder="Paste candidate resume content here, or paste a resume link"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="input-dark"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-slate-300 mb-1">
                   Resume Attachment (PDF, DOC, DOCX, PPT, PPTX, TXT, RTF, ODT)
                 </label>
                 <input
                   type="file"
                   accept=".pdf,.doc,.docx,.ppt,.pptx,.txt,.rtf,.odt,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,text/plain,application/rtf,application/vnd.oasis.opendocument.text"
                   onChange={(e) => handleResumeFileChange(e.target.files?.[0] ?? null)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white text-gray-700"
+                  className="input-dark file:mr-3 file:rounded-lg file:border-0 file:bg-blue-500/15 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-blue-200 hover:file:bg-blue-500/25"
                 />
-                <p className="text-xs text-gray-500 mt-1">Max size: 10MB</p>
+                <p className="text-xs text-slate-500 mt-1">Max size: 10MB</p>
                 {resumeFile && (
                   <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
-                    <span className="text-blue-700">Selected: {resumeFile.name}</span>
+                    <span className="text-blue-300">Selected: {resumeFile.name}</span>
                     {resumePreviewUrl && (
                       <a
                         href={resumePreviewUrl}
                         target="_blank"
                         rel="noreferrer"
-                        className="text-blue-600 underline"
+                        className="text-blue-400 hover:text-blue-300 underline"
                       >
                         Open selected resume
                       </a>
@@ -262,14 +262,14 @@ export default function EditCandidatePage() {
                   </div>
                 )}
                 {!resumeFile && resumeFileName && (
-                  <p className="text-xs text-gray-600 mt-1">
+                  <p className="text-xs text-slate-400 mt-1">
                     Current file:{" "}
                     {resumeDownloadPath ? (
                       <a
                         href={resumeDownloadPath}
                         target="_blank"
                         rel="noreferrer"
-                        className="text-blue-600 underline"
+                        className="text-blue-400 hover:text-blue-300 underline"
                       >
                         {resumeFileName}
                       </a>
@@ -280,19 +280,19 @@ export default function EditCandidatePage() {
                 )}
               </div>
 
-              {error && <p className="text-red-600 text-sm">{error}</p>}
+              {error && <p className="text-red-400 text-sm">{error}</p>}
 
               <div className="flex gap-3">
                 <button
                   type="submit"
                   disabled={saving}
-                  className="bg-blue-600 text-white px-6 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-400 disabled:text-white disabled:opacity-100"
+                  className="btn-primary"
                 >
                   {saving ? "Saving..." : "Save Changes"}
                 </button>
                 <Link
                   href={`/candidates/${candidateId}`}
-                  className="px-6 py-2 rounded-lg text-sm font-medium border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                  className="btn-secondary"
                 >
                   Cancel
                 </Link>
