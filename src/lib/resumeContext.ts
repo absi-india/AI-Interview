@@ -1,6 +1,5 @@
 import "server-only";
 
-import { PDFParse } from "pdf-parse";
 import mammoth from "mammoth";
 import { readFile } from "node:fs/promises";
 import { getPresignedUrl, BUCKET_RESUMES } from "@/lib/minio";
@@ -25,6 +24,7 @@ function getExtension(fileName: string) {
 }
 
 async function extractPdfText(buffer: Buffer) {
+  const { PDFParse } = await import("pdf-parse");
   const parser = new PDFParse({ data: new Uint8Array(buffer) });
   try {
     const result = await parser.getText();
@@ -38,7 +38,12 @@ async function extractFileText(buffer: Buffer, fileName: string) {
   const extension = getExtension(fileName);
 
   if (extension === "pdf") {
-    return extractPdfText(buffer);
+    try {
+      return await extractPdfText(buffer);
+    } catch (err) {
+      console.warn("[resumeContext] PDF text extraction failed", err);
+      return "";
+    }
   }
 
   if (extension === "docx") {
