@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: true, processed: 0, cleanup });
   }
 
-  const result = await rateTest(test.id);
+  const result = await rateTest(test.id, req.nextUrl.origin);
   const cleanup = await cleanupExpiredRecordings();
   return NextResponse.json({ ...result, testId: test.id, processed: 1, cleanup });
 }

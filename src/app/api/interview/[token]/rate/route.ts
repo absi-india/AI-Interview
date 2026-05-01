@@ -5,7 +5,7 @@ import { rateTest } from "@/lib/rateTest";
 export const maxDuration = 60;
 
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ token: string }> }
 ) {
   const { token } = await params;
@@ -23,6 +23,6 @@ export async function POST(
     return NextResponse.json({ ok: true, alreadyRated: true });
   }
 
-  const result = await rateTest(test.id);
+  const result = await rateTest(test.id, req.nextUrl.origin);
   return NextResponse.json(result);
 }

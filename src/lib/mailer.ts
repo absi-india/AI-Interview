@@ -1,5 +1,20 @@
 import nodemailer from "nodemailer";
 
+function normalizeOrigin(value?: string) {
+  const trimmed = value?.trim();
+  if (!trimmed) return "";
+  return trimmed.replace(/\/$/, "");
+}
+
+function isLocalOrigin(value: string) {
+  try {
+    const hostname = new URL(value).hostname;
+    return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
+  } catch {
+    return false;
+  }
+}
+
 function getTransport() {
   const host = process.env.SMTP_HOST?.trim();
   const user = process.env.SMTP_USER?.trim();
@@ -22,19 +37,25 @@ function getTransport() {
 }
 
 export function buildAppDomain(fallbackOrigin = "http://localhost:3000") {
-  const vercelUrl = process.env.VERCEL_URL?.trim();
-  const domain =
-    process.env.APP_DOMAIN?.trim() ||
-    process.env.NEXTAUTH_URL?.trim() ||
-    process.env.AUTH_URL?.trim() ||
-    (vercelUrl ? `https://${vercelUrl}` : "") ||
-    fallbackOrigin;
+  const requestOrigin = normalizeOrigin(fallbackOrigin);
+  if (requestOrigin && !isLocalOrigin(requestOrigin)) {
+    return requestOrigin;
+  }
 
-  return domain.replace(/\/$/, "");
+  const vercelUrl = normalizeOrigin(process.env.VERCEL_URL);
+  const domain =
+    normalizeOrigin(process.env.APP_DOMAIN) ||
+    normalizeOrigin(process.env.NEXTAUTH_URL) ||
+    normalizeOrigin(process.env.AUTH_URL) ||
+    (vercelUrl ? `https://${vercelUrl}` : "") ||
+    requestOrigin ||
+    "http://localhost:3000";
+
+  return domain;
 }
 
 export function buildInviteLink(inviteToken: string, fallbackOrigin?: string) {
-  return `${buildAppDomain(fallbackOrigin)}/interview/${inviteToken}`;
+  return `${buildAppDomain(fallbackOrigin)}/interview/${encodeURIComponent(inviteToken)}`;
 }
 
 export async function sendInterviewInvite(
@@ -91,8 +112,9 @@ export async function sendRatingCompleteEmail(
   overallRating: string,
   overallScore: number,
   testId: string,
+  fallbackOrigin?: string,
 ) {
-  const domain = buildAppDomain();
+  const domain = buildAppDomain(fallbackOrigin);
   const from = process.env.SMTP_FROM ?? "Interview Platform <noreply@example.com>";
 
   try {

@@ -18,7 +18,10 @@ function getRatingLabel(score: number): string {
   return "Poor";
 }
 
-export async function rateTest(testId: string): Promise<{ ok: boolean; alreadyRated?: boolean }> {
+export async function rateTest(
+  testId: string,
+  fallbackOrigin?: string,
+): Promise<{ ok: boolean; alreadyRated?: boolean }> {
   const test = await prisma.test.findUnique({
     where: { id: testId },
     include: {
@@ -64,7 +67,8 @@ export async function rateTest(testId: string): Promise<{ ok: boolean; alreadyRa
       test.candidate.name,
       overallRating,
       overallScore,
-      testId
+      testId,
+      fallbackOrigin,
     );
   } catch {
     // SMTP may not be configured

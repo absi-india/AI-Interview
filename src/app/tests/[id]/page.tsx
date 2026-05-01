@@ -2,6 +2,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
+import { headers } from "next/headers";
 import { TestResultsClient } from "@/components/results/TestResultsClient";
 import { getRecordingPlaybackPath } from "@/lib/recording";
 import { buildAppDomain } from "@/lib/mailer";
@@ -31,7 +32,11 @@ export default async function TestResultsPage({
     redirect("/dashboard");
   }
 
-  const shareUrl = `${buildAppDomain()}/results/share/${test.shareToken}`;
+  const headersList = await headers();
+  const host = headersList.get("x-forwarded-host") ?? headersList.get("host");
+  const protocol = headersList.get("x-forwarded-proto") ?? "https";
+  const requestOrigin = host ? `${protocol}://${host}` : undefined;
+  const shareUrl = `${buildAppDomain(requestOrigin)}/results/share/${test.shareToken}`;
   const inviteParam = (await searchParams).invite;
   const inviteStatus = Array.isArray(inviteParam) ? inviteParam[0] : inviteParam;
   const testForClient = {
