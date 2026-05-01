@@ -11,7 +11,7 @@ type CountryPhoneInputProps = {
   selectClassName?: string;
 };
 
-const DEFAULT_COUNTRY_ISO = "IN";
+const DEFAULT_COUNTRY_ISO = "US";
 
 function dialCodeDigits(dialCode: string) {
   return dialCode.replace(/\D/g, "");

@@ -23,7 +23,11 @@ const STATUS_COLOR: Record<string, string> = {
   EXPIRED: "bg-slate-500/15 text-slate-400 border border-slate-500/20",
 };
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string | string[] }>;
+}) {
   const session = await auth();
   if (!session) redirect("/login");
 
@@ -43,6 +47,20 @@ export default async function DashboardPage() {
       tests: { select: { id: true, status: true, jobTitle: true, createdAt: true }, orderBy: { createdAt: "desc" }, take: 1 },
     },
   });
+  const qParam = (await searchParams).q;
+  const searchQuery = (Array.isArray(qParam) ? qParam[0] : qParam)?.trim() ?? "";
+  const normalizedSearch = searchQuery.toLowerCase();
+  const visibleCandidates = normalizedSearch
+    ? candidates.filter((candidate) => {
+        const searchable = `${candidate.name} ${candidate.email} ${candidate.phone}`.toLowerCase();
+        const digitsOnly = candidate.phone.replace(/\D/g, "");
+        const queryDigits = normalizedSearch.replace(/\D/g, "");
+        return (
+          searchable.includes(normalizedSearch) ||
+          (queryDigits.length > 0 && digitsOnly.includes(queryDigits))
+        );
+      })
+    : candidates;
 
   return (
     <div className="min-h-screen" style={{ background: "linear-gradient(180deg, #0f172a 0%, #1a2332 100%)" }}>
@@ -69,8 +87,11 @@ export default async function DashboardPage() {
       </nav>
 
       <main className="max-w-6xl mx-auto px-6 py-8">
-        <div className="flex justify-between items-center mb-6 animate-fade-in">
-          <h2 className="text-xl font-bold text-white">Candidates</h2>
+        <div className="flex flex-col gap-4 mb-6 animate-fade-in sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-xl font-bold text-white">Candidates</h2>
+            <p className="text-sm text-slate-500 mt-1">Search by name, email, or phone number.</p>
+          </div>
           <Link
             href="/candidates/new"
             className="btn-primary flex items-center gap-2"
@@ -80,11 +101,39 @@ export default async function DashboardPage() {
           </Link>
         </div>
 
+        <form action="/dashboard" className="mb-5 grid gap-3 animate-fade-in sm:grid-cols-[1fr_auto]">
+          <div className="relative">
+            <svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-4.35-4.35M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z" />
+            </svg>
+            <input
+              type="search"
+              name="q"
+              defaultValue={searchQuery}
+              placeholder="Search candidates by name, email, or +1 phone"
+              className="input-dark pl-10"
+            />
+          </div>
+          <div className="flex gap-2">
+            <button type="submit" className="btn-primary px-5">Search</button>
+            {searchQuery && (
+              <Link href="/dashboard" className="btn-secondary px-5">
+                Clear
+              </Link>
+            )}
+          </div>
+        </form>
+
         {candidates.length === 0 ? (
           <div className="text-center py-16 glass-card animate-fade-in-up">
             <div className="text-4xl mb-4">👤</div>
             <p className="text-slate-400">No candidates yet.</p>
             <Link href="/candidates/new" className="text-blue-400 hover:text-blue-300 font-medium transition-colors">Add your first candidate</Link>
+          </div>
+        ) : visibleCandidates.length === 0 ? (
+          <div className="text-center py-12 glass-card animate-fade-in-up">
+            <p className="text-slate-300 font-medium">No matching candidates</p>
+            <p className="text-sm text-slate-500 mt-1">Try a different name, email, or phone number.</p>
           </div>
         ) : (
           <div className="glass-card overflow-hidden animate-fade-in-up">
@@ -98,13 +147,14 @@ export default async function DashboardPage() {
                 </tr>
               </thead>
               <tbody>
-                {candidates.map((c) => {
+                {visibleCandidates.map((c) => {
                   const latest = c.tests[0];
                   return (
                     <tr key={c.id}>
                       <td>
                         <Link href={`/candidates/${c.id}`} className="font-medium text-white hover:text-blue-400 transition-colors">{c.name}</Link>
                         <div className="text-slate-500 text-xs mt-0.5">{c.email}</div>
+                        <div className="text-slate-600 text-xs mt-0.5">{c.phone}</div>
                       </td>
                       <td className="text-slate-400">{latest?.jobTitle ?? "—"}</td>
                       <td>
