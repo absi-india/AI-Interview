@@ -22,7 +22,7 @@ function getTransport() {
 }
 
 function buildAppDomain(fallbackOrigin = "http://localhost:3000") {
-  return (process.env.APP_DOMAIN?.trim() || fallbackOrigin).replace(/\/$/, "");
+  return (fallbackOrigin || process.env.APP_DOMAIN?.trim() || "http://localhost:3000").replace(/\/$/, "");
 }
 
 export function buildInviteLink(inviteToken: string, fallbackOrigin?: string) {
