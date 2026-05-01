@@ -1,8 +1,9 @@
 const LEGACY_MINIO_PREFIX = "resume_file::";
 const RESUME_MINIO_PREFIX = "resume_minio::";
 const RESUME_LOCAL_PREFIX = "resume_local::";
+const RESUME_DB_PREFIX = "resume_db::";
 
-type ResumeProvider = "minio" | "local";
+type ResumeProvider = "minio" | "local" | "db";
 
 function decodeFileName(encodedName: string) {
   let fileName = "resume";
@@ -20,6 +21,10 @@ export function createResumeMinioRef(fileName: string, objectKey: string) {
 
 export function createResumeLocalRef(fileName: string, publicPath: string) {
   return `${RESUME_LOCAL_PREFIX}${encodeURIComponent(fileName)}::${publicPath}`;
+}
+
+export function createResumeDbRef(fileName: string, fileId: string) {
+  return `${RESUME_DB_PREFIX}${encodeURIComponent(fileName)}::${fileId}`;
 }
 
 function parseWithPrefix(value: string, prefix: string, provider: ResumeProvider) {
@@ -46,6 +51,7 @@ export function parseResumeFileRef(value: string | null | undefined) {
   return (
     parseWithPrefix(value, RESUME_MINIO_PREFIX, "minio") ??
     parseWithPrefix(value, RESUME_LOCAL_PREFIX, "local") ??
+    parseWithPrefix(value, RESUME_DB_PREFIX, "db") ??
     parseWithPrefix(value, LEGACY_MINIO_PREFIX, "minio")
   );
 }

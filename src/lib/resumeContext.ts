@@ -2,9 +2,11 @@ import "server-only";
 
 import mammoth from "mammoth";
 import { readFile } from "node:fs/promises";
+import { prisma } from "@/lib/prisma";
 import { getPresignedUrl, BUCKET_RESUMES } from "@/lib/minio";
 import { isHttpUrl, parseResumeFileRef } from "@/lib/resume";
 import { getLocalResumePath } from "@/lib/resumeFile";
+import { ensureStoredFileTable } from "@/lib/storedFile";
 
 const MAX_RESUME_CONTEXT_CHARS = 12000;
 
@@ -63,6 +65,13 @@ async function readResumeFile(ref: NonNullable<ReturnType<typeof parseResumeFile
     const localPath = getLocalResumePath(ref.objectKey);
     if (!localPath) return "";
     return extractFileText(await readFile(localPath), ref.fileName);
+  }
+
+  if (ref.provider === "db") {
+    await ensureStoredFileTable();
+    const stored = await prisma.storedFile.findUnique({ where: { id: ref.objectKey } });
+    if (!stored || stored.kind !== "resume") return "";
+    return extractFileText(Buffer.from(stored.data), stored.fileName);
   }
 
   const url = await getPresignedUrl(BUCKET_RESUMES, ref.objectKey, 60 * 5);

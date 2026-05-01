@@ -2,12 +2,14 @@ import { auth } from "@/auth";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { BUCKET_RESUMES, getPresignedUrl, uploadResume } from "@/lib/minio";
-import { createResumeLocalRef, createResumeMinioRef, parseResumeFileRef } from "@/lib/resume";
+import { createResumeDbRef, createResumeLocalRef, createResumeMinioRef, parseResumeFileRef } from "@/lib/resume";
 import { getLocalResumePath } from "@/lib/resumeFile";
+import { ensureStoredFileTable } from "@/lib/storedFile";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 const MAX_RESUME_SIZE_BYTES = 10 * 1024 * 1024;
 const ALLOWED_EXTENSIONS = new Set(["pdf", "doc", "docx", "ppt", "pptx", "txt", "rtf", "odt"]);
@@ -120,16 +122,29 @@ export async function POST(
       const objectKey = await uploadResume(candidate.id, objectFileName, buffer, mimeType);
       resumeRef = createResumeMinioRef(originalName, objectKey);
     } catch (uploadErr: unknown) {
-      if (process.env.NODE_ENV === "production") throw uploadErr;
+      console.warn("[resume/upload] Object storage unavailable; saving resume in database", uploadErr);
 
-      // Local dev fallback when MinIO is not running:
-      // persist file under /public so it remains downloadable in-browser.
-      const relativePublicPath = `/uploads/resumes/${candidate.id}/${objectFileName}`;
-      const absoluteDir = path.join(process.cwd(), "public", "uploads", "resumes", candidate.id);
-      const absoluteFile = path.join(absoluteDir, objectFileName);
-      await mkdir(absoluteDir, { recursive: true });
-      await writeFile(absoluteFile, buffer);
-      resumeRef = createResumeLocalRef(originalName, relativePublicPath);
+      if (process.env.NODE_ENV === "production") {
+        await ensureStoredFileTable();
+        const stored = await prisma.storedFile.create({
+          data: {
+            kind: "resume",
+            fileName: originalName,
+            contentType: getContentType(originalName),
+            data: buffer,
+          },
+        });
+        resumeRef = createResumeDbRef(originalName, stored.id);
+      } else {
+        // Local dev fallback when MinIO is not running:
+        // persist file under /public so it remains downloadable in-browser.
+        const relativePublicPath = `/uploads/resumes/${candidate.id}/${objectFileName}`;
+        const absoluteDir = path.join(process.cwd(), "public", "uploads", "resumes", candidate.id);
+        const absoluteFile = path.join(absoluteDir, objectFileName);
+        await mkdir(absoluteDir, { recursive: true });
+        await writeFile(absoluteFile, buffer);
+        resumeRef = createResumeLocalRef(originalName, relativePublicPath);
+      }
     }
 
     await prisma.candidate.update({
@@ -181,6 +196,22 @@ export async function GET(
           "Content-Disposition": contentDisposition(ref.fileName),
           "Content-Length": buffer.byteLength.toString(),
           "Content-Type": getContentType(ref.fileName),
+        },
+      });
+    }
+
+    if (ref.provider === "db") {
+      await ensureStoredFileTable();
+      const stored = await prisma.storedFile.findUnique({ where: { id: ref.objectKey } });
+      if (!stored || stored.kind !== "resume") {
+        return NextResponse.json({ error: "Resume file not found" }, { status: 404 });
+      }
+
+      return new NextResponse(stored.data, {
+        headers: {
+          "Content-Disposition": contentDisposition(stored.fileName),
+          "Content-Length": stored.data.byteLength.toString(),
+          "Content-Type": stored.contentType,
         },
       });
     }

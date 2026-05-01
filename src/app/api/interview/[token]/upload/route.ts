@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { uploadRecording } from "@/lib/minio";
-import { createRecordingLocalRef, createRecordingMinioRef } from "@/lib/recording";
+import { createRecordingDbRef, createRecordingLocalRef, createRecordingMinioRef } from "@/lib/recording";
+import { ensureStoredFileTable } from "@/lib/storedFile";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+
+export const runtime = "nodejs";
+export const maxDuration = 60;
 
 export async function POST(
   req: NextRequest,
@@ -35,9 +39,19 @@ export async function POST(
       const objectKey = await uploadRecording(test.id, questionId, buffer);
       videoUrl = createRecordingMinioRef(objectKey);
     } catch (err) {
+      console.warn("[interview/upload] Object storage unavailable; saving recording fallback", err);
+
       if (process.env.NODE_ENV === "production") {
-        console.warn("[interview/upload] Video storage unavailable; saving answer without recording", err);
-        videoUrl = null;
+        await ensureStoredFileTable();
+        const stored = await prisma.storedFile.create({
+          data: {
+            kind: "recording",
+            fileName: `${questionId}.webm`,
+            contentType: "video/webm",
+            data: buffer,
+          },
+        });
+        videoUrl = createRecordingDbRef(stored.id);
       } else {
         const relativePublicPath = `/uploads/recordings/${test.id}/${questionId}.webm`;
         const absoluteDir = path.join(process.cwd(), "public", "uploads", "recordings", test.id);

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { BUCKET_RECORDINGS, getPresignedUrl } from "@/lib/minio";
 import { parseRecordingRef } from "@/lib/recording";
 import { getLocalResumePath } from "@/lib/resumeFile";
+import { ensureStoredFileTable } from "@/lib/storedFile";
 import { readFile } from "node:fs/promises";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -38,6 +39,21 @@ export async function GET(
       headers: {
         "Content-Length": buffer.byteLength.toString(),
         "Content-Type": "video/webm",
+      },
+    });
+  }
+
+  if (ref.provider === "db") {
+    await ensureStoredFileTable();
+    const stored = await prisma.storedFile.findUnique({ where: { id: ref.objectKey } });
+    if (!stored || stored.kind !== "recording") {
+      return NextResponse.json({ error: "Recording not found" }, { status: 404 });
+    }
+
+    return new NextResponse(stored.data, {
+      headers: {
+        "Content-Length": stored.data.byteLength.toString(),
+        "Content-Type": stored.contentType,
       },
     });
   }

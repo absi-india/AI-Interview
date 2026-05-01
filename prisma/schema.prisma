@@ -87,3 +87,12 @@ model FraudEvent {
   detail     String
   occurredAt DateTime @default(now())
 }
+
+model StoredFile {
+  id          String   @id @default(cuid())
+  kind        String
+  fileName    String
+  contentType String
+  data        Bytes
+  createdAt   DateTime @default(now())
+}
