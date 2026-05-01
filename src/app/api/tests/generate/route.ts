@@ -1,14 +1,20 @@
-import { auth } from "@/auth";
-import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { generateQuestions } from "@/lib/claude";
-import { getResumeContext } from "@/lib/resumeContext";
+import { type NextRequest, NextResponse } from "next/server";
+
+export const runtime = "nodejs";
+export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
   try {
+    const [{ auth }, { prisma }, { generateQuestions }, { getResumeContext }] = await Promise.all([
+      import("@/auth"),
+      import("@/lib/prisma"),
+      import("@/lib/claude"),
+      import("@/lib/resumeContext"),
+    ]);
+
+    const session = await auth();
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
     const body = await req.json();
     const { candidateId, jobTitle, jobDescription, level } = body;
 
