@@ -4,6 +4,7 @@ import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { TestResultsClient } from "@/components/results/TestResultsClient";
 import { getRecordingPlaybackPath } from "@/lib/recording";
+import { buildAppDomain } from "@/lib/mailer";
 
 export default async function TestResultsPage({
   params,
@@ -30,7 +31,7 @@ export default async function TestResultsPage({
     redirect("/dashboard");
   }
 
-  const shareUrl = `${process.env.APP_DOMAIN ?? "http://localhost:3000"}/results/share/${test.shareToken}`;
+  const shareUrl = `${buildAppDomain()}/results/share/${test.shareToken}`;
   const inviteParam = (await searchParams).invite;
   const inviteStatus = Array.isArray(inviteParam) ? inviteParam[0] : inviteParam;
   const testForClient = {

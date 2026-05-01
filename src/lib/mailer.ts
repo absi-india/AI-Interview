@@ -21,8 +21,16 @@ function getTransport() {
   });
 }
 
-function buildAppDomain(fallbackOrigin = "http://localhost:3000") {
-  return (fallbackOrigin || process.env.APP_DOMAIN?.trim() || "http://localhost:3000").replace(/\/$/, "");
+export function buildAppDomain(fallbackOrigin = "http://localhost:3000") {
+  const vercelUrl = process.env.VERCEL_URL?.trim();
+  const domain =
+    process.env.APP_DOMAIN?.trim() ||
+    process.env.NEXTAUTH_URL?.trim() ||
+    process.env.AUTH_URL?.trim() ||
+    (vercelUrl ? `https://${vercelUrl}` : "") ||
+    fallbackOrigin;
+
+  return domain.replace(/\/$/, "");
 }
 
 export function buildInviteLink(inviteToken: string, fallbackOrigin?: string) {
