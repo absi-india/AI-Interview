@@ -48,6 +48,10 @@ export async function getPresignedUrl(
   return getClient().presignedGetObject(bucket, objectName, expirySeconds);
 }
 
+export async function deleteFile(bucket: string, objectName: string): Promise<void> {
+  await getClient().removeObject(bucket, objectName);
+}
+
 export async function uploadRecording(
   testId: string,
   questionId: string,

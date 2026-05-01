@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { rateTest } from "@/lib/rateTest";
+import { cleanupExpiredRecordings } from "@/lib/cleanupRecordings";
 
 export const maxDuration = 60;
 
@@ -17,9 +18,11 @@ export async function GET(req: NextRequest) {
   });
 
   if (!test) {
-    return NextResponse.json({ ok: true, processed: 0 });
+    const cleanup = await cleanupExpiredRecordings();
+    return NextResponse.json({ ok: true, processed: 0, cleanup });
   }
 
   const result = await rateTest(test.id);
-  return NextResponse.json({ ...result, testId: test.id, processed: 1 });
+  const cleanup = await cleanupExpiredRecordings();
+  return NextResponse.json({ ...result, testId: test.id, processed: 1, cleanup });
 }
