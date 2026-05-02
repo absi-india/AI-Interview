@@ -13,6 +13,10 @@ const STATUS_COLOR: Record<string, string> = {
   EXPIRED: "bg-slate-500/15 text-slate-400 border border-slate-500/20",
 };
 
+function scoreOutOfFive(score: number) {
+  return Math.round((score / 2) * 10) / 10;
+}
+
 export default async function CandidateProfilePage({
   params,
 }: {
@@ -128,7 +132,7 @@ export default async function CandidateProfilePage({
                     <Link href={`/tests/${test.id}`} className="text-sm text-blue-400 hover:text-blue-300 font-medium transition-colors">Results</Link>
                   )}
                   {test.overallScore !== null && (
-                    <span className="font-bold text-white">{test.overallScore?.toFixed(1)}/10</span>
+                    <span className="font-bold text-white">{scoreOutOfFive(test.overallScore).toFixed(1)}/5</span>
                   )}
                 </div>
               </div>

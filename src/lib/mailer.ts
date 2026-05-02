@@ -116,15 +116,16 @@ export async function sendRatingCompleteEmail(
 ) {
   const domain = buildAppDomain(fallbackOrigin);
   const from = process.env.SMTP_FROM ?? "Interview Platform <noreply@example.com>";
+  const score = (overallScore / 2).toFixed(1);
 
   try {
     await getTransport().sendMail({
       from,
       to: recruiterEmail,
       subject: `AI Rating Complete - ${candidateName}`,
-      text: `AI rating is complete for ${candidateName}.\n\nOverall: ${overallRating} (${overallScore}/10)\n\nView results: ${domain}/tests/${testId}`,
+      text: `AI rating is complete for ${candidateName}.\n\nOverall: ${overallRating} (${score}/5)\n\nView results: ${domain}/tests/${testId}`,
       html: `<p>AI rating is complete for <strong>${candidateName}</strong>.</p>
-<p>Overall: <strong>${overallRating}</strong> (${overallScore}/10)</p>
+<p>Overall: <strong>${overallRating}</strong> (${score}/5)</p>
 <p><a href="${domain}/tests/${testId}">View Results</a></p>`,
     });
   } catch (err: unknown) {

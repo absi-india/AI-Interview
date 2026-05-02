@@ -12,6 +12,10 @@ type Analytics = {
   avgByLevel: { level: string; avg: number; count: number }[];
 };
 
+function scoreOutOfFive(score: number) {
+  return Math.round((score / 2) * 10) / 10;
+}
+
 export default function AdminPage() {
   const [tab, setTab] = useState<"users" | "tests" | "analytics">("users");
   const [users, setUsers] = useState<User[]>([]);
@@ -195,7 +199,7 @@ export default function AdminPage() {
                           {t.status.replace(/_/g, " ")}
                         </span>
                       </td>
-                      <td className="text-slate-300 font-medium">{t.overallScore != null ? `${t.overallScore.toFixed(1)}/10` : "—"}</td>
+                      <td className="text-slate-300 font-medium">{t.overallScore != null ? `${scoreOutOfFive(t.overallScore).toFixed(1)}/5` : "—"}</td>
                       <td className="text-slate-400">{t.recruiter?.name}</td>
                     </tr>
                   ))}
@@ -235,14 +239,14 @@ export default function AdminPage() {
                       <div
                         className="h-full rounded-full transition-all duration-700 ease-out"
                         style={{
-                          width: `${(item.avg / 10) * 100}%`,
+                          width: `${(scoreOutOfFive(item.avg) / 5) * 100}%`,
                           background: "linear-gradient(90deg, #3b82f6, #60a5fa)",
                           boxShadow: "0 0 12px rgba(59,130,246,0.3)",
                         }}
                       />
                     </div>
                     <div className="text-sm font-medium text-white w-16 text-right">
-                      {item.avg > 0 ? `${item.avg}/10` : "—"} <span className="text-slate-500 text-xs">({item.count})</span>
+                      {item.avg > 0 ? `${scoreOutOfFive(item.avg).toFixed(1)}/5` : "—"} <span className="text-slate-500 text-xs">({item.count})</span>
                     </div>
                   </div>
                 ))}
@@ -254,3 +258,4 @@ export default function AdminPage() {
     </div>
   );
 }
+

@@ -50,6 +50,21 @@ const SEVERITY_COLOR: Record<string, string> = {
   LOW: "text-yellow-400 bg-yellow-500/10 border border-yellow-500/15",
 };
 
+function scoreOutOfFive(score: number) {
+  return Math.round((score / 2) * 10) / 10;
+}
+
+function scoreColorClass(score: number) {
+  const fivePointScore = scoreOutOfFive(score);
+  if (fivePointScore >= 4) return "text-emerald-400";
+  if (fivePointScore >= 3) return "text-amber-400";
+  return "text-red-400";
+}
+
+function formatScore(score: number) {
+  return Number.isInteger(score) ? String(score) : score.toFixed(1);
+}
+
 export function TestResultsClient({ test, shareUrl }: { test: Test; shareUrl?: string }) {
   const [openQuestion, setOpenQuestion] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -69,6 +84,7 @@ export function TestResultsClient({ test, shareUrl }: { test: Test; shareUrl?: s
   const scoreColor = SCORE_COLOR[test.overallRating ?? ""] ?? "text-white";
   const candidateVideos = test.questions.filter((q) => q.videoUrl);
   const selectedVideo = candidateVideos.find((q) => q.id === selectedVideoId) ?? candidateVideos[0];
+  const overallScore = test.overallScore !== null ? scoreOutOfFive(test.overallScore) : null;
 
   return (
     <div className="max-w-5xl mx-auto px-6 py-8">
@@ -86,8 +102,8 @@ export function TestResultsClient({ test, shareUrl }: { test: Test; shareUrl?: s
           <div className="text-right">
             {test.overallScore !== null ? (
               <>
-                <div className={`text-5xl font-bold ${scoreColor}`} style={{ textShadow: "0 0 20px currentColor" }}>{test.overallScore.toFixed(1)}</div>
-                <div className="text-sm text-slate-500">/ 10</div>
+                <div className={`text-5xl font-bold ${scoreColor}`} style={{ textShadow: "0 0 20px currentColor" }}>{overallScore?.toFixed(1)}</div>
+                <div className="text-sm text-slate-500">/ 5</div>
                 <div className={`text-sm font-medium mt-1 ${scoreColor}`}>{test.overallRating}</div>
               </>
             ) : (
@@ -197,8 +213,8 @@ export function TestResultsClient({ test, shareUrl }: { test: Test; shareUrl?: s
               </div>
               <div className="flex items-center gap-3">
                 {q.aiScore !== null && (
-                  <span className={`text-sm font-bold ${q.aiScore >= 8 ? "text-emerald-400" : q.aiScore >= 6 ? "text-amber-400" : "text-red-400"}`}>
-                    {q.aiScore}/10
+                  <span className={`text-sm font-bold ${scoreColorClass(q.aiScore)}`}>
+                    {formatScore(scoreOutOfFive(q.aiScore))}/5
                   </span>
                 )}
                 <span className="text-slate-500 text-sm">{openQuestion === q.id ? "▲" : "▼"}</span>
@@ -228,7 +244,7 @@ export function TestResultsClient({ test, shareUrl }: { test: Test; shareUrl?: s
                 {q.aiScore !== null && (
                   <div className="bg-blue-500/10 border border-blue-500/15 rounded-xl p-4">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className={`text-lg font-bold ${q.aiScore >= 8 ? "text-emerald-400" : q.aiScore >= 6 ? "text-amber-400" : "text-red-400"}`}>{q.aiScore}/10</span>
+                      <span className={`text-lg font-bold ${scoreColorClass(q.aiScore)}`}>{formatScore(scoreOutOfFive(q.aiScore))}/5</span>
                     </div>
                     {q.aiRationale && <p className="text-sm text-slate-300">{q.aiRationale}</p>}
                   </div>
