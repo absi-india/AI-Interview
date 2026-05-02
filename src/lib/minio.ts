@@ -4,12 +4,20 @@ let _client: Client | null = null;
 
 function getClient(): Client {
   if (!_client) {
+    const endPoint = process.env.MINIO_ENDPOINT ?? "localhost";
+    if (
+      process.env.NODE_ENV === "production" &&
+      (endPoint === "localhost" || endPoint === "127.0.0.1")
+    ) {
+      throw new Error("MINIO_NOT_CONFIGURED_FOR_PRODUCTION");
+    }
+
     const port = parseInt(process.env.MINIO_PORT ?? "9000", 10);
     const useSSL =
       (process.env.MINIO_USE_SSL ?? "").toLowerCase() === "true" || port === 443;
 
     _client = new Client({
-      endPoint: process.env.MINIO_ENDPOINT ?? "localhost",
+      endPoint,
       port,
       useSSL,
       accessKey: process.env.MINIO_ACCESS_KEY ?? "minioadmin",

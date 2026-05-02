@@ -2,7 +2,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import pRetry from "p-retry";
 
 const GEMINI_MODEL = process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash";
-const GEMINI_TIMEOUT_MS = 8000;
+const GEMINI_TIMEOUT_MS = 15000;
 
 const STOP_WORDS = new Set([
   "a",
@@ -425,6 +425,23 @@ function countKeywordOverlap(answer: string, expectedAnswerSummary: string, ques
   return matches;
 }
 
+function getSimilarityWords(value: string) {
+  return normalizeForSimilarity(value).split(" ").filter(Boolean);
+}
+
+function isQuestionEcho(answer: string, questionText: string) {
+  const answerWords = getSimilarityWords(answer);
+  const questionWords = new Set(getSimilarityWords(questionText));
+
+  if (answerWords.length === 0 || questionWords.size === 0) return false;
+
+  const shared = answerWords.filter((word) => questionWords.has(word)).length;
+  const answerQuestionRatio = shared / answerWords.length;
+  const questionCoverage = shared / questionWords.size;
+
+  return answerWords.length <= 35 && answerQuestionRatio >= 0.75 && questionCoverage >= 0.55;
+}
+
 function fallbackRating(
   level: string,
   questionText: string,
@@ -442,6 +459,14 @@ function fallbackRating(
       score: 0,
       rationale:
         "Fallback scoring used because the AI provider is unavailable. No usable transcript or written response was captured for this question, so this needs manual recruiter review.",
+    };
+  }
+
+  if (isQuestionEcho(answer, questionText)) {
+    return {
+      score: 0,
+      rationale:
+        "Fallback scoring used because the AI provider is unavailable. The captured response appears to repeat the interview question rather than answer it, so this needs manual recruiter review.",
     };
   }
 
@@ -476,8 +501,17 @@ export async function rateAnswer(
   codeResponse: string | null,
   level: string
 ): Promise<RatingResult> {
+  if (isQuestionEcho(`${transcript ?? ""} ${codeResponse ?? ""}`, questionText)) {
+    return {
+      score: 0,
+      rationale:
+        "The captured response appears to repeat the interview question rather than answer it. No credit should be awarded unless manual review finds a substantive answer in the recording.",
+    };
+  }
+
   const system = `You are a strict but fair technical interviewer evaluating a candidate's response.
 Score the response from 0 to 10 based on accuracy, depth, clarity, and relevance.
+If the candidate only repeats or paraphrases the question without answering, score 0.
 Return ONLY valid JSON. No markdown, no preamble.
 Format: { "score": number, "rationale": "2-3 sentence evaluation" }`;
 
@@ -503,6 +537,11 @@ Interview Level: ${level}`;
     };
   } catch (err: unknown) {
     if (isGeminiConfigOrAuthError(err)) {
+      console.warn("[rateAnswer] Gemini unavailable; using fallback rating", {
+        reason: err instanceof Error ? err.message : String(err),
+        transcriptLength: transcript?.length ?? 0,
+        codeLength: codeResponse?.length ?? 0,
+      });
       return fallbackRating(level, questionText, category, expectedAnswerSummary, transcript, codeResponse);
     }
     throw err;

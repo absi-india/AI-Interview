@@ -23,6 +23,11 @@ type Props = {
 };
 
 const TOTAL_SECONDS = 30 * 60; // 30-minute limit
+const RECORDER_MIME_TYPES = [
+  "video/webm;codecs=vp9,opus",
+  "video/webm;codecs=vp8,opus",
+  "video/webm",
+];
 const RULES = [
   "Your camera and microphone will be active for the entire interview",
   "You must remain in fullscreen mode at all times",
@@ -48,6 +53,7 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
   const [transcript, setTranscript] = useState("");
   const [codeResponse, setCodeResponse] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
   const [showFullscreenOverlay, setShowFullscreenOverlay] = useState(false);
   const fullscreenExits = useRef(0);
   const tabSwitches = useRef(0);
@@ -63,6 +69,7 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
   const interimTranscriptRef = useRef("");
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const questionStartedAtSecondsLeft = useRef<number>(TOTAL_SECONDS);
+  const uploadingRef = useRef(false);
 
   const attachPreviewStream = useCallback(() => {
     const stream = streamRef.current;
@@ -215,18 +222,26 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
     if (!streamRef.current) return;
     attachPreviewStream();
     chunksRef.current = [];
+    recorderRef.current = null;
     shouldListenRef.current = true;
     interimTranscriptRef.current = "";
     setTranscriptValue("");
     setCodeResponse("");
+    setUploadError("");
     questionStartedAtSecondsLeft.current = timeLeft;
 
     try {
-      const recorder = new MediaRecorder(streamRef.current, { mimeType: "video/webm" });
+      const mimeType = RECORDER_MIME_TYPES.find((type) => MediaRecorder.isTypeSupported(type));
+      const recorder = new MediaRecorder(streamRef.current, mimeType ? { mimeType } : undefined);
       recorder.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
+      recorder.onerror = () => {
+        setUploadError("Recording failed for this question. Please retry before moving ahead.");
+      };
       recorder.start(1000);
       recorderRef.current = recorder;
-    } catch { /* MediaRecorder not available */ }
+    } catch {
+      setUploadError("Recording is not available in this browser. Please use the latest Chrome or Edge.");
+    }
 
     startSpeechRecognition();
   }
@@ -254,12 +269,68 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
         const blob = new Blob(chunksRef.current, { type: "video/webm" });
         resolve(blob.size > 0 ? blob : null);
       };
+      try {
+        recorderRef.current.requestData();
+      } catch {
+        // Some browsers throw when no data is available yet; stop still flushes what exists.
+      }
       recorderRef.current.stop();
     });
   }
 
-  async function handleNext() {
+  async function uploadCurrentQuestion({ restartOnFailure = true } = {}) {
     const q = questions[currentIdx];
+    uploadingRef.current = true;
+    setUploading(true);
+    setUploadError("");
+
+    try {
+      const blob = await stopRecording();
+      const cleanTranscript = `${transcriptRef.current} ${interimTranscriptRef.current}`.replace(/\s+/g, " ").trim();
+      const cleanCodeResponse = codeResponse.trim();
+
+      if (!blob && !cleanTranscript && !cleanCodeResponse) {
+        setUploadError("No answer was captured for this question. Please answer again before moving ahead.");
+        if (restartOnFailure) startRecordingForQuestion();
+        return false;
+      }
+
+      const formData = new FormData();
+      formData.append("questionId", q.id);
+      if (cleanTranscript) formData.append("transcript", cleanTranscript);
+      if (cleanCodeResponse) formData.append("codeResponse", cleanCodeResponse);
+      if (blob) formData.append("video", blob, `${q.id}.webm`);
+
+      const response = await fetch(`/api/interview/${inviteToken}/upload`, { method: "POST", body: formData });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        const message = typeof body?.error === "string" ? body.error : `Upload failed (${response.status})`;
+        setUploadError(`${message}. Please retry before moving ahead.`);
+        if (restartOnFailure) startRecordingForQuestion();
+        return false;
+      }
+
+      return true;
+    } catch {
+      setUploadError("Upload failed because the network or server was unavailable. Please retry before moving ahead.");
+      if (restartOnFailure) startRecordingForQuestion();
+      return false;
+    } finally {
+      uploadingRef.current = false;
+      setUploading(false);
+    }
+  }
+
+  async function submitInterview() {
+    await fetch(`/api/interview/${inviteToken}/submit`, { method: "POST" });
+    if (document.fullscreenElement) await document.exitFullscreen().catch(() => undefined);
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    router.push(`/interview/${inviteToken}/complete`);
+  }
+
+  async function handleNext() {
+    if (uploadingRef.current) return;
+
     const timeSpent = Math.max(0, questionStartedAtSecondsLeft.current - timeLeft);
 
     // Log rapid answer
@@ -267,21 +338,11 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
       logFraud("RAPID_ANSWER", "LOW", `Answered in ${Math.round(timeSpent)}s`);
     }
 
-    setUploading(true);
-    const blob = await stopRecording();
-    const cleanTranscript = `${transcriptRef.current} ${interimTranscriptRef.current}`.replace(/\s+/g, " ").trim();
-
-    const formData = new FormData();
-    formData.append("questionId", q.id);
-    if (cleanTranscript) formData.append("transcript", cleanTranscript);
-    if (codeResponse) formData.append("codeResponse", codeResponse);
-    if (blob) formData.append("video", blob, `${q.id}.webm`);
-
-    await fetch(`/api/interview/${inviteToken}/upload`, { method: "POST", body: formData });
-    setUploading(false);
+    const uploaded = await uploadCurrentQuestion();
+    if (!uploaded) return;
 
     if (currentIdx + 1 >= questions.length) {
-      await handleAutoSubmit();
+      await submitInterview();
     } else {
       setCurrentIdx((i) => i + 1);
       startRecordingForQuestion();
@@ -290,11 +351,12 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
 
   async function handleAutoSubmit() {
     clearInterval(timerRef.current!);
-    await stopRecording();
-    await fetch(`/api/interview/${inviteToken}/submit`, { method: "POST" });
-    if (document.fullscreenElement) await document.exitFullscreen().catch(() => undefined);
-    streamRef.current?.getTracks().forEach((t) => t.stop());
-    router.push(`/interview/${inviteToken}/complete`);
+    if (!uploadingRef.current && phase === "interview") {
+      await uploadCurrentQuestion({ restartOnFailure: false });
+    } else {
+      await stopRecording();
+    }
+    await submitInterview();
   }
 
   // Fullscreen enforcement
@@ -498,6 +560,7 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
             >
               {uploading ? "Uploading…" : currentIdx + 1 >= questions.length ? "Submit Interview" : "Next Question"}
             </button>
+            {uploadError && <p className="mt-3 text-sm text-red-300">{uploadError}</p>}
           </div>
         </div>
       ) : (
@@ -521,6 +584,7 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
           >
             {uploading ? "Uploading…" : currentIdx + 1 >= questions.length ? "Submit Interview" : "Next Question →"}
           </button>
+          {uploadError && <p className="mt-3 text-sm text-red-300 text-center">{uploadError}</p>}
         </div>
       )}
     </div>

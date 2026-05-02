@@ -24,8 +24,15 @@ export async function POST(
   const transcript = formData.get("transcript") as string | null;
   const codeResponse = formData.get("codeResponse") as string | null;
   const videoBlob = formData.get("video") as File | null;
+  const transcriptText = transcript?.trim() ?? "";
+  const codeText = codeResponse?.trim() ?? "";
+  const videoSize = videoBlob?.size ?? 0;
 
   if (!questionId) return NextResponse.json({ error: "questionId required" }, { status: 400 });
+  if (!transcriptText && !codeText && videoSize <= 0) {
+    console.warn("[interview/upload] Empty response rejected", { token, questionId });
+    return NextResponse.json({ error: "No transcript, written response, or recording was received" }, { status: 400 });
+  }
 
   const question = await prisma.question.findUnique({ where: { id: questionId } });
   if (!question || question.testId !== test.id) {
@@ -33,7 +40,7 @@ export async function POST(
   }
 
   let videoUrl: string | null = null;
-  if (videoBlob && videoBlob.size > 0) {
+  if (videoBlob && videoSize > 0) {
     const buffer = Buffer.from(await videoBlob.arrayBuffer());
     try {
       const objectKey = await uploadRecording(test.id, questionId, buffer);
@@ -65,10 +72,19 @@ export async function POST(
   await prisma.question.update({
     where: { id: questionId },
     data: {
-      transcript: transcript ?? undefined,
-      codeResponse: codeResponse ?? undefined,
+      transcript: transcriptText || undefined,
+      codeResponse: codeText || undefined,
       videoUrl: videoUrl ?? undefined,
     },
+  });
+
+  console.log("[interview/upload] Saved response", {
+    testId: test.id,
+    questionId,
+    transcriptLength: transcriptText.length,
+    codeLength: codeText.length,
+    videoSize,
+    hasVideoUrl: Boolean(videoUrl),
   });
 
   return NextResponse.json({ ok: true });
