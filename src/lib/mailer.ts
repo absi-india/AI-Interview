@@ -133,3 +133,44 @@ export async function sendRatingCompleteEmail(
     throw new Error(`Failed to send rating email: ${message}`);
   }
 }
+
+export async function sendCandidatePerformanceEmail(
+  candidateName: string,
+  candidateEmail: string,
+  jobTitle: string,
+  overallRating: string | null,
+  overallScore: number | null,
+  reportLink: string,
+) {
+  const from = process.env.SMTP_FROM ?? "Interview Platform <noreply@example.com>";
+  const scoreText = overallScore === null
+    ? "Rating in progress"
+    : `${(overallScore / 2).toFixed(1)}/5${overallRating ? ` (${overallRating})` : ""}`;
+
+  try {
+    await getTransport().sendMail({
+      from,
+      to: candidateEmail,
+      subject: `Your Interview Performance Report - ${jobTitle}`,
+      text: `Hi ${candidateName},
+
+Your interview performance report for ${jobTitle} is ready.
+
+Overall: ${scoreText}
+
+Open your report here:
+${reportLink}
+
+The report includes your ratings, the expected answer summaries, your captured responses, feedback, and available recorded videos.`,
+      html: `<p>Hi <strong>${candidateName}</strong>,</p>
+<p>Your interview performance report for <strong>${jobTitle}</strong> is ready.</p>
+<p>Overall: <strong>${scoreText}</strong></p>
+<p><a href="${reportLink}" style="background:#2563eb;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;display:inline-block;margin:16px 0">View Performance Report</a></p>
+<p>Or copy this link: <code>${reportLink}</code></p>
+<p>The report includes ratings, expected answer summaries, your captured responses, feedback, and available recorded videos.</p>`,
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Unknown SMTP error";
+    throw new Error(`Failed to send performance email: ${message}`);
+  }
+}

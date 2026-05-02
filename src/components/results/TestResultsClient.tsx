@@ -6,6 +6,7 @@ type Question = {
   order: number;
   questionText: string;
   category: string;
+  expectedSummary: string;
   transcript: string | null;
   codeResponse: string | null;
   videoUrl: string | null;
@@ -68,6 +69,8 @@ function formatScore(score: number) {
 export function TestResultsClient({ test, shareUrl }: { test: Test; shareUrl?: string }) {
   const [openQuestion, setOpenQuestion] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [sendingPerformance, setSendingPerformance] = useState(false);
+  const [performanceMessage, setPerformanceMessage] = useState("");
   const [fraudOpen, setFraudOpen] = useState(false);
   const [selectedVideoId, setSelectedVideoId] = useState<string | null>(null);
 
@@ -75,6 +78,27 @@ export function TestResultsClient({ test, shareUrl }: { test: Test; shareUrl?: s
     if (shareUrl) navigator.clipboard.writeText(shareUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  }
+
+  async function sendPerformanceEmail() {
+    setSendingPerformance(true);
+    setPerformanceMessage("");
+
+    try {
+      const response = await fetch(`/api/tests/${test.id}/send-performance`, { method: "POST" });
+      const body = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        setPerformanceMessage(typeof body?.error === "string" ? body.error : "Failed to send performance email.");
+        return;
+      }
+
+      setPerformanceMessage(`Performance email sent to ${test.candidate.email}.`);
+    } catch {
+      setPerformanceMessage("Failed to send performance email. Please try again.");
+    } finally {
+      setSendingPerformance(false);
+    }
   }
 
   const highCount = test.fraudEvents.filter((e) => e.severity === "HIGH").length;
@@ -120,6 +144,18 @@ export function TestResultsClient({ test, shareUrl }: { test: Test; shareUrl?: s
           >
             {copied ? "✓ Copied!" : "Copy Share Link"}
           </button>
+        )}
+        {shareUrl && (
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <button
+              onClick={sendPerformanceEmail}
+              disabled={sendingPerformance}
+              className="btn-primary text-sm disabled:opacity-70 disabled:cursor-not-allowed"
+            >
+              {sendingPerformance ? "Sending..." : "Send Performance Email"}
+            </button>
+            {performanceMessage && <p className="text-sm text-slate-400">{performanceMessage}</p>}
+          </div>
         )}
       </div>
 
@@ -223,6 +259,12 @@ export function TestResultsClient({ test, shareUrl }: { test: Test; shareUrl?: s
             {openQuestion === q.id && (
               <div className="px-6 pb-6 border-t border-white/5 animate-fade-in">
                 <p className="text-sm text-slate-300 mt-4 font-medium mb-3">{q.questionText}</p>
+                {q.expectedSummary && (
+                  <div className="mb-4">
+                    <p className="text-xs font-medium text-slate-500 mb-1">Expected Answer</p>
+                    <p className="text-sm text-slate-300 bg-emerald-500/10 border border-emerald-500/15 p-3 rounded-xl">{q.expectedSummary}</p>
+                  </div>
+                )}
                 {q.videoUrl && (
                   <div className="mb-4">
                     <p className="text-xs font-medium text-slate-500 mb-1">Video Response</p>
