@@ -23,6 +23,13 @@ const STATUS_COLOR: Record<string, string> = {
   EXPIRED: "bg-slate-500/15 text-slate-400 border border-slate-500/20",
 };
 
+const ATTENTION_EVENT_TYPES = [
+  "SCREEN_OR_TAB_CHANGE",
+  "TAB_SWITCH",
+  "WINDOW_BLUR",
+  "FULLSCREEN_EXIT",
+];
+
 export default async function DashboardPage({
   searchParams,
 }: {
@@ -44,7 +51,20 @@ export default async function DashboardPage({
     where,
     orderBy: { createdAt: "desc" },
     include: {
-      tests: { select: { id: true, status: true, jobTitle: true, createdAt: true }, orderBy: { createdAt: "desc" }, take: 1 },
+      tests: {
+        select: {
+          id: true,
+          status: true,
+          jobTitle: true,
+          createdAt: true,
+          fraudEvents: {
+            where: { type: { in: ATTENTION_EVENT_TYPES } },
+            select: { id: true },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+        take: 1,
+      },
     },
   });
   const qParam = (await searchParams).q;
@@ -149,6 +169,7 @@ export default async function DashboardPage({
               <tbody>
                 {visibleCandidates.map((c) => {
                   const latest = c.tests[0];
+                  const attentionEventCount = latest?.fraudEvents.length ?? 0;
                   return (
                     <tr key={c.id}>
                       <td>
@@ -159,9 +180,16 @@ export default async function DashboardPage({
                       <td className="text-slate-400">{latest?.jobTitle ?? "—"}</td>
                       <td>
                         {latest ? (
-                          <span className={`badge ${STATUS_COLOR[latest.status] ?? "bg-slate-500/15 text-slate-400"}`}>
-                            {STATUS_LABEL[latest.status] ?? latest.status}
-                          </span>
+                          <div className="flex flex-col items-start gap-1.5">
+                            <span className={`badge ${STATUS_COLOR[latest.status] ?? "bg-slate-500/15 text-slate-400"}`}>
+                              {STATUS_LABEL[latest.status] ?? latest.status}
+                            </span>
+                            {attentionEventCount > 0 && (
+                              <span className="badge bg-red-500/10 text-red-300 border border-red-500/20">
+                                Screen/tab changes: {attentionEventCount}
+                              </span>
+                            )}
+                          </div>
                         ) : (
                           <span className="text-slate-600 text-xs">No tests</span>
                         )}

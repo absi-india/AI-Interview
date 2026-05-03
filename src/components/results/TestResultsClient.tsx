@@ -51,6 +51,22 @@ const SEVERITY_COLOR: Record<string, string> = {
   LOW: "text-yellow-400 bg-yellow-500/10 border border-yellow-500/15",
 };
 
+const FRAUD_EVENT_LABEL: Record<string, string> = {
+  SCREEN_OR_TAB_CHANGE: "Screen/tab change",
+  TAB_SWITCH: "Tab switch",
+  WINDOW_BLUR: "Window focus lost",
+  FULLSCREEN_EXIT: "Fullscreen exit",
+  COPY_PASTE_DETECTED: "Copy/paste attempt",
+  RAPID_ANSWER: "Rapid answer",
+};
+
+const ATTENTION_EVENT_TYPES = new Set([
+  "SCREEN_OR_TAB_CHANGE",
+  "TAB_SWITCH",
+  "WINDOW_BLUR",
+  "FULLSCREEN_EXIT",
+]);
+
 function scoreOutOfFive(score: number) {
   return Math.round((score / 2) * 10) / 10;
 }
@@ -104,6 +120,7 @@ export function TestResultsClient({ test, shareUrl }: { test: Test; shareUrl?: s
   const highCount = test.fraudEvents.filter((e) => e.severity === "HIGH").length;
   const mediumCount = test.fraudEvents.filter((e) => e.severity === "MEDIUM").length;
   const lowCount = test.fraudEvents.filter((e) => e.severity === "LOW").length;
+  const attentionEventCount = test.fraudEvents.filter((e) => ATTENTION_EVENT_TYPES.has(e.type)).length;
 
   const scoreColor = SCORE_COLOR[test.overallRating ?? ""] ?? "text-white";
   const candidateVideos = test.questions.filter((q) => q.videoUrl);
@@ -157,6 +174,11 @@ export function TestResultsClient({ test, shareUrl }: { test: Test; shareUrl?: s
             {performanceMessage && <p className="text-sm text-slate-400">{performanceMessage}</p>}
           </div>
         )}
+        {attentionEventCount > 0 && (
+          <div className="mt-4 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+            Candidate changed tabs, windows, or fullscreen {attentionEventCount} time{attentionEventCount === 1 ? "" : "s"} during the interview.
+          </div>
+        )}
       </div>
 
       {/* Fraud summary */}
@@ -179,7 +201,7 @@ export function TestResultsClient({ test, shareUrl }: { test: Test; shareUrl?: s
               {test.fraudEvents.map((e) => (
                 <div key={e.id} className={`flex justify-between items-center px-3 py-2 rounded-lg text-sm ${SEVERITY_COLOR[e.severity] ?? "bg-slate-800/50"}`}>
                   <div>
-                    <span className="font-medium">{e.type.replace(/_/g, " ")}</span>
+                    <span className="font-medium">{FRAUD_EVENT_LABEL[e.type] ?? e.type.replace(/_/g, " ")}</span>
                     {e.detail && <span className="ml-2 text-xs opacity-70">{e.detail}</span>}
                   </div>
                   <span className="text-xs opacity-70">{new Date(e.occurredAt).toLocaleTimeString()}</span>

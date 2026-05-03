@@ -28,6 +28,8 @@ const RECORDER_MIME_TYPES = [
   "video/webm;codecs=vp8,opus",
   "video/webm",
 ];
+const ATTENTION_EVENT_DEDUP_MS = 750;
+const MAX_SCREEN_OR_TAB_CHANGES = 5;
 const RULES = [
   "Your camera and microphone will be active for the entire interview",
   "You must remain in fullscreen mode at all times",
@@ -56,7 +58,8 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
   const [uploadError, setUploadError] = useState("");
   const [showFullscreenOverlay, setShowFullscreenOverlay] = useState(false);
   const fullscreenExits = useRef(0);
-  const tabSwitches = useRef(0);
+  const screenOrTabChanges = useRef(0);
+  const lastAttentionEventAt = useRef(0);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -96,6 +99,7 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
       fetch(`/api/interview/${inviteToken}/fraud-event`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        keepalive: true,
         body: JSON.stringify({ type, severity, detail }),
       }).catch(() => undefined);
     },
@@ -377,24 +381,45 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase]);
 
-  // Tab/window blur detection
+  // Tab/window/screen-change detection
   useEffect(() => {
     if (phase !== "interview") return;
+    const logScreenOrTabChange = (reason: string) => {
+      const now = Date.now();
+      if (now - lastAttentionEventAt.current < ATTENTION_EVENT_DEDUP_MS) return;
+
+      lastAttentionEventAt.current = now;
+      screenOrTabChanges.current += 1;
+      logFraud(
+        "SCREEN_OR_TAB_CHANGE",
+        "HIGH",
+        `${reason} #${screenOrTabChanges.current}`
+      );
+
+      if (screenOrTabChanges.current >= MAX_SCREEN_OR_TAB_CHANGES) {
+        handleAutoSubmit();
+      }
+    };
+
     const handleVisibility = () => {
       if (document.hidden) {
-        tabSwitches.current += 1;
-        logFraud("TAB_SWITCH", "MEDIUM", `Switch #${tabSwitches.current}`);
-        if (tabSwitches.current >= 5) handleAutoSubmit();
+        logScreenOrTabChange("Interview tab hidden");
       }
     };
     const handleBlur = () => {
-      logFraud("WINDOW_BLUR", "MEDIUM", "Window lost focus");
+      logScreenOrTabChange("Interview window lost focus");
     };
+    const handlePageHide = () => {
+      logScreenOrTabChange("Interview page left");
+    };
+
     document.addEventListener("visibilitychange", handleVisibility);
     window.addEventListener("blur", handleBlur);
+    window.addEventListener("pagehide", handlePageHide);
     return () => {
       document.removeEventListener("visibilitychange", handleVisibility);
       window.removeEventListener("blur", handleBlur);
+      window.removeEventListener("pagehide", handlePageHide);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase]);

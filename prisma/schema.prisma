@@ -81,7 +81,7 @@ model FraudEvent {
   testId     String
   test       Test     @relation(fields: [testId], references: [id])
   type       String
-  // TAB_SWITCH | WINDOW_BLUR | FULLSCREEN_EXIT | COPY_PASTE_DETECTED
+  // SCREEN_OR_TAB_CHANGE | TAB_SWITCH | WINDOW_BLUR | FULLSCREEN_EXIT | COPY_PASTE_DETECTED
   // MULTIPLE_FACES | NO_FACE_DETECTED | PHONE_DETECTED | SCREEN_SHARE_STOPPED | RAPID_ANSWER
   severity   String // LOW | MEDIUM | HIGH
   detail     String
