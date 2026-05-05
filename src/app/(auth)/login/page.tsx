@@ -3,10 +3,7 @@ import { useState, useEffect } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import {
-  signInWithEmailAndPassword,
-  sendPasswordResetEmail,
-} from "firebase/auth";
+import { signInWithEmailAndPassword } from "firebase/auth";
 import { getFirebaseAuth } from "@/lib/firebase";
 
 interface ServiceCheck {
@@ -131,20 +128,22 @@ function ForgotPasswordForm({ onBack }: { onBack: () => void }) {
     setStatus("sending");
     setError("");
     try {
-      await sendPasswordResetEmail(getFirebaseAuth(), email);
+      const response = await fetch("/api/auth/password-reset", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+
+      if (!response.ok) {
+        const data = (await response.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(data?.error ?? "Unable to send reset email.");
+      }
+
       setStatus("sent");
     } catch (err: unknown) {
-      const code = (err as { code?: string }).code;
-      if (code === "auth/user-not-found" || code === "auth/invalid-email") {
-        // Don't reveal whether the email exists — just say sent
-        setStatus("sent");
-      } else if (code === "auth/too-many-requests") {
-        setError("Too many attempts. Please try again later.");
-        setStatus("error");
-      } else {
-        setError("Unable to send reset email. Check your Firebase configuration.");
-        setStatus("error");
-      }
+      const message = err instanceof Error ? err.message : "Unable to send reset email.";
+      setError(message);
+      setStatus("error");
     }
   }
 
@@ -152,7 +151,7 @@ function ForgotPasswordForm({ onBack }: { onBack: () => void }) {
     return (
       <div className="text-center animate-fade-in">
         <p className="text-sm text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-3 mb-4">
-          If an account exists for <strong>{email}</strong>, a password reset link has been sent.
+          If an account exists for <strong>{email}</strong>, a temporary password has been sent.
           Check your inbox (and spam folder).
         </p>
         <button onClick={onBack} className="text-sm text-blue-400 hover:text-blue-300 transition-colors">
@@ -166,7 +165,7 @@ function ForgotPasswordForm({ onBack }: { onBack: () => void }) {
     <div className="animate-fade-in">
       <h2 className="text-lg font-semibold text-white mb-1">Reset password</h2>
       <p className="text-sm text-slate-400 mb-6">
-        Enter your email and we&apos;ll send a reset link via Firebase.
+        Enter your email and we&apos;ll send a temporary password.
       </p>
       <form onSubmit={handleReset} className="space-y-4">
         <div>
@@ -187,7 +186,7 @@ function ForgotPasswordForm({ onBack }: { onBack: () => void }) {
           disabled={status === "sending"}
           className="btn-primary w-full py-2.5"
         >
-          {status === "sending" ? "Sending…" : "Send reset link"}
+          {status === "sending" ? "Sending..." : "Send reset email"}
         </button>
       </form>
       <button

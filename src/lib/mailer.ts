@@ -174,3 +174,41 @@ The report includes your ratings, the expected answer summaries, your captured r
     throw new Error(`Failed to send performance email: ${message}`);
   }
 }
+
+export async function sendTemporaryPasswordEmail(
+  userName: string,
+  userEmail: string,
+  temporaryPassword: string,
+  fallbackOrigin?: string,
+) {
+  const domain = buildAppDomain(fallbackOrigin);
+  const from = process.env.SMTP_FROM ?? "Interview Platform <noreply@example.com>";
+
+  try {
+    await getTransport().sendMail({
+      from,
+      to: userEmail,
+      subject: "Your Interview Portal password reset",
+      text: `Hi ${userName},
+
+Your Interview Portal password has been reset.
+
+Temporary password:
+${temporaryPassword}
+
+Sign in here:
+${domain}/login
+
+For security, sign in and ask an administrator to issue a new password if you did not request this reset.`,
+      html: `<p>Hi <strong>${userName}</strong>,</p>
+<p>Your Interview Portal password has been reset.</p>
+<p>Temporary password:</p>
+<p><code style="font-size:16px;background:#f1f5f9;padding:8px 10px;border-radius:6px;display:inline-block">${temporaryPassword}</code></p>
+<p><a href="${domain}/login" style="background:#2563eb;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;display:inline-block;margin:16px 0">Sign in</a></p>
+<p style="color:#64748b">For security, sign in and ask an administrator to issue a new password if you did not request this reset.</p>`,
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Unknown SMTP error";
+    throw new Error(`Failed to send password reset email: ${message}`);
+  }
+}
