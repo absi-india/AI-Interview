@@ -28,6 +28,10 @@ const RECORDER_MIME_TYPES = [
   "video/webm;codecs=vp8,opus",
   "video/webm",
 ];
+const RECORDING_OPTIONS = {
+  videoBitsPerSecond: 250_000,
+  audioBitsPerSecond: 32_000,
+};
 const ATTENTION_EVENT_DEDUP_MS = 750;
 const MAX_SCREEN_OR_TAB_CHANGES = 5;
 const RULES = [
@@ -53,6 +57,7 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
   const [timeLeft, setTimeLeft] = useState(TOTAL_SECONDS);
   const [fraudCount, setFraudCount] = useState(0);
   const [transcript, setTranscript] = useState("");
+  const [manualResponse, setManualResponse] = useState("");
   const [codeResponse, setCodeResponse] = useState("");
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
@@ -69,6 +74,7 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
   const recognitionRestartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const shouldListenRef = useRef(false);
   const transcriptRef = useRef("");
+  const manualResponseRef = useRef("");
   const interimTranscriptRef = useRef("");
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const questionStartedAtSecondsLeft = useRef<number>(TOTAL_SECONDS);
@@ -110,6 +116,11 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
     const nextValue = typeof value === "function" ? value(transcriptRef.current) : value;
     transcriptRef.current = nextValue;
     setTranscript(nextValue);
+  }, []);
+
+  const setManualResponseValue = useCallback((value: string) => {
+    manualResponseRef.current = value;
+    setManualResponse(value);
   }, []);
 
   function startSpeechRecognition() {
@@ -179,7 +190,18 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
     setCameraLoading(true);
     setCameraError("");
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          width: { ideal: 640, max: 960 },
+          height: { ideal: 360, max: 540 },
+          frameRate: { ideal: 15, max: 20 },
+        },
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
       streamRef.current = stream;
       setCameraError("");
       attachPreviewStream();
@@ -222,21 +244,27 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
     }, 1000);
   }
 
-  function startRecordingForQuestion() {
+  function startRecordingForQuestion({ resetAnswer = true } = {}) {
     if (!streamRef.current) return;
     attachPreviewStream();
     chunksRef.current = [];
     recorderRef.current = null;
     shouldListenRef.current = true;
     interimTranscriptRef.current = "";
-    setTranscriptValue("");
-    setCodeResponse("");
+    if (resetAnswer) {
+      setTranscriptValue("");
+      setManualResponseValue("");
+      setCodeResponse("");
+    }
     setUploadError("");
     questionStartedAtSecondsLeft.current = timeLeft;
 
     try {
       const mimeType = RECORDER_MIME_TYPES.find((type) => MediaRecorder.isTypeSupported(type));
-      const recorder = new MediaRecorder(streamRef.current, mimeType ? { mimeType } : undefined);
+      const recorder = new MediaRecorder(
+        streamRef.current,
+        mimeType ? { mimeType, ...RECORDING_OPTIONS } : RECORDING_OPTIONS
+      );
       recorder.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
       recorder.onerror = () => {
         setUploadError("Recording failed for this question. Please retry before moving ahead.");
@@ -290,11 +318,13 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
 
     try {
       const blob = await stopRecording();
-      const cleanTranscript = `${transcriptRef.current} ${interimTranscriptRef.current}`.replace(/\s+/g, " ").trim();
+      const speechTranscript = `${transcriptRef.current} ${interimTranscriptRef.current}`.replace(/\s+/g, " ").trim();
+      const typedResponse = manualResponseRef.current.replace(/\s+/g, " ").trim();
+      const cleanTranscript = [speechTranscript, typedResponse].filter(Boolean).join("\n\n").trim();
       const cleanCodeResponse = codeResponse.trim();
 
-      if (!blob && !cleanTranscript && !cleanCodeResponse) {
-        setUploadError("No answer was captured for this question. Please answer again before moving ahead.");
+      if (!cleanTranscript && !cleanCodeResponse) {
+        setUploadError("No answer text was captured for this question. Please speak until text appears below, or type your answer before moving ahead.");
         if (restartOnFailure) startRecordingForQuestion();
         return false;
       }
@@ -310,14 +340,14 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
         const body = await response.json().catch(() => ({}));
         const message = typeof body?.error === "string" ? body.error : `Upload failed (${response.status})`;
         setUploadError(`${message}. Please retry before moving ahead.`);
-        if (restartOnFailure) startRecordingForQuestion();
+        if (restartOnFailure) startRecordingForQuestion({ resetAnswer: false });
         return false;
       }
 
       return true;
     } catch {
       setUploadError("Upload failed because the network or server was unavailable. Please retry before moving ahead.");
-      if (restartOnFailure) startRecordingForQuestion();
+      if (restartOnFailure) startRecordingForQuestion({ resetAnswer: false });
       return false;
     } finally {
       uploadingRef.current = false;
@@ -601,6 +631,14 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
             </span>
             {transcript && <span className="text-emerald-400/80 text-xs line-clamp-1">{transcript.replace(/\[interim:.*?\]/g, "").slice(-80)}</span>}
           </div>
+          <label className="sr-only" htmlFor="manual-response">Answer text</label>
+          <textarea
+            id="manual-response"
+            value={manualResponse}
+            onChange={(e) => setManualResponseValue(e.target.value)}
+            placeholder="Type your answer here if the live transcript misses anything."
+            className="mb-6 min-h-32 w-full resize-y rounded-xl border border-white/10 bg-slate-900/70 p-4 text-sm text-white placeholder:text-slate-500 outline-none transition-colors focus:border-blue-400/60"
+          />
           <video ref={videoRef} autoPlay muted playsInline className="w-32 rounded-xl bg-black mb-6 self-end border border-white/10" />
           <button
             onClick={handleNext}

@@ -63,7 +63,52 @@ const STOP_WORDS = new Set([
   "software",
   "system",
   "systems",
+  "business",
+  "analyst",
+  "analysis",
+  "advanced",
+  "basic",
+  "intermediate",
+  "practical",
+  "order",
+  "rank",
+  "importance",
+  "required",
+  "require",
+  "requires",
+  "requirement",
+  "requirements",
+  "feature",
+  "features",
+  "year",
+  "years",
 ]);
+
+const DOMAIN_PHRASES = [
+  "medicaid policy documentation",
+  "medicaid modernization",
+  "healthcare authorization",
+  "claims processing",
+  "requirements gathering",
+  "business requirements",
+  "business process analysis",
+  "test case design",
+  "test cases",
+  "uat",
+  "user acceptance testing",
+  "traceability matrix",
+  "jira",
+  "confluence",
+  "azure devops",
+  "sql",
+  "agile sdlc",
+  "defect triage",
+  "stakeholder communication",
+  "healthcare compliance",
+  "eligibility validation",
+  "facets",
+  "mmis",
+];
 
 function getGeminiApiKey(): string | null {
   const key = process.env.GEMINI_API_KEY?.trim();
@@ -116,9 +161,15 @@ function isGeminiConfigOrAuthError(err: unknown): boolean {
 
 function extractKeywords(jobTitle: string, jobDescription: string, resumeContext = ""): string[] {
   const text = `${jobTitle} ${jobDescription} ${resumeContext}`.toLowerCase();
+  const phraseMatches = DOMAIN_PHRASES.filter((phrase) => text.includes(phrase));
   const tokens = text.match(/[a-z0-9+#./-]{2,}/g) ?? [];
   const seen = new Set<string>();
   const keywords: string[] = [];
+
+  for (const phrase of phraseMatches) {
+    seen.add(phrase);
+    keywords.push(phrase);
+  }
 
   for (const token of tokens) {
     if (STOP_WORDS.has(token)) continue;
@@ -130,7 +181,11 @@ function extractKeywords(jobTitle: string, jobDescription: string, resumeContext
   }
 
   if (keywords.length === 0) {
-    keywords.push("software design", "testing", "debugging", "performance");
+    if (`${jobTitle} ${jobDescription}`.toLowerCase().includes("healthcare")) {
+      keywords.push("healthcare requirements", "claims workflows", "test case design", "stakeholder communication");
+    } else {
+      keywords.push("solution design", "testing strategy", "debugging approach", "performance analysis");
+    }
   }
 
   return keywords;
@@ -183,35 +238,34 @@ function buildFallbackQuestion(
   jobTitle: string,
   topic: string,
   secondaryTopic: string,
-  category: string,
-  index: number
+  category: string
 ) {
-  const prefix = `Q${index}:`;
   const seniority = level === "BASIC" ? "clearly" : level === "ADVANCED" ? "deeply" : "practically";
+  const role = jobTitle.replace(/\s+/g, " ").trim();
 
   switch (category) {
     case "fundamentals":
-      return `${prefix} Explain the core concepts behind ${topic} and how they matter for this ${jobTitle} role.`;
+      return `Explain the core concepts behind ${topic} and how they matter for a ${role}.`;
     case "problem-solving":
-      return `${prefix} A production issue appears in a ${topic}-heavy feature. How would you isolate the cause and decide on a fix?`;
+      return `A problem appears in a workflow involving ${topic}. How would you isolate the cause, validate the impact, and recommend a fix?`;
     case "system design":
-      return `${prefix} Design a ${jobTitle} solution that uses ${topic} with ${secondaryTopic}. What are the main components and data flow?`;
+      return `Design a practical ${role} approach for connecting ${topic} with ${secondaryTopic}. What artifacts, data flow, and stakeholder checkpoints would you define?`;
     case "best practices":
-      return `${prefix} What best practices would you follow when working with ${topic}, and what mistakes would you avoid?`;
+      return `What best practices would you follow when working with ${topic}, and what mistakes would you avoid?`;
     case "past experience":
-      return `${prefix} Describe a past project where you used ${topic} or a similar skill. What did you personally build or improve?`;
+      return `Describe a past project where you used ${topic} or a similar skill. What did you personally own, improve, or document?`;
     case "debugging":
-      return `${prefix} If a ${topic} implementation becomes slow or unreliable, what signals, logs, or tests would you inspect first?`;
+      return `If a process related to ${topic} becomes slow or unreliable, what signals, logs, reports, or tests would you inspect first?`;
     case "performance":
-      return `${prefix} How would you improve performance for a ${topic}-based workflow without sacrificing maintainability?`;
+      return `How would you improve performance or turnaround time for a ${topic}-based workflow without sacrificing accuracy or traceability?`;
     case "security":
-      return `${prefix} What security risks should be considered when building ${topic} features for this role?`;
+      return `What privacy, compliance, or access-control risks should be considered when working with ${topic} in this role?`;
     case "testing":
-      return `${prefix} How would you test a feature involving ${topic}, including edge cases and failure paths?`;
+      return `How would you test a change involving ${topic}, including edge cases, regression coverage, and acceptance criteria?`;
     case "communication":
-      return `${prefix} Explain ${topic} ${seniority} to a teammate or stakeholder who needs to understand the trade-offs.`;
+      return `Explain ${topic} ${seniority} to a teammate or stakeholder who needs to understand risks, trade-offs, and next steps.`;
     default:
-      return `${prefix} How would you apply ${topic} in this ${jobTitle} role?`;
+      return `How would you apply ${topic} in this ${role} role?`;
   }
 }
 
@@ -256,7 +310,7 @@ function fallbackQuestions(
     const category = categories[idx];
     return {
       id,
-      questionText: buildFallbackQuestion(level, jobTitle, topic, secondaryTopic, category, id),
+      questionText: buildFallbackQuestion(level, jobTitle, topic, secondaryTopic, category),
       category,
       expectedAnswerSummary: buildFallbackSummary(level, topic, category),
       maxScore: 10,
@@ -288,9 +342,10 @@ function normalizeQuestions(
       typeof source.questionText === "string" && source.questionText.trim().length > 0
         ? source.questionText.trim()
         : fallback[idx].questionText;
-    const questionText = isTooSimilar(candidateQuestion, normalized)
+    const cleanedQuestion = candidateQuestion.replace(/^q\s*\d+\s*[:.)-]\s*/i, "").trim();
+    const questionText = isTooSimilar(cleanedQuestion, normalized)
       ? fallback[idx].questionText
-      : candidateQuestion;
+      : cleanedQuestion;
 
     normalized.push({
       id,
