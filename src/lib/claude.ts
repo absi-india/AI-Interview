@@ -159,8 +159,8 @@ function isGeminiConfigOrAuthError(err: unknown): boolean {
   );
 }
 
-function extractKeywords(jobTitle: string, jobDescription: string, resumeContext = ""): string[] {
-  const text = `${jobTitle} ${jobDescription} ${resumeContext}`.toLowerCase();
+function extractKeywords(jobDescription: string, resumeContext = ""): string[] {
+  const text = `${jobDescription} ${resumeContext}`.toLowerCase();
   const phraseMatches = DOMAIN_PHRASES.filter((phrase) => text.includes(phrase));
   const tokens = text.match(/[a-z0-9+#./-]{2,}/g) ?? [];
   const seen = new Set<string>();
@@ -181,7 +181,7 @@ function extractKeywords(jobTitle: string, jobDescription: string, resumeContext
   }
 
   if (keywords.length === 0) {
-    if (`${jobTitle} ${jobDescription}`.toLowerCase().includes("healthcare")) {
+    if (jobDescription.toLowerCase().includes("healthcare")) {
       keywords.push("healthcare requirements", "claims workflows", "test case design", "stakeholder communication");
     } else {
       keywords.push("solution design", "testing strategy", "debugging approach", "performance analysis");
@@ -191,8 +191,8 @@ function extractKeywords(jobTitle: string, jobDescription: string, resumeContext
   return keywords;
 }
 
-function inferLanguageHint(jobTitle: string, jobDescription: string): string | null {
-  const text = `${jobTitle} ${jobDescription}`.toLowerCase();
+function inferLanguageHint(jobDescription: string): string | null {
+  const text = jobDescription.toLowerCase();
   if (text.includes("typescript") || text.includes("react") || text.includes("node")) return "typescript";
   if (text.includes("javascript")) return "javascript";
   if (text.includes("python") || text.includes("django") || text.includes("flask")) return "python";
@@ -229,43 +229,63 @@ function similarityScore(left: string, right: string) {
   return shared / Math.max(leftWords.size, rightWords.size);
 }
 
-function isTooSimilar(questionText: string, existingQuestions: GeneratedQuestion[]) {
-  return existingQuestions.some((question) => similarityScore(questionText, question.questionText) >= 0.62);
+function isTooSimilarToAny(questionText: string, existingQuestions: string[]) {
+  return existingQuestions.some((question) => similarityScore(questionText, question) >= 0.62);
 }
 
 function buildFallbackQuestion(
   level: string,
-  jobTitle: string,
   topic: string,
   secondaryTopic: string,
-  category: string
+  category: string,
+  variant = 0
 ) {
   const seniority = level === "BASIC" ? "clearly" : level === "ADVANCED" ? "deeply" : "practically";
-  const role = jobTitle.replace(/\s+/g, " ").trim();
+  const variantIndex = variant % 3;
 
   switch (category) {
     case "fundamentals":
-      return `Explain the core concepts behind ${topic} and how they matter for a ${role}.`;
+      if (variantIndex === 1) return `What are the most important fundamentals behind ${topic}, and where do candidates commonly misunderstand them?`;
+      if (variantIndex === 2) return `Walk through a real example that demonstrates ${topic}, including the assumptions and limits of your approach.`;
+      return `Explain the core concepts behind ${topic} and how they matter for this position.`;
     case "problem-solving":
+      if (variantIndex === 1) return `Given a failed outcome involving ${topic}, what questions would you ask first and what evidence would you collect?`;
+      if (variantIndex === 2) return `How would you compare two possible fixes for an issue involving ${topic} and choose the better one?`;
       return `A problem appears in a workflow involving ${topic}. How would you isolate the cause, validate the impact, and recommend a fix?`;
     case "system design":
-      return `Design a practical ${role} approach for connecting ${topic} with ${secondaryTopic}. What artifacts, data flow, and stakeholder checkpoints would you define?`;
+      if (variantIndex === 1) return `Propose a workflow that uses ${topic} and ${secondaryTopic}. What handoffs, data checks, and failure points would you plan for?`;
+      if (variantIndex === 2) return `How would you redesign an existing process around ${topic} to make it more reliable, measurable, and easier to maintain?`;
+      return `Design a practical approach for connecting ${topic} with ${secondaryTopic}. What artifacts, data flow, and stakeholder checkpoints would you define?`;
     case "best practices":
+      if (variantIndex === 1) return `Which standards or habits would you enforce for ${topic}, and how would you know the team is following them?`;
+      if (variantIndex === 2) return `What trade-offs would guide your decisions when applying ${topic} under delivery pressure?`;
       return `What best practices would you follow when working with ${topic}, and what mistakes would you avoid?`;
     case "past experience":
+      if (variantIndex === 1) return `Tell me about a time you had to learn or apply ${topic}. What changed because of your work?`;
+      if (variantIndex === 2) return `Describe the most relevant experience you have with ${topic}, including your role, constraints, and result.`;
       return `Describe a past project where you used ${topic} or a similar skill. What did you personally own, improve, or document?`;
     case "debugging":
+      if (variantIndex === 1) return `A stakeholder reports inconsistent results related to ${topic}. How would you reproduce, narrow, and communicate the issue?`;
+      if (variantIndex === 2) return `What indicators would tell you whether a ${topic} problem is caused by data, process, tooling, or user behavior?`;
       return `If a process related to ${topic} becomes slow or unreliable, what signals, logs, reports, or tests would you inspect first?`;
     case "performance":
+      if (variantIndex === 1) return `How would you measure whether changes to ${topic} actually improved speed, quality, or throughput?`;
+      if (variantIndex === 2) return `Where would you look for bottlenecks in a workflow involving ${topic}, and what would you optimize first?`;
       return `How would you improve performance or turnaround time for a ${topic}-based workflow without sacrificing accuracy or traceability?`;
     case "security":
+      if (variantIndex === 1) return `What controls would you put around ${topic} to reduce privacy, compliance, or access risks?`;
+      if (variantIndex === 2) return `How would you handle sensitive data, auditability, and permissions in a process involving ${topic}?`;
       return `What privacy, compliance, or access-control risks should be considered when working with ${topic} in this role?`;
     case "testing":
+      if (variantIndex === 1) return `Create a test strategy for ${topic}. What positive, negative, and regression cases would you include?`;
+      if (variantIndex === 2) return `How would you prove that a change involving ${topic} is ready for release or stakeholder sign-off?`;
       return `How would you test a change involving ${topic}, including edge cases, regression coverage, and acceptance criteria?`;
     case "communication":
+      if (variantIndex === 1) return `How would you brief a non-technical stakeholder on progress, risks, and decisions related to ${topic}?`;
+      if (variantIndex === 2) return `When explaining ${topic}, how would you adapt your message for teammates, managers, and business users?`;
       return `Explain ${topic} ${seniority} to a teammate or stakeholder who needs to understand risks, trade-offs, and next steps.`;
     default:
-      return `How would you apply ${topic} in this ${role} role?`;
+      return `How would you apply ${topic} for the responsibilities described in the JD?`;
   }
 }
 
@@ -284,11 +304,11 @@ function buildFallbackSummary(level: string, topic: string, category: string) {
 
 function fallbackQuestions(
   level: string,
-  jobTitle: string,
   jobDescription: string,
-  resumeContext = ""
+  resumeContext = "",
+  avoidQuestions: string[] = []
 ): GeneratedQuestion[] {
-  const keywords = extractKeywords(jobTitle, jobDescription, resumeContext);
+  const keywords = extractKeywords(jobDescription, resumeContext);
   const categories = [
     "fundamentals",
     "problem-solving",
@@ -301,16 +321,31 @@ function fallbackQuestions(
     "testing",
     "communication",
   ];
-  const languageHint = level === "PRACTICAL" ? inferLanguageHint(jobTitle, jobDescription) : null;
+  const languageHint = level === "PRACTICAL" ? inferLanguageHint(jobDescription) : null;
+  const usedQuestions: string[] = [...avoidQuestions];
 
   return Array.from({ length: 10 }, (_, idx) => {
     const id = idx + 1;
-    const topic = keywords[idx % keywords.length];
-    const secondaryTopic = keywords[(idx + 3) % keywords.length] ?? jobTitle;
     const category = categories[idx];
+    let topic = keywords[idx % keywords.length];
+    let questionText = "";
+
+    for (let attempt = 0; attempt < keywords.length * 3; attempt += 1) {
+      topic = keywords[(idx + attempt) % keywords.length];
+      const secondaryTopic = keywords[(idx + attempt + 3) % keywords.length] ?? "the JD requirements";
+      const candidate = buildFallbackQuestion(level, topic, secondaryTopic, category, Math.floor(attempt / keywords.length));
+      if (!isTooSimilarToAny(candidate, usedQuestions)) {
+        questionText = candidate;
+        break;
+      }
+      if (!questionText) questionText = candidate;
+    }
+
+    usedQuestions.push(questionText);
+
     return {
       id,
-      questionText: buildFallbackQuestion(level, jobTitle, topic, secondaryTopic, category),
+      questionText,
       category,
       expectedAnswerSummary: buildFallbackSummary(level, topic, category),
       maxScore: 10,
@@ -322,18 +357,19 @@ function fallbackQuestions(
 function normalizeQuestions(
   parsed: unknown,
   level: string,
-  jobTitle: string,
   jobDescription: string,
-  resumeContext = ""
+  resumeContext = "",
+  avoidQuestions: string[] = []
 ): GeneratedQuestion[] {
   if (!Array.isArray(parsed) || parsed.length === 0) {
-    return fallbackQuestions(level, jobTitle, jobDescription, resumeContext);
+    return fallbackQuestions(level, jobDescription, resumeContext, avoidQuestions);
   }
 
-  const languageHint = level === "PRACTICAL" ? inferLanguageHint(jobTitle, jobDescription) : null;
-  const fallback = fallbackQuestions(level, jobTitle, jobDescription, resumeContext);
+  const languageHint = level === "PRACTICAL" ? inferLanguageHint(jobDescription) : null;
+  const fallback = fallbackQuestions(level, jobDescription, resumeContext, avoidQuestions);
 
   const normalized: GeneratedQuestion[] = [];
+  const usedQuestions = [...avoidQuestions];
 
   parsed.slice(0, 10).forEach((item, idx) => {
     const source = (typeof item === "object" && item !== null ? item : {}) as Record<string, unknown>;
@@ -343,9 +379,10 @@ function normalizeQuestions(
         ? source.questionText.trim()
         : fallback[idx].questionText;
     const cleanedQuestion = candidateQuestion.replace(/^q\s*\d+\s*[:.)-]\s*/i, "").trim();
-    const questionText = isTooSimilar(cleanedQuestion, normalized)
+    const questionText = isTooSimilarToAny(cleanedQuestion, usedQuestions)
       ? fallback[idx].questionText
       : cleanedQuestion;
+    usedQuestions.push(questionText);
 
     normalized.push({
       id,
@@ -369,7 +406,9 @@ function normalizeQuestions(
   });
 
   while (normalized.length < 10) {
-    normalized.push(fallback[normalized.length]);
+    const nextQuestion = fallback[normalized.length];
+    normalized.push(nextQuestion);
+    usedQuestions.push(nextQuestion.questionText);
   }
 
   return normalized;
@@ -397,12 +436,18 @@ export interface GenerateQuestionsResult {
 
 export async function generateQuestions(
   level: string,
-  jobTitle: string,
+  _jobTitle: string,
   jobDescription: string,
-  resumeContext = ""
+  resumeContext = "",
+  avoidQuestions: string[] = []
 ): Promise<GenerateQuestionsResult> {
+  const previousQuestionsText =
+    avoidQuestions.length > 0
+      ? avoidQuestions.map((question, idx) => `${idx + 1}. ${question}`).join("\n")
+      : "None";
+
   const systemPrompt = `You are a senior technical interviewer. Generate exactly 10 interview questions
-based on the candidate resume, job description, and interview level below.
+using only the job description, candidate resume context, and interview level below.
 
 Interview Levels:
 - BASIC: Definitions, fundamentals, conceptual understanding
@@ -419,22 +464,26 @@ Rules:
 - Vary categories: fundamentals, problem-solving, system design, best practices, past experience
 - Vary the question format. Do not repeat the same opening phrase or sentence structure.
 - Use a mix of explanation, debugging, design, testing, security, performance, past-project, and trade-off questions.
-- Questions must be directly relevant to the JD's technologies and responsibilities
-- Heavily tailor questions to the overlap between the candidate resume and the JD
-- At least 6 questions should combine a JD requirement with something from the resume
+- Questions must be directly relevant to the JD's technologies, responsibilities, deliverables, workflows, and required skills
+- Do not use the job title as a source for question topics, technologies, domain, seniority, or responsibilities
+- If resume context is provided, prioritize the overlap between the candidate resume and the JD
+- If resume context is provided, at least 6 questions should combine a JD requirement with something from the resume
 - If the resume shows a gap against the JD, ask targeted questions that verify the missing or weak area
-- Do not invent resume experience; only use details present in the resume context`;
+- If no resume context is provided, generate questions from the JD only
+- Do not invent resume experience; only use details present in the resume context
+- If previous questions are provided, do not repeat or lightly rephrase them; generate new angles, scenarios, constraints, and evaluation points`;
 
   const userPrompt = `Interview Level: ${level}
-Job Title: ${jobTitle}
 Job Description: ${jobDescription}
-Candidate Resume Context: ${resumeContext || "No resume context provided"}`;
+Candidate Resume Context: ${resumeContext || "No resume context provided"}
+Previous Questions To Avoid:
+${previousQuestionsText}`;
 
   try {
     const rawResponse = await callGemini(systemPrompt, userPrompt);
     const cleaned = rawResponse.replace(/```json\n?|\n?```/g, "").trim();
     const parsed = JSON.parse(cleaned);
-    const questions = normalizeQuestions(parsed, level, jobTitle, jobDescription, resumeContext);
+    const questions = normalizeQuestions(parsed, level, jobDescription, resumeContext, avoidQuestions);
 
     return {
       questions,
@@ -445,7 +494,7 @@ Candidate Resume Context: ${resumeContext || "No resume context provided"}`;
       throw err;
     }
 
-    const questions = fallbackQuestions(level, jobTitle, jobDescription, resumeContext);
+    const questions = fallbackQuestions(level, jobDescription, resumeContext, avoidQuestions);
     const reason = err instanceof Error ? err.message : "Gemini unavailable";
 
     return {

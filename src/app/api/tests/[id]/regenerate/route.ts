@@ -21,7 +21,10 @@ export async function POST(
     const { id } = await params;
     const test = await prisma.test.findUnique({
       where: { id },
-      include: { candidate: { select: { resumeUrl: true } } },
+      include: {
+        candidate: { select: { resumeUrl: true } },
+        questions: { orderBy: { order: "asc" }, select: { questionText: true } },
+      },
     });
 
     if (!test) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -33,7 +36,14 @@ export async function POST(
     }
 
     const resumeContext = await getResumeContext(test.candidate.resumeUrl);
-    const result = await generateQuestions(test.level, test.jobTitle, test.jobDescription, resumeContext);
+    const previousQuestions = test.questions.map((question) => question.questionText);
+    const result = await generateQuestions(
+      test.level,
+      test.jobTitle,
+      test.jobDescription,
+      resumeContext,
+      previousQuestions
+    );
 
     // Delete old questions and create new ones
     await prisma.question.deleteMany({ where: { testId: id } });
