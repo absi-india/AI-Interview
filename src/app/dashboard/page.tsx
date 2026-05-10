@@ -95,6 +95,7 @@ export default async function DashboardPage({
           </div>
         </div>
         <div className="flex items-center gap-4">
+          <Link href="/activity" className="text-sm text-blue-400 hover:text-blue-300 font-medium transition-colors">Activity</Link>
           <span className="text-sm text-slate-400">
             {displayName}
             <span className="ml-1.5 badge bg-blue-500/15 text-blue-300 border border-blue-500/20 text-xs">{role}</span>
