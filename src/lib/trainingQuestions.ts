@@ -61,41 +61,27 @@ export function parseTrainingQuestions(input: unknown): string[] {
     .slice(0, MAX_TRAINING_QUESTIONS);
 }
 
-async function ensurePdfRuntimeGlobals() {
-  if (
-    typeof globalThis.DOMMatrix !== "undefined" &&
-    typeof globalThis.ImageData !== "undefined" &&
-    typeof globalThis.Path2D !== "undefined"
-  ) {
-    return;
-  }
+async function extractPdfText(buffer: Buffer) {
+  const text = extractSimplePdfText(buffer);
+  if (text) return text;
 
-  const canvas = await import("@napi-rs/canvas");
-  const globals = globalThis as Record<string, unknown>;
-  globals.DOMMatrix ??= canvas.DOMMatrix;
-  globals.ImageData ??= canvas.ImageData;
-  globals.Path2D ??= canvas.Path2D;
+  const looseText = extractLoosePdfText(buffer);
+  if (looseText) return looseText;
+
+  throw new Error(
+    "Could not extract readable questions from this PDF. Please upload a text-based PDF, DOCX, TXT, MD, CSV, or paste the questions directly."
+  );
 }
 
-async function extractPdfText(buffer: Buffer) {
-  try {
-    const fallbackText = extractSimplePdfText(buffer);
-    if (fallbackText) return fallbackText;
-
-    await ensurePdfRuntimeGlobals();
-    const { PDFParse } = await import("pdf-parse");
-    const parser = new PDFParse({ data: new Uint8Array(buffer) });
-    try {
-      const result = await parser.getText();
-      return result.text;
-    } finally {
-      await parser.destroy();
-    }
-  } catch (err) {
-    const fallbackText = extractSimplePdfText(buffer);
-    if (fallbackText) return fallbackText;
-    throw err;
+function decodeHexPdfString(value: string) {
+  const compact = value.replace(/\s+/g, "");
+  const bytes: number[] = [];
+  for (let i = 0; i < compact.length - 1; i += 2) {
+    const byte = parseInt(compact.slice(i, i + 2), 16);
+    if (!Number.isNaN(byte)) bytes.push(byte);
   }
+
+  return Buffer.from(bytes).toString("utf8").replace(/\u0000/g, "");
 }
 
 function decodePdfString(value: string) {
@@ -121,11 +107,17 @@ function decodePdfString(value: string) {
 function extractTextOperators(stream: string) {
   const chunks: string[] = [];
   const stringPattern = /\(((?:\\.|[^\\)])*)\)\s*Tj/g;
+  const hexStringPattern = /<([0-9a-fA-F\s]+)>\s*Tj/g;
   const arrayPattern = /\[((?:.|\n)*?)\]\s*TJ/g;
   const arrayStringPattern = /\(((?:\\.|[^\\)])*)\)/g;
+  const arrayHexPattern = /<([0-9a-fA-F\s]+)>/g;
 
   for (const match of stream.matchAll(stringPattern)) {
     chunks.push(decodePdfString(match[1]));
+  }
+
+  for (const match of stream.matchAll(hexStringPattern)) {
+    chunks.push(decodeHexPdfString(match[1]));
   }
 
   for (const arrayMatch of stream.matchAll(arrayPattern)) {
@@ -133,10 +125,13 @@ function extractTextOperators(stream: string) {
     for (const stringMatch of arrayMatch[1].matchAll(arrayStringPattern)) {
       parts.push(decodePdfString(stringMatch[1]));
     }
+    for (const hexMatch of arrayMatch[1].matchAll(arrayHexPattern)) {
+      parts.push(decodeHexPdfString(hexMatch[1]));
+    }
     if (parts.length > 0) chunks.push(parts.join(""));
   }
 
-  return chunks.join("\n");
+  return chunks.join("\n").replace(/\s+\?/g, "?");
 }
 
 function extractSimplePdfText(buffer: Buffer) {
@@ -166,6 +161,22 @@ function extractSimplePdfText(buffer: Buffer) {
   }
 
   return textChunks.join("\n").replace(/[^\S\r\n]+/g, " ").trim();
+}
+
+function extractLoosePdfText(buffer: Buffer) {
+  const source = buffer.toString("latin1");
+  const chunks = [
+    ...source.matchAll(/\(((?:\\.|[^\\)]){8,})\)/g),
+    ...source.matchAll(/<([0-9a-fA-F\s]{16,})>/g),
+  ]
+    .map((match) => {
+      const raw = match[1] ?? "";
+      return /^[0-9a-fA-F\s]+$/.test(raw) ? decodeHexPdfString(raw) : decodePdfString(raw);
+    })
+    .map((value) => value.replace(/[^\x09\x0a\x0d\x20-\x7e]+/g, " ").replace(/\s+/g, " ").trim())
+    .filter((value) => value.length >= 8 && !looksLikeRawPdf(value));
+
+  return chunks.join("\n").trim();
 }
 
 export async function extractTrainingQuestionText(buffer: Buffer, fileName: string) {
