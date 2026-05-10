@@ -3,39 +3,12 @@ import { type NextRequest, NextResponse } from "next/server";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-function cleanQuestionText(value: string) {
-  return value.replace(/^\s*(?:q\s*)?\d+\s*[\).:-]\s*/i, "").replace(/^\s*[-*\u2022]\s*/, "").trim();
-}
-
-function parseTrainingQuestions(input: unknown): string[] {
-  if (Array.isArray(input)) {
-    return input
-      .filter((item): item is string => typeof item === "string")
-      .map(cleanQuestionText)
-      .filter(Boolean)
-      .slice(0, 20);
-  }
-
-  if (typeof input !== "string") return [];
-
-  const text = input.replace(/\r\n/g, "\n").replace(/\r/g, "\n").trim();
-  if (!text) return [];
-
-  const paragraphs = text.split(/\n\s*\n+/).map(cleanQuestionText).filter(Boolean);
-  if (paragraphs.length > 1) return paragraphs.slice(0, 20);
-
-  return text
-    .split("\n")
-    .map(cleanQuestionText)
-    .filter(Boolean)
-    .slice(0, 20);
-}
-
 export async function POST(req: NextRequest) {
   try {
-    const [{ auth }, { prisma }] = await Promise.all([
+    const [{ auth }, { prisma }, { parseTrainingQuestions }] = await Promise.all([
       import("@/auth"),
       import("@/lib/prisma"),
+      import("@/lib/trainingQuestions"),
     ]);
 
     const session = await auth();

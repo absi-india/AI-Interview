@@ -103,6 +103,7 @@ function ScheduleTestForm() {
   const [level, setLevel] = useState("BASIC");
   const [trainingQuestions, setTrainingQuestions] = useState("");
   const [trainingFileName, setTrainingFileName] = useState("");
+  const [extractingTrainingFile, setExtractingTrainingFile] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [debug, setDebug] = useState<AiDebugInfo | null>(null);
@@ -162,13 +163,31 @@ function ScheduleTestForm() {
 
   async function handleTrainingFile(file: File | null) {
     if (!file) return;
+    setExtractingTrainingFile(true);
+    setError("");
+
     try {
-      const text = await file.text();
-      setTrainingQuestions(text);
-      setTrainingFileName(file.name);
-      setError("");
-    } catch {
-      setError("Could not read that file. Please paste the questions instead.");
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch("/api/tests/training-extract", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await readJsonResponse(res);
+
+      if (!res.ok) {
+        setError(data.error ?? "Could not read that file. Please paste the questions instead.");
+        return;
+      }
+
+      setTrainingQuestions(typeof data.text === "string" ? data.text : "");
+      setTrainingFileName(data.fileName ?? file.name);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Could not read that file";
+      setError(`${message}. Please paste the questions instead.`);
+    } finally {
+      setExtractingTrainingFile(false);
     }
   }
 
@@ -266,7 +285,7 @@ function ScheduleTestForm() {
                   <div>
                     <label className="block text-sm font-medium text-cyan-200 mb-1">Training Questions *</label>
                     <p className="text-xs text-slate-400 mb-3">
-                      Paste one question per line, or upload a text file. These questions are saved directly without AI generation.
+                      Paste one question per line, or upload PDF, DOCX, TXT, MD, or CSV. These questions are saved directly without AI generation.
                     </p>
                     <textarea
                       value={trainingQuestions}
@@ -282,11 +301,14 @@ function ScheduleTestForm() {
                       Upload Questions File
                       <input
                         type="file"
-                        accept=".txt,.md,.csv,text/plain,text/markdown,text/csv"
+                        accept=".pdf,.docx,.txt,.md,.csv,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown,text/csv"
                         onChange={(e) => handleTrainingFile(e.target.files?.[0] ?? null)}
                         className="sr-only"
                       />
                     </label>
+                    {extractingTrainingFile && (
+                      <span className="ml-3 text-xs text-cyan-300">Reading file...</span>
+                    )}
                     {trainingFileName && (
                       <span className="ml-3 text-xs text-cyan-300">Loaded {trainingFileName}</span>
                     )}
