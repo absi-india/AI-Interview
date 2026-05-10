@@ -34,6 +34,11 @@ const LEVELS = [
   { value: "PRACTICAL", label: "Practical", desc: "Live hands-on coding / implementation", icon: "💻" },
 ];
 
+const LEVEL_CHOICES = [
+  ...LEVELS,
+  { value: "TRAINING", label: "TRAINING", desc: "Use your own practice questions", icon: "T" },
+];
+
 function AiConversationPanel({ debug }: { debug: AiDebugInfo }) {
   const [open, setOpen] = useState(false);
 
@@ -96,10 +101,13 @@ function ScheduleTestForm() {
   const [jobTitle, setJobTitle] = useState("");
   const [jobDescription, setJobDescription] = useState("");
   const [level, setLevel] = useState("BASIC");
+  const [trainingQuestions, setTrainingQuestions] = useState("");
+  const [trainingFileName, setTrainingFileName] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [debug, setDebug] = useState<AiDebugInfo | null>(null);
   const [generatedTestId, setGeneratedTestId] = useState<string | null>(null);
+  const isTraining = level === "TRAINING";
 
   useEffect(() => {
     fetch("/api/candidates")
@@ -110,6 +118,10 @@ function ScheduleTestForm() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!candidateId) { setError("Select a candidate"); return; }
+    if (isTraining && !trainingQuestions.trim()) {
+      setError("Paste or upload at least one training question");
+      return;
+    }
     setLoading(true);
     setError("");
     setDebug(null);
@@ -119,7 +131,7 @@ function ScheduleTestForm() {
       const res = await fetch("/api/tests/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ candidateId, jobTitle, jobDescription, level }),
+        body: JSON.stringify({ candidateId, jobTitle, jobDescription, level, trainingQuestions }),
       });
       const data = await readJsonResponse(res);
 
@@ -148,6 +160,18 @@ function ScheduleTestForm() {
     }
   }
 
+  async function handleTrainingFile(file: File | null) {
+    if (!file) return;
+    try {
+      const text = await file.text();
+      setTrainingQuestions(text);
+      setTrainingFileName(file.name);
+      setError("");
+    } catch {
+      setError("Could not read that file. Please paste the questions instead.");
+    }
+  }
+
   return (
     <div className="min-h-screen p-8" style={{ background: "linear-gradient(180deg, #0f172a 0%, #1a2332 100%)" }}>
       <div className="max-w-2xl mx-auto">
@@ -159,7 +183,9 @@ function ScheduleTestForm() {
         </div>
         <div className="glass-card p-8 animate-fade-in-up">
           <h1 className="text-xl font-bold text-white mb-2">Schedule Technical Interview</h1>
-          <p className="text-sm text-slate-400 mb-8">AI will generate 10 questions based on the job description. You can review and edit before sending the invite.</p>
+          <p className="text-sm text-slate-400 mb-8">
+            Generate questions from a JD or use Training to provide your own practice questions without AI token usage.
+          </p>
 
           {!generatedTestId ? (
             <form onSubmit={handleSubmit} className="space-y-6">
@@ -179,17 +205,20 @@ function ScheduleTestForm() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1">Job Title *</label>
+                <label className="block text-sm font-medium text-slate-300 mb-1">
+                  {isTraining ? "Session Name" : "Job Title *"}
+                </label>
                 <input
                   type="text"
                   value={jobTitle}
                   onChange={(e) => setJobTitle(e.target.value)}
-                  required
-                  placeholder="e.g. Senior React Engineer"
+                  required={!isTraining}
+                  placeholder={isTraining ? "Optional: Python practice, mock round, training batch..." : "e.g. Senior React Engineer"}
                   className="input-dark"
                 />
               </div>
 
+              {!isTraining && (
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-1">Job Description *</label>
                 <textarea
@@ -201,11 +230,12 @@ function ScheduleTestForm() {
                   className="input-dark"
                 />
               </div>
+              )}
 
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">Interview Level *</label>
                 <div className="grid grid-cols-2 gap-3">
-                  {LEVELS.map((l) => (
+                  {LEVEL_CHOICES.map((l) => (
                     <label
                       key={l.value}
                       className={`flex items-start gap-3 p-3.5 rounded-xl cursor-pointer transition-all duration-200 border ${
@@ -231,6 +261,39 @@ function ScheduleTestForm() {
                 </div>
               </div>
 
+              {isTraining && (
+                <div className="space-y-3 rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-4">
+                  <div>
+                    <label className="block text-sm font-medium text-cyan-200 mb-1">Training Questions *</label>
+                    <p className="text-xs text-slate-400 mb-3">
+                      Paste one question per line, or upload a text file. These questions are saved directly without AI generation.
+                    </p>
+                    <textarea
+                      value={trainingQuestions}
+                      onChange={(e) => setTrainingQuestions(e.target.value)}
+                      required={isTraining}
+                      rows={8}
+                      placeholder={"1. Explain Python list comprehensions.\n2. What is the difference between a tuple and a list?\n3. How would you debug a slow API?"}
+                      className="input-dark"
+                    />
+                  </div>
+                  <div>
+                    <label className="inline-flex cursor-pointer items-center justify-center rounded-lg border border-white/10 bg-slate-800/60 px-4 py-2 text-sm font-medium text-slate-200 transition-colors hover:bg-slate-700/70">
+                      Upload Questions File
+                      <input
+                        type="file"
+                        accept=".txt,.md,.csv,text/plain,text/markdown,text/csv"
+                        onChange={(e) => handleTrainingFile(e.target.files?.[0] ?? null)}
+                        className="sr-only"
+                      />
+                    </label>
+                    {trainingFileName && (
+                      <span className="ml-3 text-xs text-cyan-300">Loaded {trainingFileName}</span>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {error && <p className="text-red-400 text-sm">{error}</p>}
 
               <button
@@ -238,7 +301,9 @@ function ScheduleTestForm() {
                 disabled={loading}
                 className="btn-primary w-full py-3"
               >
-                {loading ? "Generating questions with AI…" : "Generate Questions"}
+                {loading
+                  ? isTraining ? "Creating training questions..." : "Generating questions with AI..."
+                  : isTraining ? "Create Training Questions" : "Generate Questions"}
               </button>
             </form>
           ) : (
