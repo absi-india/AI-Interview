@@ -33,16 +33,22 @@ const RECORDING_OPTIONS = {
   audioBitsPerSecond: 32_000,
 };
 const ATTENTION_EVENT_DEDUP_MS = 750;
-const MAX_SCREEN_OR_TAB_CHANGES = 5;
+const MAX_PROCTORING_VIOLATIONS = 3;
 const RULES = [
   "Your camera and microphone will be active for the entire interview",
   "You must remain in fullscreen mode at all times",
-  "Switching tabs or windows will be flagged and may terminate your interview",
+  "Switching tabs, windows, or exiting fullscreen will stop your interview after 3 violations",
   "Copy-paste is disabled in all response fields",
   "Your face must remain visible on camera throughout",
   "Use of a second device or phone is prohibited",
   "The interview session is monitored and recorded",
 ];
+
+type ProctoringNotice = {
+  title: string;
+  message: string;
+  terminal: boolean;
+};
 
 export function InterviewExperience({ inviteToken, candidateName, jobTitle, level, questions, initialStatus }: Props) {
   const router = useRouter();
@@ -62,8 +68,12 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
   const [showFullscreenOverlay, setShowFullscreenOverlay] = useState(false);
+  const [proctoringNotice, setProctoringNotice] = useState<ProctoringNotice | null>(null);
   const fullscreenExits = useRef(0);
   const screenOrTabChanges = useRef(0);
+  const proctoringViolations = useRef(0);
+  const proctoringTerminatedRef = useRef(false);
+  const autoSubmitStartedRef = useRef(false);
   const lastAttentionEventAt = useRef(0);
 
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -111,6 +121,41 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
     },
     [inviteToken]
   );
+
+  function recordProctoringViolation(type: string, detail: string) {
+    if (proctoringTerminatedRef.current || autoSubmitStartedRef.current) return;
+
+    const nextCount = proctoringViolations.current + 1;
+    proctoringViolations.current = nextCount;
+    const remaining = Math.max(0, MAX_PROCTORING_VIOLATIONS - nextCount);
+
+    logFraud(
+      type,
+      "HIGH",
+      `${detail} (Proctoring violation ${nextCount}/${MAX_PROCTORING_VIOLATIONS})`
+    );
+
+    if (nextCount >= MAX_PROCTORING_VIOLATIONS) {
+      proctoringTerminatedRef.current = true;
+      setShowFullscreenOverlay(false);
+      setProctoringNotice({
+        title: "Interview stopped",
+        message:
+          "You have been caught leaving the interview screen multiple times. Your interview is being submitted now.",
+        terminal: true,
+      });
+      window.setTimeout(() => {
+        void handleAutoSubmit();
+      }, 1200);
+      return;
+    }
+
+    setProctoringNotice({
+      title: "You have been caught",
+      message: `Leaving the interview screen is not allowed. This is violation ${nextCount} of ${MAX_PROCTORING_VIOLATIONS}. ${remaining} more violation${remaining === 1 ? "" : "s"} will stop and submit the interview automatically.`,
+      terminal: false,
+    });
+  }
 
   const setTranscriptValue = useCallback((value: string | ((current: string) => string)) => {
     const nextValue = typeof value === "function" ? value(transcriptRef.current) : value;
@@ -384,6 +429,8 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
   }
 
   async function handleAutoSubmit() {
+    if (autoSubmitStartedRef.current) return;
+    autoSubmitStartedRef.current = true;
     clearInterval(timerRef.current!);
     if (!uploadingRef.current && phase === "interview") {
       await uploadCurrentQuestion({ restartOnFailure: false });
@@ -400,8 +447,7 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
       if (!document.fullscreenElement) {
         setShowFullscreenOverlay(true);
         fullscreenExits.current += 1;
-        logFraud("FULLSCREEN_EXIT", "HIGH", `Exit #${fullscreenExits.current}`);
-        if (fullscreenExits.current >= 3) handleAutoSubmit();
+        recordProctoringViolation("FULLSCREEN_EXIT", `Fullscreen exited #${fullscreenExits.current}`);
       } else {
         setShowFullscreenOverlay(false);
       }
@@ -420,15 +466,7 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
 
       lastAttentionEventAt.current = now;
       screenOrTabChanges.current += 1;
-      logFraud(
-        "SCREEN_OR_TAB_CHANGE",
-        "HIGH",
-        `${reason} #${screenOrTabChanges.current}`
-      );
-
-      if (screenOrTabChanges.current >= MAX_SCREEN_OR_TAB_CHANGES) {
-        handleAutoSubmit();
-      }
+      recordProctoringViolation("SCREEN_OR_TAB_CHANGE", `${reason} #${screenOrTabChanges.current}`);
     };
 
     const handleVisibility = () => {
@@ -554,14 +592,42 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
   // Interview screen
   return (
     <div className="min-h-screen bg-[#0a0e1a] flex flex-col">
+      {/* Candidate proctoring notice */}
+      {proctoringNotice && (
+        <div className="fixed inset-0 z-[60] bg-black/90 backdrop-blur-sm flex items-center justify-center px-6">
+          <div className="glass-card max-w-md w-full p-8 text-center border border-red-500/30 shadow-2xl shadow-red-950/30 animate-fade-in-up">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-500/15 text-2xl font-black text-red-300">
+              !
+            </div>
+            <h2 className="text-2xl font-bold text-red-300 mb-3">{proctoringNotice.title}</h2>
+            <p className="text-sm leading-relaxed text-slate-200 mb-6">{proctoringNotice.message}</p>
+            {proctoringNotice.terminal ? (
+              <p className="text-xs font-medium uppercase tracking-wide text-red-200/80">Submitting interview...</p>
+            ) : (
+              <button
+                onClick={() => {
+                  setProctoringNotice(null);
+                  if (!document.fullscreenElement) {
+                    void document.documentElement.requestFullscreen().catch(() => undefined);
+                  }
+                }}
+                className="btn-primary w-full py-3"
+              >
+                I Understand - Return to Interview
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Fullscreen overlay */}
-      {showFullscreenOverlay && (
+      {showFullscreenOverlay && !proctoringNotice && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center">
           <div className="glass-card p-8 max-w-sm text-center animate-fade-in-up">
-            <h2 className="text-xl font-bold text-red-400 mb-2">Fullscreen Required</h2>
-            <p className="text-slate-400 mb-4">Please return to fullscreen to continue your interview.</p>
+            <h2 className="text-xl font-bold text-red-400 mb-2">Fullscreen Violation</h2>
+            <p className="text-slate-300 mb-4">You have been caught leaving fullscreen. Return now or the interview may be submitted automatically.</p>
             <button
-              onClick={() => document.documentElement.requestFullscreen()}
+              onClick={() => document.documentElement.requestFullscreen().catch(() => undefined)}
               className="btn-primary px-6 py-2"
             >
               Return to Fullscreen
@@ -581,7 +647,7 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
         <div className="flex items-center gap-4">
           {fraudCount > 0 && (
             <span className="badge bg-amber-500/15 text-amber-400 border border-amber-500/20">
-              ⚠ {fraudCount} warning{fraudCount !== 1 ? "s" : ""}
+              Warning {fraudCount}
             </span>
           )}
           <span className={`text-lg font-mono font-bold ${timeLeft < 300 ? "text-red-400" : "text-white"}`} style={timeLeft < 300 ? { textShadow: "0 0 8px rgba(248,113,113,0.5)" } : {}}>

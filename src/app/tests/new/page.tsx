@@ -36,7 +36,7 @@ const LEVELS = [
 
 const LEVEL_CHOICES = [
   ...LEVELS,
-  { value: "TRAINING", label: "TRAINING", desc: "Use your own practice questions", icon: "T" },
+  { value: "TRAINING", label: "TRAINING", desc: "Use your own practice questions", icon: "" },
 ];
 
 function AiConversationPanel({ debug }: { debug: AiDebugInfo }) {
@@ -274,7 +274,10 @@ function ScheduleTestForm() {
                         className="mt-1 accent-blue-500"
                       />
                       <div>
-                        <div className="font-medium text-sm text-white flex items-center gap-2">{l.icon} {l.label}</div>
+                        <div className="font-medium text-sm text-white flex items-center gap-2">
+                          {l.icon && <span>{l.icon}</span>}
+                          <span>{l.label}</span>
+                        </div>
                         <div className="text-xs text-slate-400 mt-0.5">{l.desc}</div>
                       </div>
                     </label>
