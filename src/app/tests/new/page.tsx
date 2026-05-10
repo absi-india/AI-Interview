@@ -165,6 +165,8 @@ function ScheduleTestForm() {
     if (!file) return;
     setExtractingTrainingFile(true);
     setError("");
+    setTrainingQuestions("");
+    setTrainingFileName("");
 
     try {
       const formData = new FormData();

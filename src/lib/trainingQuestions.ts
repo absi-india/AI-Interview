@@ -13,6 +13,15 @@ export function cleanTrainingQuestionText(value: string) {
   return value.replace(/^\s*(?:q\s*)?\d+\s*[\).:-]\s*/i, "").replace(/^\s*[-*\u2022]\s*/, "").trim();
 }
 
+function looksLikeRawPdf(value: string) {
+  return (
+    value.includes("%PDF-") ||
+    value.includes("%%EOF") ||
+    /\/Type\s*\/Page/.test(value) ||
+    /startxref\s+\d+/i.test(value)
+  );
+}
+
 export function parseTrainingQuestions(input: unknown): string[] {
   if (Array.isArray(input)) {
     return input
@@ -26,9 +35,7 @@ export function parseTrainingQuestions(input: unknown): string[] {
 
   const text = input.replace(/\r\n/g, "\n").replace(/\r/g, "\n").trim();
   if (!text) return [];
-
-  const paragraphs = text.split(/\n\s*\n+/).map(cleanTrainingQuestionText).filter(Boolean);
-  if (paragraphs.length > 1) return paragraphs.slice(0, MAX_TRAINING_QUESTIONS);
+  if (looksLikeRawPdf(text)) return [];
 
   const numberedQuestions = text
     .replace(/\s+(?=(?:q\s*)?\d+\s*[\).:-]\s+)/gi, "\n")
@@ -37,6 +44,15 @@ export function parseTrainingQuestions(input: unknown): string[] {
     .filter(Boolean);
   if (numberedQuestions.length > 1) return numberedQuestions.slice(0, MAX_TRAINING_QUESTIONS);
 
+  const paragraphs = text.split(/\n\s*\n+/).map(cleanTrainingQuestionText).filter(Boolean);
+  if (paragraphs.length > 1) return paragraphs.slice(0, MAX_TRAINING_QUESTIONS);
+
+  const questionSentences = text
+    .match(/[^?\n]+?\?/g)
+    ?.map(cleanTrainingQuestionText)
+    .filter(Boolean) ?? [];
+  if (questionSentences.length > 1) return questionSentences.slice(0, MAX_TRAINING_QUESTIONS);
+
   return text
     .split("\n")
     .map(cleanTrainingQuestionText)
@@ -44,7 +60,24 @@ export function parseTrainingQuestions(input: unknown): string[] {
     .slice(0, MAX_TRAINING_QUESTIONS);
 }
 
+async function ensurePdfRuntimeGlobals() {
+  if (
+    typeof globalThis.DOMMatrix !== "undefined" &&
+    typeof globalThis.ImageData !== "undefined" &&
+    typeof globalThis.Path2D !== "undefined"
+  ) {
+    return;
+  }
+
+  const canvas = await import("@napi-rs/canvas");
+  const globals = globalThis as Record<string, unknown>;
+  globals.DOMMatrix ??= canvas.DOMMatrix;
+  globals.ImageData ??= canvas.ImageData;
+  globals.Path2D ??= canvas.Path2D;
+}
+
 async function extractPdfText(buffer: Buffer) {
+  await ensurePdfRuntimeGlobals();
   const { PDFParse } = await import("pdf-parse");
   const parser = new PDFParse({ data: new Uint8Array(buffer) });
   try {
