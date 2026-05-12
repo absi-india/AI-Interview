@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, Suspense, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
@@ -108,6 +108,7 @@ function ScheduleTestForm() {
   const [loading, setLoading] = useState(false);
   const [debug, setDebug] = useState<AiDebugInfo | null>(null);
   const [generatedTestId, setGeneratedTestId] = useState<string | null>(null);
+  const trainingFileInputRef = useRef<HTMLInputElement>(null);
   const isTraining = level === "TRAINING";
 
   useEffect(() => {
@@ -190,6 +191,15 @@ function ScheduleTestForm() {
       setError(`${message}. Please paste the questions instead.`);
     } finally {
       setExtractingTrainingFile(false);
+    }
+  }
+
+  function clearTrainingFile() {
+    setTrainingFileName("");
+    setTrainingQuestions("");
+    setError("");
+    if (trainingFileInputRef.current) {
+      trainingFileInputRef.current.value = "";
     }
   }
 
@@ -305,6 +315,7 @@ function ScheduleTestForm() {
                     <label className="inline-flex cursor-pointer items-center justify-center rounded-lg border border-white/10 bg-slate-800/60 px-4 py-2 text-sm font-medium text-slate-200 transition-colors hover:bg-slate-700/70">
                       Upload Questions File
                       <input
+                        ref={trainingFileInputRef}
                         type="file"
                         accept=".pdf,.docx,.txt,.md,.csv,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown,text/csv"
                         onChange={(e) => handleTrainingFile(e.target.files?.[0] ?? null)}
@@ -315,7 +326,16 @@ function ScheduleTestForm() {
                       <span className="ml-3 text-xs text-cyan-300">Reading file...</span>
                     )}
                     {trainingFileName && (
-                      <span className="ml-3 text-xs text-cyan-300">Loaded {trainingFileName}</span>
+                      <span className="ml-3 inline-flex items-center gap-2 text-xs text-cyan-300">
+                        Loaded {trainingFileName}
+                        <button
+                          type="button"
+                          onClick={clearTrainingFile}
+                          className="rounded-md border border-red-400/25 bg-red-500/10 px-2 py-1 font-medium text-red-300 transition-colors hover:bg-red-500/20"
+                        >
+                          Remove
+                        </button>
+                      </span>
                     )}
                   </div>
                 </div>
