@@ -96,7 +96,7 @@ export default function ReviewQuestionsPage({
   const [regenerating, setRegenerating] = useState(false);
   const [error, setError] = useState("");
   const [inviteLink, setInviteLink] = useState("");
-  const [inviteValidityAmount, setInviteValidityAmount] = useState(7);
+  const [inviteValidityAmount, setInviteValidityAmount] = useState("7");
   const [inviteValidityUnit, setInviteValidityUnit] = useState<"minutes" | "hours" | "days">("days");
   const [debug] = useState<AiDebugInfo | null>(() => {
     if (typeof window === "undefined") return null;
@@ -130,7 +130,11 @@ export default function ReviewQuestionsPage({
     const res = await fetch(`/api/tests/${id}/approve-and-invite`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ edits, inviteValidityAmount, inviteValidityUnit }),
+      body: JSON.stringify({
+        edits,
+        inviteValidityAmount: inviteValidityAmount.trim() || "1",
+        inviteValidityUnit,
+      }),
     });
     const data = await res.json();
     setLoading(false);
@@ -286,7 +290,12 @@ export default function ReviewQuestionsPage({
                 min={1}
                 max={inviteValidityUnit === "days" ? 30 : inviteValidityUnit === "hours" ? 720 : 43200}
                 value={inviteValidityAmount}
-                onChange={(e) => setInviteValidityAmount(Math.max(1, Number(e.target.value) || 1))}
+                onChange={(e) => setInviteValidityAmount(e.target.value)}
+                onBlur={() => {
+                  if (!inviteValidityAmount.trim() || Number(inviteValidityAmount) < 1) {
+                    setInviteValidityAmount("1");
+                  }
+                }}
                 className="input-dark"
               />
             </label>
