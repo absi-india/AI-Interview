@@ -311,9 +311,8 @@ export default function LoginPage() {
                 <span className="text-xl font-black text-white tracking-tight">TIP</span>
               </div>
               <h1 className="text-2xl font-bold text-white">
-                <span className="text-gradient">TIP</span> Technical Interview Portal
+                Technical Interview Portal
               </h1>
-              <p className="text-slate-400 text-sm mt-1">Technical Interview Portal</p>
             </div>
 
             <p className="text-slate-400 mb-6 text-sm text-center">Sign in to your account</p>
