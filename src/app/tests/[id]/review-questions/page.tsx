@@ -18,6 +18,7 @@ type Test = {
   jobTitle: string;
   level: string;
   status: string;
+  inviteExpiresAt: string | null;
   candidate: { name: string };
   questions: Question[];
 };
@@ -95,6 +96,8 @@ export default function ReviewQuestionsPage({
   const [regenerating, setRegenerating] = useState(false);
   const [error, setError] = useState("");
   const [inviteLink, setInviteLink] = useState("");
+  const [inviteValidityAmount, setInviteValidityAmount] = useState(7);
+  const [inviteValidityUnit, setInviteValidityUnit] = useState<"minutes" | "hours" | "days">("days");
   const [debug] = useState<AiDebugInfo | null>(() => {
     if (typeof window === "undefined") return null;
     try {
@@ -127,7 +130,7 @@ export default function ReviewQuestionsPage({
     const res = await fetch(`/api/tests/${id}/approve-and-invite`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ edits }),
+      body: JSON.stringify({ edits, inviteValidityAmount, inviteValidityUnit }),
     });
     const data = await res.json();
     setLoading(false);
@@ -174,6 +177,9 @@ export default function ReviewQuestionsPage({
   if (!test) return <div className="p-8 text-slate-500">Loading...</div>;
 
   const isResendMode = test.status === "INVITED";
+  const currentExpiry = test.inviteExpiresAt
+    ? new Date(test.inviteExpiresAt).toLocaleString()
+    : null;
 
   const levelColors: Record<string, string> = {
     BASIC: "bg-emerald-500/15 text-emerald-300 border border-emerald-500/20",
@@ -263,6 +269,41 @@ export default function ReviewQuestionsPage({
             </a>
           </p>
         )}
+
+        <div className="mb-4 rounded-xl border border-white/10 bg-slate-900/40 p-4">
+          <div className="mb-3">
+            <h2 className="text-sm font-semibold text-white">Invite Link Validity</h2>
+            <p className="mt-1 text-xs text-slate-400">
+              Choose how long the candidate link should work after the invite is sent.
+              {currentExpiry ? ` Current invite expires: ${currentExpiry}.` : ""}
+            </p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-[120px_1fr]">
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-slate-400">Duration</span>
+              <input
+                type="number"
+                min={1}
+                max={inviteValidityUnit === "days" ? 30 : inviteValidityUnit === "hours" ? 720 : 43200}
+                value={inviteValidityAmount}
+                onChange={(e) => setInviteValidityAmount(Math.max(1, Number(e.target.value) || 1))}
+                className="input-dark"
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-slate-400">Unit</span>
+              <select
+                value={inviteValidityUnit}
+                onChange={(e) => setInviteValidityUnit(e.target.value as "minutes" | "hours" | "days")}
+                className="input-dark"
+              >
+                <option value="minutes">Minutes</option>
+                <option value="hours">Hours</option>
+                <option value="days">Days</option>
+              </select>
+            </label>
+          </div>
+        </div>
 
         <div className="flex gap-4">
           <button

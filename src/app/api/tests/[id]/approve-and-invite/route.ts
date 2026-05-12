@@ -3,6 +3,23 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { buildInviteLink, sendInterviewInvite } from "@/lib/mailer";
 
+const VALIDITY_UNIT_MS: Record<string, number> = {
+  minutes: 60 * 1000,
+  hours: 60 * 60 * 1000,
+  days: 24 * 60 * 60 * 1000,
+};
+
+function resolveInviteExpiry(body: unknown) {
+  const data = body as { inviteValidityAmount?: unknown; inviteValidityUnit?: unknown };
+  const unit = typeof data.inviteValidityUnit === "string" ? data.inviteValidityUnit : "days";
+  const unitMs = VALIDITY_UNIT_MS[unit] ?? VALIDITY_UNIT_MS.days;
+  const rawAmount = Number(data.inviteValidityAmount ?? 7);
+  const amount = Number.isFinite(rawAmount) ? Math.floor(rawAmount) : 7;
+  const safeAmount = Math.max(1, Math.min(amount, unit === "days" ? 30 : unit === "hours" ? 720 : 43200));
+
+  return new Date(Date.now() + safeAmount * unitMs);
+}
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -40,7 +57,7 @@ export async function POST(
       })
     );
 
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const expiresAt = resolveInviteExpiry(body);
     const inviteLink = buildInviteLink(test.inviteToken, req.nextUrl.origin);
 
     // Keep status in sync with invitation attempts and allow re-sending from review page.
