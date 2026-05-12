@@ -129,13 +129,13 @@ export default function RegisterPage() {
       </div>
 
       <div className="w-full max-w-md glass-card p-8 relative z-10 animate-fade-in-up">
-        {/* ABSI Branding */}
+        {/* TIP Branding */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 mb-4 shadow-lg" style={{ boxShadow: "0 8px 32px rgba(59,130,246,0.3)" }}>
-            <span className="text-2xl font-black text-white tracking-tight">A</span>
+            <span className="text-xl font-black text-white tracking-tight">TIP</span>
           </div>
           <h1 className="text-2xl font-bold text-white">Create account</h1>
-          <p className="text-slate-400 text-sm mt-1">Join the <span className="text-gradient font-semibold">ABSI</span> Interview Portal</p>
+          <p className="text-slate-400 text-sm mt-1">Join <span className="text-gradient font-semibold">TIP</span> Technical Interview Portal</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">

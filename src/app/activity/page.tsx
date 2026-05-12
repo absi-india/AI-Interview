@@ -120,10 +120,10 @@ export default async function ActivityPage({
       <nav className="nav-absi px-6 py-4 flex justify-between items-center">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-md">
-            <span className="text-sm font-black text-white">A</span>
+            <span className="text-[10px] font-black text-white">TIP</span>
           </div>
           <div>
-            <h1 className="text-base font-bold text-white leading-tight">ABSI <span className="text-slate-400 font-normal text-sm">Interview Portal</span></h1>
+            <h1 className="text-base font-bold text-white leading-tight">TIP <span className="text-slate-400 font-normal text-sm">Technical Interview Portal</span></h1>
           </div>
         </div>
         <div className="flex items-center gap-4">

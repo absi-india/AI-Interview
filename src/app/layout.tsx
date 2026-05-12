@@ -6,8 +6,8 @@ import { SessionProvider } from "./providers";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "ABSI – Technical Interview Portal",
-  description: "American Business Solutions Inc. – AI-powered technical interview platform for efficient hiring",
+  title: "TIP - Technical Interview Portal",
+  description: "TIP - AI-powered technical interview platform for efficient hiring",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

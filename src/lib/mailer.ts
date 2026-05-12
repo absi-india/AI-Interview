@@ -188,10 +188,10 @@ export async function sendTemporaryPasswordEmail(
     await getTransport().sendMail({
       from,
       to: userEmail,
-      subject: "Your Interview Portal password reset",
+      subject: "Your TIP password reset",
       text: `Hi ${userName},
 
-Your Interview Portal password has been reset.
+Your TIP Technical Interview Portal password has been reset.
 
 Temporary password:
 ${temporaryPassword}
@@ -201,7 +201,7 @@ ${domain}/login
 
 For security, sign in and ask an administrator to issue a new password if you did not request this reset.`,
       html: `<p>Hi <strong>${userName}</strong>,</p>
-<p>Your Interview Portal password has been reset.</p>
+<p>Your TIP Technical Interview Portal password has been reset.</p>
 <p>Temporary password:</p>
 <p><code style="font-size:16px;background:#f1f5f9;padding:8px 10px;border-radius:6px;display:inline-block">${temporaryPassword}</code></p>
 <p><a href="${domain}/login" style="background:#2563eb;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;display:inline-block;margin:16px 0">Sign in</a></p>

@@ -27,7 +27,7 @@ export default function CompletePage({
           Thank you! Your interview has been submitted successfully. The recruiter will review your responses and be in touch soon.
         </p>
         <div className="mt-6 pt-6 border-t border-white/5">
-          <p className="text-xs text-slate-600">Powered by <span className="text-gradient font-semibold">ABSI</span></p>
+          <p className="text-xs text-slate-600">Powered by <span className="text-gradient font-semibold">TIP</span> Technical Interview Portal</p>
         </div>
       </div>
     </div>

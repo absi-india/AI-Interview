@@ -31,13 +31,13 @@ export default async function ShareResultsPage({
     <div className="min-h-screen" style={{ background: "linear-gradient(180deg, #0f172a 0%, #1a2332 100%)" }}>
       <nav className="nav-absi px-6 py-4 flex items-center gap-3">
         <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-md">
-          <span className="text-sm font-black text-white">A</span>
+          <span className="text-[10px] font-black text-white">TIP</span>
         </div>
-        <h1 className="text-base font-bold text-white">ABSI <span className="text-slate-400 font-normal text-sm">Interview Results</span></h1>
+        <h1 className="text-base font-bold text-white">TIP <span className="text-slate-400 font-normal text-sm">Technical Interview Results</span></h1>
       </nav>
       <TestResultsClient test={JSON.parse(JSON.stringify(testForClient))} />
       <div className="text-center py-8 text-xs text-slate-600">
-        Powered by <span className="text-gradient font-semibold">ABSI</span> — American Business Solutions Inc.
+        Powered by <span className="text-gradient font-semibold">TIP</span> Technical Interview Portal
       </div>
     </div>
   );

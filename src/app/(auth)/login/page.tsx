@@ -305,15 +305,15 @@ export default function LoginPage() {
           <ForgotPasswordForm onBack={() => setShowReset(false)} />
         ) : (
           <>
-            {/* ABSI Branding */}
+            {/* TIP Branding */}
             <div className="text-center mb-8">
               <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 mb-4 shadow-lg" style={{ boxShadow: "0 8px 32px rgba(59,130,246,0.3)" }}>
-                <span className="text-2xl font-black text-white tracking-tight">A</span>
+                <span className="text-xl font-black text-white tracking-tight">TIP</span>
               </div>
               <h1 className="text-2xl font-bold text-white">
-                <span className="text-gradient">ABSI</span> Interview Portal
+                <span className="text-gradient">TIP</span> Technical Interview Portal
               </h1>
-              <p className="text-slate-400 text-sm mt-1">American Business Solutions Inc.</p>
+              <p className="text-slate-400 text-sm mt-1">Technical Interview Portal</p>
             </div>
 
             <p className="text-slate-400 mb-6 text-sm text-center">Sign in to your account</p>

@@ -76,9 +76,9 @@ export default function AdminPage() {
       <nav className="nav-absi px-6 py-4 flex justify-between items-center">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-md">
-            <span className="text-sm font-black text-white">A</span>
+            <span className="text-[10px] font-black text-white">TIP</span>
           </div>
-          <h1 className="text-base font-bold text-white">ABSI <span className="text-slate-400 font-normal text-sm">Admin Panel</span></h1>
+          <h1 className="text-base font-bold text-white">TIP <span className="text-slate-400 font-normal text-sm">Admin Panel</span></h1>
         </div>
         <Link href="/dashboard" className="text-sm text-blue-400 hover:text-blue-300 font-medium transition-colors flex items-center gap-1">
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
