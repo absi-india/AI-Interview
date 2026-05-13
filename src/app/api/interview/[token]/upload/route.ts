@@ -29,9 +29,9 @@ export async function POST(
   const videoSize = videoBlob?.size ?? 0;
 
   if (!questionId) return NextResponse.json({ error: "questionId required" }, { status: 400 });
-  if (!transcriptText && !codeText && videoSize <= 0) {
-    console.warn("[interview/upload] Empty response rejected", { token, questionId });
-    return NextResponse.json({ error: "No transcript, written response, or recording was received" }, { status: 400 });
+  if (videoSize <= 0) {
+    console.warn("[interview/upload] Missing recording rejected", { token, questionId });
+    return NextResponse.json({ error: "No video recording was received" }, { status: 400 });
   }
 
   const question = await prisma.question.findUnique({ where: { id: questionId } });

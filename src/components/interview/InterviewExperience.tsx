@@ -368,9 +368,15 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
       const cleanTranscript = [speechTranscript, typedResponse].filter(Boolean).join("\n\n").trim();
       const cleanCodeResponse = codeResponse.trim();
 
+      if (!blob) {
+        setUploadError("Video recording was not captured. Keep camera and microphone allowed, stay on this screen, and retry before moving ahead.");
+        if (restartOnFailure) startRecordingForQuestion({ resetAnswer: false });
+        return false;
+      }
+
       if (!cleanTranscript && !cleanCodeResponse) {
         setUploadError("No answer text was captured for this question. Please speak until text appears below, or type your answer before moving ahead.");
-        if (restartOnFailure) startRecordingForQuestion();
+        if (restartOnFailure) startRecordingForQuestion({ resetAnswer: false });
         return false;
       }
 
@@ -378,7 +384,7 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
       formData.append("questionId", q.id);
       if (cleanTranscript) formData.append("transcript", cleanTranscript);
       if (cleanCodeResponse) formData.append("codeResponse", cleanCodeResponse);
-      if (blob) formData.append("video", blob, `${q.id}.webm`);
+      formData.append("video", blob, `${q.id}.webm`);
 
       const response = await fetch(`/api/interview/${inviteToken}/upload`, { method: "POST", body: formData });
       if (!response.ok) {
@@ -433,7 +439,11 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
     autoSubmitStartedRef.current = true;
     clearInterval(timerRef.current!);
     if (!uploadingRef.current && phase === "interview") {
-      await uploadCurrentQuestion({ restartOnFailure: false });
+      const uploaded = await uploadCurrentQuestion({ restartOnFailure: true });
+      if (!uploaded) {
+        autoSubmitStartedRef.current = false;
+        return;
+      }
     } else {
       await stopRecording();
     }
