@@ -159,8 +159,8 @@ function isGeminiConfigOrAuthError(err: unknown): boolean {
   );
 }
 
-function extractKeywords(jobDescription: string, resumeContext = ""): string[] {
-  const text = `${jobDescription} ${resumeContext}`.toLowerCase();
+function extractKeywords(jobDescription: string): string[] {
+  const text = jobDescription.toLowerCase();
   const phraseMatches = DOMAIN_PHRASES.filter((phrase) => text.includes(phrase));
   const tokens = text.match(/[a-z0-9+#./-]{2,}/g) ?? [];
   const seen = new Set<string>();
@@ -305,10 +305,9 @@ function buildFallbackSummary(level: string, topic: string, category: string) {
 function fallbackQuestions(
   level: string,
   jobDescription: string,
-  resumeContext = "",
   avoidQuestions: string[] = []
 ): GeneratedQuestion[] {
-  const keywords = extractKeywords(jobDescription, resumeContext);
+  const keywords = extractKeywords(jobDescription);
   const categories = [
     "fundamentals",
     "problem-solving",
@@ -358,15 +357,14 @@ function normalizeQuestions(
   parsed: unknown,
   level: string,
   jobDescription: string,
-  resumeContext = "",
   avoidQuestions: string[] = []
 ): GeneratedQuestion[] {
   if (!Array.isArray(parsed) || parsed.length === 0) {
-    return fallbackQuestions(level, jobDescription, resumeContext, avoidQuestions);
+    return fallbackQuestions(level, jobDescription, avoidQuestions);
   }
 
   const languageHint = level === "PRACTICAL" ? inferLanguageHint(jobDescription) : null;
-  const fallback = fallbackQuestions(level, jobDescription, resumeContext, avoidQuestions);
+  const fallback = fallbackQuestions(level, jobDescription, avoidQuestions);
 
   const normalized: GeneratedQuestion[] = [];
   const usedQuestions = [...avoidQuestions];
@@ -438,7 +436,6 @@ export async function generateQuestions(
   level: string,
   _jobTitle: string,
   jobDescription: string,
-  resumeContext = "",
   avoidQuestions: string[] = []
 ): Promise<GenerateQuestionsResult> {
   const previousQuestionsText =
@@ -447,7 +444,7 @@ export async function generateQuestions(
       : "None";
 
   const systemPrompt = `You are a senior technical interviewer. Generate exactly 10 interview questions
-using only the job description, candidate resume context, and interview level below.
+using only the job description and interview level below.
 
 Interview Levels:
 - BASIC: Definitions, fundamentals, conceptual understanding
@@ -464,18 +461,18 @@ Rules:
 - Vary categories: fundamentals, problem-solving, system design, best practices, past experience
 - Vary the question format. Do not repeat the same opening phrase or sentence structure.
 - Use a mix of explanation, debugging, design, testing, security, performance, past-project, and trade-off questions.
-- Questions must be directly relevant to the JD's technologies, responsibilities, deliverables, workflows, and required skills
+- Questions must be directly relevant to the JD's technologies, responsibilities, deliverables, workflows, and required skills.
+- Treat the JD as the only source of truth for topics, tools, domain, business processes, and required skills.
+- Do not use candidate resume skills, past projects, employers, keywords, or uploaded resume text when choosing question topics.
 - Do not use the job title as a source for question topics, technologies, domain, seniority, or responsibilities
-- If resume context is provided, prioritize the overlap between the candidate resume and the JD
-- If resume context is provided, at least 6 questions should combine a JD requirement with something from the resume
-- If the resume shows a gap against the JD, ask targeted questions that verify the missing or weak area
-- If no resume context is provided, generate questions from the JD only
-- Do not invent resume experience; only use details present in the resume context
-- If previous questions are provided, do not repeat or lightly rephrase them; generate new angles, scenarios, constraints, and evaluation points`;
+- Do not ask about technologies, tools, or workflows unless they appear in the JD.
+- Past-experience questions are allowed, but they must ask about JD responsibilities, not resume-specific experience.
+- If previous questions are provided, do not repeat or lightly rephrase them; generate new angles, scenarios, constraints, and evaluation points.
+- Avoid generic filler questions when the JD provides specific responsibilities or tools.`;
 
   const userPrompt = `Interview Level: ${level}
 Job Description: ${jobDescription}
-Candidate Resume Context: ${resumeContext || "No resume context provided"}
+Candidate Resume Context: intentionally excluded. Generate from the JD only.
 Previous Questions To Avoid:
 ${previousQuestionsText}`;
 
@@ -483,7 +480,7 @@ ${previousQuestionsText}`;
     const rawResponse = await callGemini(systemPrompt, userPrompt);
     const cleaned = rawResponse.replace(/```json\n?|\n?```/g, "").trim();
     const parsed = JSON.parse(cleaned);
-    const questions = normalizeQuestions(parsed, level, jobDescription, resumeContext, avoidQuestions);
+    const questions = normalizeQuestions(parsed, level, jobDescription, avoidQuestions);
 
     return {
       questions,
@@ -494,7 +491,7 @@ ${previousQuestionsText}`;
       throw err;
     }
 
-    const questions = fallbackQuestions(level, jobDescription, resumeContext, avoidQuestions);
+    const questions = fallbackQuestions(level, jobDescription, avoidQuestions);
     const reason = err instanceof Error ? err.message : "Gemini unavailable";
 
     return {

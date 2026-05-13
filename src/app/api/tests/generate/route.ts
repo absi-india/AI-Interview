@@ -69,21 +69,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ testId: test.id }, { status: 201 });
     }
 
-    const [{ generateQuestions }, { getResumeContext }] = await Promise.all([
-      import("@/lib/claude"),
-      import("@/lib/resumeContext"),
-    ]);
-
-    const resumeContext = await getResumeContext(candidate.resumeUrl);
+    const { generateQuestions } = await import("@/lib/claude");
 
     console.info("[tests/generate] Generating questions", {
       candidateId,
       level,
       jobTitle,
-      hasResumeContext: Boolean(resumeContext),
+      source: "job-description-only",
     });
 
-    const result = await generateQuestions(level, jobTitle, jobDescription, resumeContext);
+    const result = await generateQuestions(level, jobTitle, jobDescription);
 
     const test = await prisma.test.create({
       data: {

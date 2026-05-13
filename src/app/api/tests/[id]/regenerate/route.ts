@@ -8,11 +8,10 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const [{ auth }, { prisma }, { generateQuestions }, { getResumeContext }] = await Promise.all([
+    const [{ auth }, { prisma }, { generateQuestions }] = await Promise.all([
       import("@/auth"),
       import("@/lib/prisma"),
       import("@/lib/claude"),
-      import("@/lib/resumeContext"),
     ]);
 
     const session = await auth();
@@ -22,7 +21,6 @@ export async function POST(
     const test = await prisma.test.findUnique({
       where: { id },
       include: {
-        candidate: { select: { resumeUrl: true } },
         questions: { orderBy: { order: "asc" }, select: { questionText: true } },
       },
     });
@@ -35,13 +33,11 @@ export async function POST(
       return NextResponse.json({ error: "Cannot regenerate after approval" }, { status: 400 });
     }
 
-    const resumeContext = await getResumeContext(test.candidate.resumeUrl);
     const previousQuestions = test.questions.map((question) => question.questionText);
     const result = await generateQuestions(
       test.level,
       test.jobTitle,
       test.jobDescription,
-      resumeContext,
       previousQuestions
     );
 
