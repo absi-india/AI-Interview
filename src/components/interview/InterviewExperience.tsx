@@ -25,6 +25,8 @@ type Props = {
 
 const TOTAL_SECONDS = 30 * 60; // 30-minute limit
 const RECORDER_MIME_TYPES = [
+  "video/mp4;codecs=h264,aac",
+  "video/mp4",
   "video/webm;codecs=vp9,opus",
   "video/webm;codecs=vp8,opus",
   "video/webm",
@@ -45,11 +47,28 @@ const RULES = [
   "The interview session is monitored and recorded",
 ];
 
+const MOBILE_RULES = [
+  "Your camera and microphone will be active for the entire interview",
+  "Keep this interview tab open and visible until you submit",
+  "Switching apps or leaving the interview page may be recorded as an integrity event",
+  "Copy-paste is disabled in all response fields",
+  "Your face must remain visible on camera throughout",
+  "Use a stable connection and keep the phone unlocked during the interview",
+  "The interview session is monitored and recorded",
+];
+
 type ProctoringNotice = {
   title: string;
   message: string;
   terminal: boolean;
 };
+
+function detectMobileInterview() {
+  if (typeof window === "undefined") return false;
+  const coarsePointer = window.matchMedia?.("(pointer: coarse)").matches ?? false;
+  const mobileUserAgent = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+  return mobileUserAgent || (coarsePointer && navigator.maxTouchPoints > 0);
+}
 
 export function InterviewExperience({ inviteToken, candidateName, jobTitle, level, questions, initialStatus }: Props) {
   const router = useRouter();
@@ -70,6 +89,7 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
   const [uploadError, setUploadError] = useState("");
   const [showFullscreenOverlay, setShowFullscreenOverlay] = useState(false);
   const [proctoringNotice, setProctoringNotice] = useState<ProctoringNotice | null>(null);
+  const [isMobileInterview, setIsMobileInterview] = useState(false);
   const fullscreenExits = useRef(0);
   const screenOrTabChanges = useRef(0);
   const proctoringViolations = useRef(0);
@@ -90,6 +110,13 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const questionStartedAtSecondsLeft = useRef<number>(TOTAL_SECONDS);
   const uploadingRef = useRef(false);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setIsMobileInterview(detectMobileInterview());
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   const attachPreviewStream = useCallback(() => {
     const stream = streamRef.current;
@@ -238,6 +265,7 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
+          facingMode: "user",
           width: { ideal: 640, max: 960 },
           height: { ideal: 360, max: 540 },
           frameRate: { ideal: 15, max: 20 },
@@ -271,7 +299,9 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
 
   async function beginInterview() {
     await fetch(`/api/interview/${inviteToken}/start`, { method: "POST" });
-    try { await document.documentElement.requestFullscreen(); } catch { /* ignore */ }
+    if (!isMobileInterview && document.documentElement.requestFullscreen) {
+      try { await document.documentElement.requestFullscreen(); } catch { /* ignore */ }
+    }
     setPhase("interview");
     startTimer();
     startRecordingForQuestion();
@@ -306,6 +336,10 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
     questionStartedAtSecondsLeft.current = timeLeft;
 
     try {
+      if (!("MediaRecorder" in window)) {
+        setUploadError("Recording is not available in this browser. Please use the latest Chrome, Edge, or Safari.");
+        return;
+      }
       const mimeType = RECORDER_MIME_TYPES.find((type) => MediaRecorder.isTypeSupported(type));
       const recorder = new MediaRecorder(
         streamRef.current,
@@ -318,7 +352,7 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
       recorder.start(1000);
       recorderRef.current = recorder;
     } catch {
-      setUploadError("Recording is not available in this browser. Please use the latest Chrome or Edge.");
+      setUploadError("Recording is not available in this browser. Please use the latest Chrome, Edge, or Safari.");
     }
 
     startSpeechRecognition();
@@ -344,7 +378,8 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
         return;
       }
       recorderRef.current.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: "video/webm" });
+        const type = recorderRef.current?.mimeType || chunksRef.current[0]?.type || "video/webm";
+        const blob = new Blob(chunksRef.current, { type });
         resolve(blob.size > 0 ? blob : null);
       };
       try {
@@ -385,7 +420,8 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
       formData.append("questionId", q.id);
       if (cleanTranscript) formData.append("transcript", cleanTranscript);
       if (cleanCodeResponse) formData.append("codeResponse", cleanCodeResponse);
-      formData.append("video", blob, `${q.id}.webm`);
+      const extension = blob.type.includes("mp4") ? "mp4" : "webm";
+      formData.append("video", blob, `${q.id}.${extension}`);
 
       const response = await fetch(`/api/interview/${inviteToken}/upload`, { method: "POST", body: formData });
       if (!response.ok) {
@@ -454,6 +490,7 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
   // Fullscreen enforcement
   useEffect(() => {
     if (phase !== "interview") return;
+    if (isMobileInterview) return;
     const handleFsChange = () => {
       if (!document.fullscreenElement) {
         setShowFullscreenOverlay(true);
@@ -466,7 +503,7 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
     document.addEventListener("fullscreenchange", handleFsChange);
     return () => document.removeEventListener("fullscreenchange", handleFsChange);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase]);
+  }, [phase, isMobileInterview]);
 
   // Tab/window/screen-change detection
   useEffect(() => {
@@ -477,6 +514,10 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
 
       lastAttentionEventAt.current = now;
       screenOrTabChanges.current += 1;
+      if (isMobileInterview) {
+        logFraud("SCREEN_OR_TAB_CHANGE", "LOW", `${reason} on mobile #${screenOrTabChanges.current}`);
+        return;
+      }
       recordProctoringViolation("SCREEN_OR_TAB_CHANGE", `${reason} #${screenOrTabChanges.current}`);
     };
 
@@ -493,15 +534,15 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
     };
 
     document.addEventListener("visibilitychange", handleVisibility);
-    window.addEventListener("blur", handleBlur);
+    if (!isMobileInterview) window.addEventListener("blur", handleBlur);
     window.addEventListener("pagehide", handlePageHide);
     return () => {
       document.removeEventListener("visibilitychange", handleVisibility);
-      window.removeEventListener("blur", handleBlur);
+      if (!isMobileInterview) window.removeEventListener("blur", handleBlur);
       window.removeEventListener("pagehide", handlePageHide);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase]);
+  }, [phase, isMobileInterview]);
 
   // Copy-paste prevention
   useEffect(() => {
@@ -527,6 +568,7 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
       ? "Camera access is blocked because this page is opened on a Not secure HTTP address. Use http://localhost:3000 on this laptop, or an HTTPS ngrok/cloudflared invite link for other devices."
       : "";
   const visibleCameraError = cameraError || insecureCameraMessage;
+  const interviewRules = isMobileInterview ? MOBILE_RULES : RULES;
 
   // Pre-checks screen
   if (phase === "prechecks") {
@@ -545,7 +587,7 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
           <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-5 mb-6">
             <h2 className="font-semibold text-amber-300 mb-3">Interview Rules</h2>
             <ul className="space-y-2">
-              {RULES.map((r) => (
+              {interviewRules.map((r) => (
                 <li key={r} className="flex items-start gap-2 text-sm text-amber-200/80">
                   <span className="mt-0.5 text-amber-400">•</span><span>{r}</span>
                 </li>

@@ -27,6 +27,8 @@ export async function POST(
   const transcriptText = transcript?.trim() ?? "";
   const codeText = codeResponse?.trim() ?? "";
   const videoSize = videoBlob?.size ?? 0;
+  const recordingContentType = videoBlob?.type || "video/webm";
+  const recordingExtension = recordingContentType.includes("mp4") ? "mp4" : "webm";
 
   if (!questionId) return NextResponse.json({ error: "questionId required" }, { status: 400 });
   if (videoSize <= 0) {
@@ -43,7 +45,7 @@ export async function POST(
   if (videoBlob && videoSize > 0) {
     const buffer = Buffer.from(await videoBlob.arrayBuffer());
     try {
-      const objectKey = await uploadRecording(test.id, questionId, buffer);
+      const objectKey = await uploadRecording(test.id, questionId, buffer, recordingExtension, recordingContentType);
       videoUrl = createRecordingMinioRef(objectKey);
     } catch (err) {
       console.warn("[interview/upload] Object storage unavailable; saving recording fallback", err);
@@ -53,17 +55,17 @@ export async function POST(
         const stored = await prisma.storedFile.create({
           data: {
             kind: "recording",
-            fileName: `${questionId}.webm`,
-            contentType: "video/webm",
+            fileName: `${questionId}.${recordingExtension}`,
+            contentType: recordingContentType,
             data: buffer,
           },
         });
         videoUrl = createRecordingDbRef(stored.id);
       } else {
-        const relativePublicPath = `/uploads/recordings/${test.id}/${questionId}.webm`;
+        const relativePublicPath = `/uploads/recordings/${test.id}/${questionId}.${recordingExtension}`;
         const absoluteDir = path.join(process.cwd(), "public", "uploads", "recordings", test.id);
         await mkdir(absoluteDir, { recursive: true });
-        await writeFile(path.join(absoluteDir, `${questionId}.webm`), buffer);
+        await writeFile(path.join(absoluteDir, `${questionId}.${recordingExtension}`), buffer);
         videoUrl = createRecordingLocalRef(relativePublicPath);
       }
     }

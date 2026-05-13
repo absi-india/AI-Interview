@@ -63,10 +63,13 @@ export async function deleteFile(bucket: string, objectName: string): Promise<vo
 export async function uploadRecording(
   testId: string,
   questionId: string,
-  buffer: Buffer
+  buffer: Buffer,
+  extension = "webm",
+  contentType = "video/webm"
 ): Promise<string> {
-  const key = `${testId}/${questionId}.webm`;
-  await uploadFile(BUCKET_RECORDINGS, key, buffer, "video/webm");
+  const safeExtension = extension.replace(/[^a-z0-9]/gi, "").toLowerCase() || "webm";
+  const key = `${testId}/${questionId}.${safeExtension}`;
+  await uploadFile(BUCKET_RECORDINGS, key, buffer, contentType);
   return key;
 }
 

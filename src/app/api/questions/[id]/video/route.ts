@@ -38,7 +38,7 @@ export async function GET(
     return new NextResponse(buffer, {
       headers: {
         "Content-Length": buffer.byteLength.toString(),
-        "Content-Type": "video/webm",
+        "Content-Type": ref.objectKey.endsWith(".mp4") ? "video/mp4" : "video/webm",
       },
     });
   }
