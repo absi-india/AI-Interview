@@ -136,6 +136,11 @@ body {
   color: #64748b;
 }
 
+.input-search {
+  padding-left: 2.75rem;
+  padding-right: 2.75rem;
+}
+
 /* ─── Status Badges ─── */
 .badge {
   display: inline-flex;

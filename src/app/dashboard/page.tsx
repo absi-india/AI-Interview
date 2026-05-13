@@ -128,7 +128,7 @@ export default async function DashboardPage({
               name="q"
               defaultValue={searchQuery}
               placeholder="Search candidates by name, email, or +1 phone"
-              className="input-dark pl-10"
+              className="input-dark input-search"
             />
           </div>
           <div className="flex gap-2">
