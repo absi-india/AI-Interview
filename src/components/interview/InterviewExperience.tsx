@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
+import { BrandLogo } from "@/components/BrandLogo";
 
 const CodeEditor = dynamic(() => import("./CodeEditor"), { ssr: false });
 
@@ -532,13 +533,11 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
     return (
       <div className="min-h-screen flex items-center justify-center p-6" style={{ background: "linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)" }}>
         <div className="glass-card max-w-2xl w-full p-8 animate-fade-in-up">
-          {/* TIP Branding */}
+          {/* Branding */}
           <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg">
-              <span className="text-xs font-black text-white">TIP</span>
-            </div>
+            <BrandLogo size="sm" />
             <div>
-              <h1 className="text-2xl font-bold text-white">TIP Technical Interview Portal</h1>
+              <h1 className="text-2xl font-bold text-white">Technical Interview Portal</h1>
               <p className="text-slate-400 text-sm">{candidateName} — {jobTitle} ({level})</p>
             </div>
           </div>
@@ -649,9 +648,7 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
       {/* Top bar */}
       <div className="bg-[#0f1629] border-b border-white/5 text-white px-6 py-3 flex justify-between items-center">
         <div className="flex items-center gap-3">
-          <div className="w-6 h-6 rounded bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
-            <span className="text-[8px] font-black text-white">TIP</span>
-          </div>
+          <BrandLogo size="sm" className="scale-75 origin-left" />
           <span className="text-sm font-medium">Question {currentIdx + 1} of {questions.length}</span>
         </div>
         <div className="flex items-center gap-4">

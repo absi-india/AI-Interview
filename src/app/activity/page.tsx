@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { buildAppDomain } from "@/lib/mailer";
 import { CopyLinkButton } from "@/components/CopyLinkButton";
 import { SignOutButton } from "@/components/SignOutButton";
+import { BrandLogo } from "@/components/BrandLogo";
 import { headers } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -119,12 +120,7 @@ export default async function ActivityPage({
     <div className="min-h-screen" style={{ background: "linear-gradient(180deg, #0f172a 0%, #1a2332 100%)" }}>
       <nav className="nav-absi px-6 py-4 flex justify-between items-center">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-md">
-            <span className="text-[10px] font-black text-white">TIP</span>
-          </div>
-          <div>
-            <h1 className="text-base font-bold text-white leading-tight">TIP <span className="text-slate-400 font-normal text-sm">Technical Interview Portal</span></h1>
-          </div>
+          <BrandLogo size="sm" />
         </div>
         <div className="flex items-center gap-4">
           <Link href="/dashboard" className="text-sm text-slate-400 hover:text-blue-300 font-medium transition-colors">Candidates</Link>

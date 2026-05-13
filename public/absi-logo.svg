@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 86" role="img" aria-labelledby="title desc">
+  <title id="title">American Business Solutions, Inc.</title>
+  <desc id="desc">American Business Solutions, Inc. logo with orange sunrise and tagline.</desc>
+  <rect width="220" height="86" fill="#ffffff"/>
+  <text x="0" y="18" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700" fill="#273c7c">American</text>
+  <text x="43" y="40" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700" fill="#273c7c">Business</text>
+  <text x="83" y="62" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700" fill="#273c7c">Solutions,Inc.</text>
+  <path d="M161 43a17 17 0 0 1 31 10h-9a8 8 0 0 0-15-4z" fill="#f36f21"/>
+  <text x="23" y="80" font-family="Arial, Helvetica, sans-serif" font-size="12" font-style="italic" font-weight="700" fill="#f36f21">Partnership Is Our Service Philosophy</text>
+  <text x="206" y="80" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="700" fill="#f36f21">TM</text>
+</svg>
