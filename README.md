@@ -126,18 +126,21 @@ Localhost and ngrok use separate browser cookies, so you may need to log in sepa
 - If you see `ERR_NGROK_121`, update ngrok and run `ngrok version`; it must be `3.20.0` or newer.
 - For this project, run `ngrok http 3000`, not `ngrok http 80`.
 
-## Gemini API
+## AI API
 
-Get a free Gemini API key from:
+OpenAI is the primary AI provider. Create an API key from:
 
 ```text
-https://aistudio.google.com/app/apikey
+https://platform.openai.com/api-keys
 ```
 
 Put it in `.env`:
 
 ```env
-GEMINI_API_KEY="your-key-here"
+OPENAI_API_KEY="your-key-here"
+OPENAI_MODEL="gpt-4.1-mini"
 ```
+
+Gemini can still be used as a fallback provider by setting `GEMINI_API_KEY`.
 
 Restart the app after changing `.env`.

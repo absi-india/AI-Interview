@@ -6,7 +6,8 @@ This app is designed to run on:
 |---|---|---|
 | Vercel | Next.js hosting and cron | Use native GitHub integration |
 | Turso | Hosted SQLite/LibSQL database | Required for production |
-| Google Gemini | AI question generation and scoring | Required for AI features |
+| OpenAI | AI question generation and scoring | Required for AI features |
+| Google Gemini | Fallback AI question generation and scoring | Optional |
 | Cloudflare R2 or MinIO-compatible storage | Candidate recordings and resumes | Recommended for production |
 | Resend SMTP | Email delivery | Optional |
 | Upstash Redis | Instant rating queue | Optional; cron can handle rating |
@@ -25,7 +26,16 @@ libsql://interview-portal-yourname.turso.io
 
 4. Create/copy a database auth token.
 
+### OpenAI API Key
+
+1. Go to `https://platform.openai.com/api-keys`.
+2. Create an API key.
+3. Save it as `OPENAI_API_KEY`.
+4. Optionally set `OPENAI_MODEL` to override the default `gpt-4.1-mini`.
+
 ### Gemini API Key
+
+Gemini remains available as a fallback provider.
 
 1. Go to `https://aistudio.google.com/app/apikey`.
 2. Create an API key.
@@ -57,7 +67,9 @@ Required:
 | `NEXTAUTH_URL` | Your Vercel URL, e.g. `https://your-app.vercel.app` |
 | `AUTH_TRUST_HOST` | `true` |
 | `APP_DOMAIN` | Same public app URL |
-| `GEMINI_API_KEY` | Gemini API key |
+| `OPENAI_API_KEY` | OpenAI API key |
+| `OPENAI_MODEL` | Optional; defaults to `gpt-4.1-mini` |
+| `GEMINI_API_KEY` | Optional Gemini fallback API key |
 | `CRON_SECRET` | Strong random string |
 | `COMPANY_NAME` | Your company name |
 

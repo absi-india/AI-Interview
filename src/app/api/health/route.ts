@@ -66,17 +66,17 @@ function checkFirebase(): Check {
 }
 
 function checkAI(): Check {
+  const openai = process.env.OPENAI_API_KEY;
   const gemini = process.env.GEMINI_API_KEY;
-  const anthropic = process.env.ANTHROPIC_API_KEY;
 
-  if (!gemini && !anthropic) {
+  if (!openai && !gemini) {
     if (isProduction) {
-      return { ok: false, message: "No AI API key set (GEMINI_API_KEY or ANTHROPIC_API_KEY)" };
+      return { ok: false, message: "No AI API key set (OPENAI_API_KEY or GEMINI_API_KEY)" };
     }
     return { ok: true, message: "Optional in local dev (AI features disabled until configured)" };
   }
 
-  const provider = anthropic ? "Anthropic" : "Gemini";
+  const provider = openai ? "OpenAI" : "Gemini";
   return { ok: true, message: `${provider} key present` };
 }
 
