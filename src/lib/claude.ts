@@ -1,9 +1,6 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import OpenAI from "openai";
 import pRetry from "p-retry";
 
-const OPENAI_MODEL = process.env.OPENAI_MODEL?.trim() || "gpt-4.1-mini";
-const OPENAI_TIMEOUT_MS = 15000;
 const GEMINI_MODEL = process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash";
 const GEMINI_TIMEOUT_MS = 15000;
 
@@ -113,24 +110,6 @@ const DOMAIN_PHRASES = [
   "mmis",
 ];
 
-type AiProvider = "OpenAI" | "Gemini";
-
-interface AiProviderResponse {
-  provider: AiProvider;
-  text: string;
-}
-
-function getOpenAIApiKey(): string | null {
-  const key = process.env.OPENAI_API_KEY?.trim();
-  if (!key) return null;
-
-  if (key.includes("...")) return null;
-  if (key.toLowerCase().includes("your-")) return null;
-  if (key.toLowerCase().includes("replace")) return null;
-
-  return key;
-}
-
 function getGeminiApiKey(): string | null {
   const key = process.env.GEMINI_API_KEY?.trim();
   if (!key) return null;
@@ -141,31 +120,6 @@ function getGeminiApiKey(): string | null {
   if (key.toLowerCase().includes("replace")) return null;
 
   return key;
-}
-
-function errorMessage(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
-}
-
-async function callOpenAI(system: string, user: string): Promise<string> {
-  const apiKey = getOpenAIApiKey();
-  if (!apiKey) throw new Error("OPENAI_NOT_CONFIGURED");
-
-  const client = new OpenAI({ apiKey, timeout: OPENAI_TIMEOUT_MS });
-
-  return pRetry(
-    async () => {
-      const response = await client.responses.create({
-        model: OPENAI_MODEL,
-        instructions: system,
-        input: user,
-      });
-      const text = response.output_text?.trim();
-      if (!text) throw new Error("OPENAI_EMPTY_RESPONSE");
-      return text;
-    },
-    { retries: 1, minTimeout: 500, factor: 2 }
-  );
 }
 
 async function callGemini(system: string, user: string): Promise<string> {
@@ -187,77 +141,21 @@ async function callGemini(system: string, user: string): Promise<string> {
   );
 }
 
-async function callAI(system: string, user: string): Promise<AiProviderResponse> {
-  let openAIError: unknown = null;
-
-  try {
-    return { provider: "OpenAI", text: await callOpenAI(system, user) };
-  } catch (err: unknown) {
-    openAIError = err;
-    if (getOpenAIApiKey()) {
-      console.warn("[callAI] OpenAI unavailable; trying Gemini fallback", { reason: errorMessage(err) });
-    }
-  }
-
-  try {
-    return { provider: "Gemini", text: await callGemini(system, user) };
-  } catch (geminiError: unknown) {
-    throw new Error(
-      `AI_PROVIDER_UNAVAILABLE: OpenAI: ${errorMessage(openAIError)} | Gemini: ${errorMessage(geminiError)}`
-    );
-  }
-}
-
-async function callAIWithPreferredProvider(
-  system: string,
-  user: string,
-  preferredProvider: AiProvider
-): Promise<AiProviderResponse> {
-  if (preferredProvider === "OpenAI") {
-    return callAI(system, user);
-  }
-
-  let geminiError: unknown = null;
-
-  try {
-    return { provider: "Gemini", text: await callGemini(system, user) };
-  } catch (err: unknown) {
-    geminiError = err;
-    if (getGeminiApiKey()) {
-      console.warn("[callAI] Gemini unavailable; trying OpenAI fallback", { reason: errorMessage(err) });
-    }
-  }
-
-  try {
-    return { provider: "OpenAI", text: await callOpenAI(system, user) };
-  } catch (openAIError: unknown) {
-    throw new Error(
-      `AI_PROVIDER_UNAVAILABLE: Gemini: ${errorMessage(geminiError)} | OpenAI: ${errorMessage(openAIError)}`
-    );
-  }
-}
-
-function isAIProviderUnavailableError(err: unknown): boolean {
+function isGeminiConfigOrAuthError(err: unknown): boolean {
   if (!(err instanceof Error)) return false;
   const message = err.message.toLowerCase();
   return (
-    message.includes("ai_provider_unavailable") ||
-    message.includes("openai_not_configured") ||
     message.includes("gemini_not_configured") ||
     message.includes("api key") ||
-    message.includes("401") ||
     message.includes("403") ||
     message.includes("404") ||
-    message.includes("429") ||
     message.includes("not found") ||
     message.includes("not supported") ||
     message.includes("aborted") ||
     message.includes("timeout") ||
-    message.includes("rate limit") ||
     message.includes("permission_denied") ||
     message.includes("unregistered callers") ||
-    message.includes("googlegenerativeai error") ||
-    message.includes("openai")
+    message.includes("googlegenerativeai error")
   );
 }
 
@@ -579,30 +477,29 @@ Previous Questions To Avoid:
 ${previousQuestionsText}`;
 
   try {
-    const aiResponse = await callAI(systemPrompt, userPrompt);
-    const rawResponse = aiResponse.text;
+    const rawResponse = await callGemini(systemPrompt, userPrompt);
     const cleaned = rawResponse.replace(/```json\n?|\n?```/g, "").trim();
     const parsed = JSON.parse(cleaned);
     const questions = normalizeQuestions(parsed, level, jobDescription, avoidQuestions);
 
     return {
       questions,
-      debug: { systemPrompt, userPrompt, rawResponse: `[${aiResponse.provider}]\n${rawResponse}` },
+      debug: { systemPrompt, userPrompt, rawResponse },
     };
   } catch (err: unknown) {
-    if (!isAIProviderUnavailableError(err)) {
+    if (!isGeminiConfigOrAuthError(err)) {
       throw err;
     }
 
     const questions = fallbackQuestions(level, jobDescription, avoidQuestions);
-    const reason = err instanceof Error ? err.message : "AI provider unavailable";
+    const reason = err instanceof Error ? err.message : "Gemini unavailable";
 
     return {
       questions,
       debug: {
         systemPrompt,
         userPrompt,
-        rawResponse: `Fallback question generation used because AI providers were unavailable.\nReason: ${reason}`,
+        rawResponse: `Fallback question generation used because Gemini was unavailable.\nReason: ${reason}`,
       },
     };
   }
@@ -727,7 +624,7 @@ Candidate's Code/Written Response: ${codeResponse ?? "N/A"}
 Interview Level: ${level}`;
 
   try {
-    const { text: raw } = await callAIWithPreferredProvider(system, user, "Gemini");
+    const raw = await callGemini(system, user);
     const cleaned = raw.replace(/```json\n?|\n?```/g, "").trim();
     const parsed = JSON.parse(cleaned) as Partial<RatingResult>;
 
@@ -740,8 +637,8 @@ Interview Level: ${level}`;
       rationale: parsed.rationale,
     };
   } catch (err: unknown) {
-    if (isAIProviderUnavailableError(err)) {
-      console.warn("[rateAnswer] AI provider unavailable; using fallback rating", {
+    if (isGeminiConfigOrAuthError(err)) {
+      console.warn("[rateAnswer] Gemini unavailable; using fallback rating", {
         reason: err instanceof Error ? err.message : String(err),
         transcriptLength: transcript?.length ?? 0,
         codeLength: codeResponse?.length ?? 0,
