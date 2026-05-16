@@ -2,7 +2,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import pRetry from "p-retry";
 
 const GEMINI_MODEL = process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash";
-const GEMINI_TIMEOUT_MS = 15000;
+const GEMINI_TIMEOUT_MS = 8000;
 
 const STOP_WORDS = new Set([
   "a",
@@ -137,7 +137,7 @@ async function callGemini(system: string, user: string): Promise<string> {
       const result = await model.generateContent(user, { timeout: GEMINI_TIMEOUT_MS });
       return result.response.text();
     },
-    { retries: 1, minTimeout: 500, factor: 2 }
+    { retries: 0 }
   );
 }
 
