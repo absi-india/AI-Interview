@@ -36,6 +36,30 @@ function getTransport() {
   });
 }
 
+function getDefaultFrom() {
+  return process.env.SMTP_FROM ?? "Interview Platform <noreply@example.com>";
+}
+
+function getDefaultFromAddress() {
+  const from = getDefaultFrom().trim();
+  const match = from.match(/<([^<>]+)>/);
+  if (match?.[1]) return match[1].trim();
+  if (from.includes("@") && !from.includes(" ")) return from;
+  return "noreply@example.com";
+}
+
+function cleanHeaderName(value: string | null | undefined) {
+  const cleaned = value?.replace(/[\r\n"]/g, " ").replace(/\s+/g, " ").trim();
+  return cleaned || "Recruiter";
+}
+
+function buildRecruiterFrom(recruiterName: string | null | undefined) {
+  return {
+    name: `${cleanHeaderName(recruiterName)} via Interview Portal`,
+    address: getDefaultFromAddress(),
+  };
+}
+
 export function buildAppDomain(fallbackOrigin = "http://localhost:3000") {
   const requestOrigin = normalizeOrigin(fallbackOrigin);
   if (requestOrigin && !isLocalOrigin(requestOrigin)) {
@@ -63,14 +87,16 @@ export async function sendInterviewInvite(
   candidateEmail: string,
   jobTitle: string,
   inviteToken: string,
+  recruiterName?: string | null,
+  recruiterEmail?: string | null,
   fallbackOrigin?: string,
 ) {
   const link = buildInviteLink(inviteToken, fallbackOrigin);
-  const from = process.env.SMTP_FROM ?? "Interview Platform <noreply@example.com>";
 
   try {
     await getTransport().sendMail({
-      from,
+      from: buildRecruiterFrom(recruiterName),
+      replyTo: recruiterEmail || undefined,
       to: candidateEmail,
       subject: `Your Technical Interview Invitation - ${jobTitle}`,
       text: `Hi ${candidateName},
@@ -79,6 +105,8 @@ You have been invited to complete a technical interview for the position of ${jo
 
 Please use the following link to access your interview:
 ${link}
+
+If you have questions, reply to this email to contact ${recruiterName || "the recruiter"}.
 
 Important information:
 - You have 30 minutes to complete the interview
@@ -92,6 +120,7 @@ Good luck!`,
 <p>You have been invited to complete a technical interview for the position of <strong>${jobTitle}</strong>.</p>
 <p><a href="${link}" style="background:#2563eb;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;display:inline-block;margin:16px 0">Start Interview</a></p>
 <p>Or copy this link: <code>${link}</code></p>
+<p>If you have questions, reply to this email to contact ${recruiterName || "the recruiter"}.</p>
 <ul>
   <li>30-minute time limit, one question at a time (no going back)</li>
   <li>Camera and microphone required</li>
@@ -115,12 +144,11 @@ export async function sendRatingCompleteEmail(
   fallbackOrigin?: string,
 ) {
   const domain = buildAppDomain(fallbackOrigin);
-  const from = process.env.SMTP_FROM ?? "Interview Platform <noreply@example.com>";
   const score = (overallScore / 2).toFixed(1);
 
   try {
     await getTransport().sendMail({
-      from,
+      from: getDefaultFrom(),
       to: recruiterEmail,
       subject: `AI Rating Complete - ${candidateName}`,
       text: `AI rating is complete for ${candidateName}.\n\nOverall: ${overallRating} (${score}/5)\n\nView results: ${domain}/tests/${testId}`,
@@ -141,15 +169,17 @@ export async function sendCandidatePerformanceEmail(
   overallRating: string | null,
   overallScore: number | null,
   reportLink: string,
+  recruiterName?: string | null,
+  recruiterEmail?: string | null,
 ) {
-  const from = process.env.SMTP_FROM ?? "Interview Platform <noreply@example.com>";
   const scoreText = overallScore === null
     ? "Rating in progress"
     : `${(overallScore / 2).toFixed(1)}/5${overallRating ? ` (${overallRating})` : ""}`;
 
   try {
     await getTransport().sendMail({
-      from,
+      from: buildRecruiterFrom(recruiterName),
+      replyTo: recruiterEmail || undefined,
       to: candidateEmail,
       subject: `Your Interview Performance Report - ${jobTitle}`,
       text: `Hi ${candidateName},
@@ -161,12 +191,15 @@ Overall: ${scoreText}
 Open your report here:
 ${reportLink}
 
+If you have questions, reply to this email to contact ${recruiterName || "the recruiter"}.
+
 The report includes your ratings, the expected answer summaries, your captured responses, feedback, and available recorded videos.`,
       html: `<p>Hi <strong>${candidateName}</strong>,</p>
 <p>Your interview performance report for <strong>${jobTitle}</strong> is ready.</p>
 <p>Overall: <strong>${scoreText}</strong></p>
 <p><a href="${reportLink}" style="background:#2563eb;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;display:inline-block;margin:16px 0">View Performance Report</a></p>
 <p>Or copy this link: <code>${reportLink}</code></p>
+<p>If you have questions, reply to this email to contact ${recruiterName || "the recruiter"}.</p>
 <p>The report includes ratings, expected answer summaries, your captured responses, feedback, and available recorded videos.</p>`,
     });
   } catch (err: unknown) {
@@ -182,11 +215,10 @@ export async function sendTemporaryPasswordEmail(
   fallbackOrigin?: string,
 ) {
   const domain = buildAppDomain(fallbackOrigin);
-  const from = process.env.SMTP_FROM ?? "Interview Platform <noreply@example.com>";
 
   try {
     await getTransport().sendMail({
-      from,
+      from: getDefaultFrom(),
       to: userEmail,
       subject: "Your TIP password reset",
       text: `Hi ${userName},

@@ -31,7 +31,7 @@ export async function POST(
     const { id } = await params;
     const test = await prisma.test.findUnique({
       where: { id },
-      include: { candidate: true, questions: true },
+      include: { candidate: true, questions: true, recruiter: { select: { name: true, email: true } } },
     });
 
     if (!test) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -72,6 +72,8 @@ export async function POST(
         test.candidate.email,
         test.jobTitle,
         test.inviteToken,
+        test.recruiter.name,
+        test.recruiter.email,
         req.nextUrl.origin,
       );
       return NextResponse.json({ ok: true, inviteLink });

@@ -14,7 +14,7 @@ export async function POST(
     const { id } = await params;
     const test = await prisma.test.findUnique({
       where: { id },
-      include: { candidate: true },
+      include: { candidate: true, recruiter: { select: { name: true, email: true } } },
     });
 
     if (!test) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -33,6 +33,8 @@ export async function POST(
       test.overallRating,
       test.overallScore,
       reportLink,
+      test.recruiter.name,
+      test.recruiter.email,
     );
 
     return NextResponse.json({ ok: true, reportLink });
