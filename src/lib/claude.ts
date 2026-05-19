@@ -82,9 +82,40 @@ const STOP_WORDS = new Set([
   "features",
   "year",
   "years",
+  "jd",
+  "dis",
+  "full",
+  "scope",
+  "admin",
+  "project",
+  "projects",
+  "writer",
+  "technical",
+  "analyst",
+]);
+
+const LOW_VALUE_KEYWORDS = new Set([
+  "api",
+  "apis",
+  "app",
+  "apps",
+  "basic",
+  "candidate",
+  "description",
+  "dis",
+  "full",
+  "jd",
+  "job",
+  "project",
+  "role",
+  "scope",
+  "technical",
+  "writer",
 ]);
 
 const DOMAIN_PHRASES = [
+  "business analyst",
+  "technical writer",
   "medicaid policy documentation",
   "medicaid modernization",
   "healthcare authorization",
@@ -108,6 +139,22 @@ const DOMAIN_PHRASES = [
   "eligibility validation",
   "facets",
   "mmis",
+];
+
+const TECHNOLOGY_PHRASES = [
+  "python api",
+  "rest api",
+  "flask api",
+  "django api",
+  "fastapi",
+  "api integration",
+  "api testing",
+  "api documentation",
+  "business requirements",
+  "technical documentation",
+  "process documentation",
+  "requirements gathering",
+  "stakeholder communication",
 ];
 
 function getGeminiApiKey(): string | null {
@@ -161,7 +208,7 @@ function isGeminiConfigOrAuthError(err: unknown): boolean {
 
 function extractKeywords(jobDescription: string): string[] {
   const text = jobDescription.toLowerCase();
-  const phraseMatches = DOMAIN_PHRASES.filter((phrase) => text.includes(phrase));
+  const phraseMatches = [...TECHNOLOGY_PHRASES, ...DOMAIN_PHRASES].filter((phrase) => text.includes(phrase));
   const tokens = text.match(/[a-z0-9+#./-]{2,}/g) ?? [];
   const seen = new Set<string>();
   const keywords: string[] = [];
@@ -173,7 +220,9 @@ function extractKeywords(jobDescription: string): string[] {
 
   for (const token of tokens) {
     if (STOP_WORDS.has(token)) continue;
+    if (LOW_VALUE_KEYWORDS.has(token)) continue;
     if (/^\d+$/.test(token)) continue;
+    if (token.length < 4 && !["c#", "go"].includes(token)) continue;
     if (seen.has(token)) continue;
     seen.add(token);
     keywords.push(token);
@@ -181,14 +230,24 @@ function extractKeywords(jobDescription: string): string[] {
   }
 
   if (keywords.length === 0) {
-    if (jobDescription.toLowerCase().includes("healthcare")) {
+    if (text.includes("python") && text.includes("api")) {
+      keywords.push("Python API design", "request validation", "error handling", "API testing");
+    } else if (text.includes("python")) {
+      keywords.push("Python fundamentals", "debugging Python code", "data handling", "testing Python logic");
+    } else if (text.includes("healthcare")) {
       keywords.push("healthcare requirements", "claims workflows", "test case design", "stakeholder communication");
     } else {
       keywords.push("solution design", "testing strategy", "debugging approach", "performance analysis");
     }
   }
 
-  return keywords;
+  if (keywords.length < 4 && text.includes("api")) {
+    for (const keyword of ["API design", "API testing", "error handling", "request validation"]) {
+      if (!seen.has(keyword.toLowerCase())) keywords.push(keyword);
+    }
+  }
+
+  return keywords.slice(0, 12);
 }
 
 function inferLanguageHint(jobDescription: string): string | null {
@@ -233,6 +292,23 @@ function isTooSimilarToAny(questionText: string, existingQuestions: string[]) {
   return existingQuestions.some((question) => similarityScore(questionText, question) >= 0.62);
 }
 
+function hasLowQualityTopic(questionText: string) {
+  const normalized = normalizeForSimilarity(questionText);
+  const words = normalized.split(" ").filter(Boolean);
+  const lowValueMatches = words.filter((word) => LOW_VALUE_KEYWORDS.has(word));
+  return lowValueMatches.length > 0 && lowValueMatches.length >= Math.ceil(words.length * 0.25);
+}
+
+function isUsableQuestion(questionText: string) {
+  const trimmed = questionText.trim();
+  if (!trimmed.endsWith("?")) return false;
+  if (trimmed.length < 35) return false;
+  if (/\b(jd|dis|full|scope|admin)\b/i.test(trimmed)) return false;
+  if (/\b(related to|for|involving)\s+(writer|analyst|technical)\b/i.test(trimmed)) return false;
+  if (hasLowQualityTopic(trimmed)) return false;
+  return true;
+}
+
 function buildFallbackQuestion(
   level: string,
   topic: string,
@@ -245,9 +321,9 @@ function buildFallbackQuestion(
 
   switch (category) {
     case "fundamentals":
-      if (variantIndex === 1) return `What are the most important fundamentals behind ${topic}, and where do candidates commonly misunderstand them?`;
-      if (variantIndex === 2) return `Walk through a real example that demonstrates ${topic}, including the assumptions and limits of your approach.`;
-      return `Explain the core concepts behind ${topic} and how they matter for this position.`;
+      if (variantIndex === 1) return `What are the most important fundamentals behind ${topic}, and where do candidates commonly misunderstand them in this role?`;
+      if (variantIndex === 2) return `Can you walk through a real example that demonstrates ${topic}, including the assumptions and limits of your approach?`;
+      return `How would you explain the core concepts behind ${topic} and how they matter for this position?`;
     case "problem-solving":
       if (variantIndex === 1) return `Given a failed outcome involving ${topic}, what questions would you ask first and what evidence would you collect?`;
       if (variantIndex === 2) return `How would you compare two possible fixes for an issue involving ${topic} and choose the better one?`;
@@ -262,8 +338,8 @@ function buildFallbackQuestion(
       return `What best practices would you follow when working with ${topic}, and what mistakes would you avoid?`;
     case "past experience":
       if (variantIndex === 1) return `Tell me about a time you had to learn or apply ${topic}. What changed because of your work?`;
-      if (variantIndex === 2) return `Describe the most relevant experience you have with ${topic}, including your role, constraints, and result.`;
-      return `Describe a past project where you used ${topic} or a similar skill. What did you personally own, improve, or document?`;
+      if (variantIndex === 2) return `Can you describe the most relevant experience you have with ${topic}, including your role, constraints, and result?`;
+      return `Can you describe a past project where you used ${topic} or a similar skill, and what you personally owned, improved, or documented?`;
     case "debugging":
       if (variantIndex === 1) return `A stakeholder reports inconsistent results related to ${topic}. How would you reproduce, narrow, and communicate the issue?`;
       if (variantIndex === 2) return `What indicators would tell you whether a ${topic} problem is caused by data, process, tooling, or user behavior?`;
@@ -277,15 +353,15 @@ function buildFallbackQuestion(
       if (variantIndex === 2) return `How would you handle sensitive data, auditability, and permissions in a process involving ${topic}?`;
       return `What privacy, compliance, or access-control risks should be considered when working with ${topic} in this role?`;
     case "testing":
-      if (variantIndex === 1) return `Create a test strategy for ${topic}. What positive, negative, and regression cases would you include?`;
+      if (variantIndex === 1) return `How would you create a test strategy for ${topic}, and what positive, negative, and regression cases would you include?`;
       if (variantIndex === 2) return `How would you prove that a change involving ${topic} is ready for release or stakeholder sign-off?`;
       return `How would you test a change involving ${topic}, including edge cases, regression coverage, and acceptance criteria?`;
     case "communication":
       if (variantIndex === 1) return `How would you brief a non-technical stakeholder on progress, risks, and decisions related to ${topic}?`;
       if (variantIndex === 2) return `When explaining ${topic}, how would you adapt your message for teammates, managers, and business users?`;
-      return `Explain ${topic} ${seniority} to a teammate or stakeholder who needs to understand risks, trade-offs, and next steps.`;
+      return `How would you explain ${topic} ${seniority} to a teammate or stakeholder who needs to understand risks, trade-offs, and next steps?`;
     default:
-      return `How would you apply ${topic} for the responsibilities described in the JD?`;
+      return `How would you apply ${topic} for the responsibilities described in this role?`;
   }
 }
 
@@ -331,13 +407,17 @@ function fallbackQuestions(
 
     for (let attempt = 0; attempt < keywords.length * 3; attempt += 1) {
       topic = keywords[(idx + attempt) % keywords.length];
-      const secondaryTopic = keywords[(idx + attempt + 3) % keywords.length] ?? "the JD requirements";
+      const secondaryTopic = keywords[(idx + attempt + 3) % keywords.length] ?? "the listed responsibilities";
       const candidate = buildFallbackQuestion(level, topic, secondaryTopic, category, Math.floor(attempt / keywords.length));
-      if (!isTooSimilarToAny(candidate, usedQuestions)) {
+      if (isUsableQuestion(candidate) && !isTooSimilarToAny(candidate, usedQuestions)) {
         questionText = candidate;
         break;
       }
-      if (!questionText) questionText = candidate;
+      if (!questionText && isUsableQuestion(candidate)) questionText = candidate;
+    }
+
+    if (!questionText) {
+      questionText = buildFallbackQuestion(level, topic, "the listed responsibilities", category, 2);
     }
 
     usedQuestions.push(questionText);
@@ -377,7 +457,7 @@ function normalizeQuestions(
         ? source.questionText.trim()
         : fallback[idx].questionText;
     const cleanedQuestion = candidateQuestion.replace(/^q\s*\d+\s*[:.)-]\s*/i, "").trim();
-    const questionText = isTooSimilarToAny(cleanedQuestion, usedQuestions)
+    const questionText = !isUsableQuestion(cleanedQuestion) || isTooSimilarToAny(cleanedQuestion, usedQuestions)
       ? fallback[idx].questionText
       : cleanedQuestion;
     usedQuestions.push(questionText);
@@ -468,7 +548,9 @@ Rules:
 - Do not ask about technologies, tools, or workflows unless they appear in the JD.
 - Past-experience questions are allowed, but they must ask about JD responsibilities, not resume-specific experience.
 - If previous questions are provided, do not repeat or lightly rephrase them; generate new angles, scenarios, constraints, and evaluation points.
-- Avoid generic filler questions when the JD provides specific responsibilities or tools.`;
+- Avoid generic filler questions when the JD provides specific responsibilities or tools.
+- Do not use bare filler words such as JD, dis, full, scope, admin, project, technical, analyst, or writer as standalone topics.
+- Every question must be a complete sentence ending with a question mark.`;
 
   const userPrompt = `Interview Level: ${level}
 Job Description: ${jobDescription}

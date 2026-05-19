@@ -48,14 +48,9 @@ function getDefaultFromAddress() {
   return "noreply@example.com";
 }
 
-function cleanHeaderName(value: string | null | undefined) {
-  const cleaned = value?.replace(/[\r\n"]/g, " ").replace(/\s+/g, " ").trim();
-  return cleaned || "Recruiter";
-}
-
-function buildRecruiterFrom(recruiterName: string | null | undefined) {
+function buildRecruiterFrom() {
   return {
-    name: `${cleanHeaderName(recruiterName)} via Interview Portal`,
+    name: "ABSI Prescreening",
     address: getDefaultFromAddress(),
   };
 }
@@ -87,6 +82,7 @@ export async function sendInterviewInvite(
   candidateEmail: string,
   jobTitle: string,
   inviteToken: string,
+  inviteValidityLabel: string,
   recruiterName?: string | null,
   recruiterEmail?: string | null,
   fallbackOrigin?: string,
@@ -95,7 +91,7 @@ export async function sendInterviewInvite(
 
   try {
     await getTransport().sendMail({
-      from: buildRecruiterFrom(recruiterName),
+      from: buildRecruiterFrom(),
       replyTo: recruiterEmail || undefined,
       to: candidateEmail,
       subject: `Your Technical Interview Invitation - ${jobTitle}`,
@@ -113,7 +109,7 @@ Important information:
 - Questions are presented one at a time - you cannot go back
 - A working camera and microphone are required
 - Use Google Chrome or Microsoft Edge
-- This link is valid for 7 days
+- This link is valid for ${inviteValidityLabel}
 
 Good luck!`,
       html: `<p>Hi <strong>${candidateName}</strong>,</p>
@@ -125,7 +121,7 @@ Good luck!`,
   <li>30-minute time limit, one question at a time (no going back)</li>
   <li>Camera and microphone required</li>
   <li>Chrome or Edge required</li>
-  <li>Link valid for 7 days</li>
+  <li>Link valid for ${inviteValidityLabel}</li>
 </ul>
 <p>Good luck!</p>`,
     });
@@ -178,7 +174,7 @@ export async function sendCandidatePerformanceEmail(
 
   try {
     await getTransport().sendMail({
-      from: buildRecruiterFrom(recruiterName),
+      from: buildRecruiterFrom(),
       replyTo: recruiterEmail || undefined,
       to: candidateEmail,
       subject: `Your Interview Performance Report - ${jobTitle}`,
