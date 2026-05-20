@@ -2,7 +2,8 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import pRetry from "p-retry";
 
 const GEMINI_MODEL = process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash";
-const GEMINI_TIMEOUT_MS = 8000;
+const GEMINI_GENERATION_TIMEOUT_MS = 8000;
+const GEMINI_RATING_TIMEOUT_MS = 20000;
 
 const STOP_WORDS = new Set([
   "a",
@@ -169,7 +170,7 @@ function getGeminiApiKey(): string | null {
   return key;
 }
 
-async function callGemini(system: string, user: string): Promise<string> {
+async function callGemini(system: string, user: string, timeoutMs = GEMINI_GENERATION_TIMEOUT_MS): Promise<string> {
   const apiKey = getGeminiApiKey();
   if (!apiKey) throw new Error("GEMINI_NOT_CONFIGURED");
 
@@ -181,7 +182,7 @@ async function callGemini(system: string, user: string): Promise<string> {
         model: GEMINI_MODEL,
         systemInstruction: system,
       });
-      const result = await model.generateContent(user, { timeout: GEMINI_TIMEOUT_MS });
+      const result = await model.generateContent(user, { timeout: timeoutMs });
       return result.response.text();
     },
     { retries: 0 }
@@ -706,7 +707,7 @@ Candidate's Code/Written Response: ${codeResponse ?? "N/A"}
 Interview Level: ${level}`;
 
   try {
-    const raw = await callGemini(system, user);
+    const raw = await callGemini(system, user, GEMINI_RATING_TIMEOUT_MS);
     const cleaned = raw.replace(/```json\n?|\n?```/g, "").trim();
     const parsed = JSON.parse(cleaned) as Partial<RatingResult>;
 

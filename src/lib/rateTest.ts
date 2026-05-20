@@ -34,23 +34,23 @@ export async function rateTest(
   if (!test || test.status !== "COMPLETED") return { ok: false };
   if (test.overallScore !== null) return { ok: true, alreadyRated: true };
 
-  const ratings = await Promise.all(
-    test.questions.map(async (q) => {
-      const result = await rateAnswer(
-        q.questionText,
-        q.category,
-        q.expectedSummary,
-        q.transcript,
-        q.codeResponse,
-        test.level
-      );
-      await prisma.question.update({
-        where: { id: q.id },
-        data: { aiScore: result.score, aiRationale: result.rationale },
-      });
-      return result.score;
-    })
-  );
+  const ratings: number[] = [];
+
+  for (const q of test.questions) {
+    const result = await rateAnswer(
+      q.questionText,
+      q.category,
+      q.expectedSummary,
+      q.transcript,
+      q.codeResponse,
+      test.level
+    );
+    await prisma.question.update({
+      where: { id: q.id },
+      data: { aiScore: result.score, aiRationale: result.rationale },
+    });
+    ratings.push(result.score);
+  }
 
   const overallScore =
     Math.round((ratings.reduce((a, b) => a + b, 0) / ratings.length) * 10) / 10;
