@@ -21,6 +21,7 @@ function getRatingLabel(score: number): string {
 export async function rateTest(
   testId: string,
   fallbackOrigin?: string,
+  options: { force?: boolean } = {},
 ): Promise<{ ok: boolean; alreadyRated?: boolean }> {
   const test = await prisma.test.findUnique({
     where: { id: testId },
@@ -32,7 +33,7 @@ export async function rateTest(
   });
 
   if (!test || test.status !== "COMPLETED") return { ok: false };
-  if (test.overallScore !== null) return { ok: true, alreadyRated: true };
+  if (test.overallScore !== null && !options.force) return { ok: true, alreadyRated: true };
 
   const ratings: number[] = [];
 

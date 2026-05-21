@@ -87,6 +87,8 @@ export function TestResultsClient({ test, shareUrl }: { test: Test; shareUrl?: s
   const [copied, setCopied] = useState(false);
   const [sendingPerformance, setSendingPerformance] = useState(false);
   const [performanceMessage, setPerformanceMessage] = useState("");
+  const [rerating, setRerating] = useState(false);
+  const [rerateMessage, setRerateMessage] = useState("");
   const [fraudOpen, setFraudOpen] = useState(false);
   const [selectedVideoId, setSelectedVideoId] = useState<string | null>(null);
 
@@ -114,6 +116,28 @@ export function TestResultsClient({ test, shareUrl }: { test: Test; shareUrl?: s
       setPerformanceMessage("Failed to send performance email. Please try again.");
     } finally {
       setSendingPerformance(false);
+    }
+  }
+
+  async function rerateWithGemini() {
+    setRerating(true);
+    setRerateMessage("");
+
+    try {
+      const response = await fetch(`/api/tests/${test.id}/rerate`, { method: "POST" });
+      const body = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        setRerateMessage(typeof body?.error === "string" ? body.error : "Failed to re-run Gemini scoring.");
+        return;
+      }
+
+      setRerateMessage("Gemini scoring updated. Refreshing results...");
+      window.location.reload();
+    } catch {
+      setRerateMessage("Failed to re-run Gemini scoring. Please try again.");
+    } finally {
+      setRerating(false);
     }
   }
 
@@ -171,7 +195,17 @@ export function TestResultsClient({ test, shareUrl }: { test: Test; shareUrl?: s
             >
               {sendingPerformance ? "Sending..." : "Send Performance Email"}
             </button>
+            {test.status === "COMPLETED" && (
+              <button
+                onClick={rerateWithGemini}
+                disabled={rerating}
+                className="btn-secondary text-sm disabled:opacity-70 disabled:cursor-not-allowed"
+              >
+                {rerating ? "Re-scoring..." : "Re-run Gemini Scoring"}
+              </button>
+            )}
             {performanceMessage && <p className="text-sm text-slate-400">{performanceMessage}</p>}
+            {rerateMessage && <p className="text-sm text-slate-400">{rerateMessage}</p>}
           </div>
         )}
         {attentionEventCount > 0 && (
