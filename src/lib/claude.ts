@@ -3,7 +3,9 @@ import pRetry from "p-retry";
 
 const GEMINI_MODEL = process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash";
 const GEMINI_GENERATION_TIMEOUT_MS = 8000;
-const GEMINI_RATING_TIMEOUT_MS = 20000;
+const GEMINI_RATING_TIMEOUT_MS = 30000;
+const GEMINI_RATING_RETRIES = 2;
+const GEMINI_RATING_RETRY_DELAY_MS = 1500;
 
 const STOP_WORDS = new Set([
   "a",
@@ -205,6 +207,26 @@ function isGeminiConfigOrAuthError(err: unknown): boolean {
     message.includes("unregistered callers") ||
     message.includes("googlegenerativeai error")
   );
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function callGeminiForRating(system: string, user: string): Promise<string> {
+  let lastError: unknown = null;
+
+  for (let attempt = 0; attempt <= GEMINI_RATING_RETRIES; attempt += 1) {
+    try {
+      return await callGemini(system, user, GEMINI_RATING_TIMEOUT_MS);
+    } catch (err: unknown) {
+      lastError = err;
+      if (!isGeminiConfigOrAuthError(err) || attempt === GEMINI_RATING_RETRIES) break;
+      await sleep(GEMINI_RATING_RETRY_DELAY_MS * (attempt + 1));
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error(String(lastError));
 }
 
 function extractKeywords(jobDescription: string): string[] {
@@ -642,7 +664,7 @@ function fallbackRating(
     return {
       score: 0,
       rationale:
-        "Fallback scoring used because the AI provider is unavailable. No usable transcript or written response was captured for this question, so this needs manual recruiter review.",
+        "No usable transcript or written response was captured for this question, so this needs manual recruiter review.",
     };
   }
 
@@ -650,7 +672,7 @@ function fallbackRating(
     return {
       score: 0,
       rationale:
-        "Fallback scoring used because the AI provider is unavailable. The captured response appears to repeat the interview question rather than answer it, so this needs manual recruiter review.",
+        "The captured response appears to repeat the interview question rather than answer it, so this needs manual recruiter review.",
     };
   }
 
@@ -673,7 +695,7 @@ function fallbackRating(
 
   return {
     score: adjustedScore,
-    rationale: `Fallback scoring used because the AI provider is unavailable. ${detail} Manual review is required before making final hiring decisions.`,
+    rationale: `${detail} Manual recruiter review is recommended before making final hiring decisions.`,
   };
 }
 
@@ -707,7 +729,7 @@ Candidate's Code/Written Response: ${codeResponse ?? "N/A"}
 Interview Level: ${level}`;
 
   try {
-    const raw = await callGemini(system, user, GEMINI_RATING_TIMEOUT_MS);
+    const raw = await callGeminiForRating(system, user);
     const cleaned = raw.replace(/```json\n?|\n?```/g, "").trim();
     const parsed = JSON.parse(cleaned) as Partial<RatingResult>;
 

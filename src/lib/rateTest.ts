@@ -11,6 +11,12 @@ const RATING_LABELS: Array<[number, string]> = [
   [0, "Poor"],
 ];
 
+const RATING_REQUEST_SPACING_MS = 1200;
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 function getRatingLabel(score: number): string {
   for (const [threshold, label] of RATING_LABELS) {
     if (score >= threshold) return label;
@@ -37,7 +43,9 @@ export async function rateTest(
 
   const ratings: number[] = [];
 
-  for (const q of test.questions) {
+  for (const [idx, q] of test.questions.entries()) {
+    if (idx > 0) await sleep(RATING_REQUEST_SPACING_MS);
+
     const result = await rateAnswer(
       q.questionText,
       q.category,
