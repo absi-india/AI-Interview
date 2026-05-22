@@ -2,10 +2,10 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import pRetry from "p-retry";
 
 const GEMINI_MODEL = process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash";
-const GEMINI_GENERATION_TIMEOUT_MS = 8000;
-const GEMINI_RATING_TIMEOUT_MS = 30000;
-const GEMINI_RATING_RETRIES = 2;
-const GEMINI_RATING_RETRY_DELAY_MS = 1500;
+const GEMINI_GENERATION_TIMEOUT_MS = 12000;
+const GEMINI_RATING_TIMEOUT_MS = 12000;
+const GEMINI_RATING_RETRIES = 1;
+const GEMINI_RATING_RETRY_DELAY_MS = 1200;
 
 const STOP_WORDS = new Set([
   "a",
@@ -421,17 +421,19 @@ function fallbackQuestions(
   ];
   const languageHint = level === "PRACTICAL" ? inferLanguageHint(jobDescription) : null;
   const usedQuestions: string[] = [...avoidQuestions];
+  const regenerationOffset = avoidQuestions.length > 0 ? Math.max(1, avoidQuestions.length % keywords.length) : 0;
+  const variantOffset = avoidQuestions.length > 0 ? Math.max(1, Math.floor(avoidQuestions.length / 10)) : 0;
 
   return Array.from({ length: 10 }, (_, idx) => {
     const id = idx + 1;
-    const category = categories[idx];
-    let topic = keywords[idx % keywords.length];
+    const category = categories[(idx + regenerationOffset) % categories.length];
+    let topic = keywords[(idx + regenerationOffset) % keywords.length];
     let questionText = "";
 
     for (let attempt = 0; attempt < keywords.length * 3; attempt += 1) {
-      topic = keywords[(idx + attempt) % keywords.length];
-      const secondaryTopic = keywords[(idx + attempt + 3) % keywords.length] ?? "the listed responsibilities";
-      const candidate = buildFallbackQuestion(level, topic, secondaryTopic, category, Math.floor(attempt / keywords.length));
+      topic = keywords[(idx + attempt + regenerationOffset) % keywords.length];
+      const secondaryTopic = keywords[(idx + attempt + regenerationOffset + 3) % keywords.length] ?? "the listed responsibilities";
+      const candidate = buildFallbackQuestion(level, topic, secondaryTopic, category, Math.floor(attempt / keywords.length) + variantOffset);
       if (isUsableQuestion(candidate) && !isTooSimilarToAny(candidate, usedQuestions)) {
         questionText = candidate;
         break;
@@ -579,7 +581,8 @@ Rules:
 Job Description: ${jobDescription}
 Candidate Resume Context: intentionally excluded. Generate from the JD only.
 Previous Questions To Avoid:
-${previousQuestionsText}`;
+${previousQuestionsText}
+Regeneration Seed: ${avoidQuestions.length > 0 ? `${Date.now()}-${Math.random().toString(36).slice(2)}` : "first-generation"}`;
 
   try {
     const rawResponse = await callGemini(systemPrompt, userPrompt);

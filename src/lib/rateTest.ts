@@ -12,6 +12,17 @@ const RATING_LABELS: Array<[number, string]> = [
 ];
 
 const RATING_REQUEST_SPACING_MS = 1200;
+const RATING_BATCH_SIZE = 10;
+
+type RateableTest = { level: string };
+type RateableQuestion = {
+  id: string;
+  questionText: string;
+  category: string;
+  expectedSummary: string;
+  transcript: string | null;
+  codeResponse: string | null;
+};
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -22,6 +33,24 @@ function getRatingLabel(score: number): string {
     if (score >= threshold) return label;
   }
   return "Poor";
+}
+
+async function rateQuestion(test: RateableTest, q: RateableQuestion) {
+  const result = await rateAnswer(
+    q.questionText,
+    q.category,
+    q.expectedSummary,
+    q.transcript,
+    q.codeResponse,
+    test.level
+  );
+
+  await prisma.question.update({
+    where: { id: q.id },
+    data: { aiScore: result.score, aiRationale: result.rationale },
+  });
+
+  return result.score;
 }
 
 export async function rateTest(
@@ -41,24 +70,31 @@ export async function rateTest(
   if (!test || test.status !== "COMPLETED") return { ok: false };
   if (test.overallScore !== null && !options.force) return { ok: true, alreadyRated: true };
 
-  const ratings: number[] = [];
+  const questionsToRate = options.force
+    ? test.questions
+    : test.questions.filter((q) => q.aiScore === null);
 
-  for (const [idx, q] of test.questions.entries()) {
+  for (let idx = 0; idx < questionsToRate.length; idx += RATING_BATCH_SIZE) {
     if (idx > 0) await sleep(RATING_REQUEST_SPACING_MS);
 
-    const result = await rateAnswer(
-      q.questionText,
-      q.category,
-      q.expectedSummary,
-      q.transcript,
-      q.codeResponse,
-      test.level
-    );
-    await prisma.question.update({
-      where: { id: q.id },
-      data: { aiScore: result.score, aiRationale: result.rationale },
+    const batch = questionsToRate.slice(idx, idx + RATING_BATCH_SIZE);
+    await Promise.all(batch.map((q) => rateQuestion(test, q)));
+  }
+
+  const scoredQuestions = await prisma.question.findMany({
+    where: { testId, aiScore: { not: null } },
+    select: { aiScore: true },
+  });
+  const ratings = scoredQuestions
+    .map((q) => q.aiScore)
+    .filter((score): score is number => typeof score === "number");
+
+  if (ratings.length === 0) {
+    await prisma.test.update({
+      where: { id: testId },
+      data: { overallScore: null, overallRating: null },
     });
-    ratings.push(result.score);
+    return { ok: false };
   }
 
   const overallScore =
