@@ -11,6 +11,7 @@ const STATUS_LABEL: Record<string, string> = {
   QUESTIONS_APPROVED: "Questions Approved",
   INVITED: "Invited",
   IN_PROGRESS: "In Progress",
+  STOPPED_TAB_CHANGES: "Stopped - Tab Changes",
   COMPLETED: "Completed",
   EXPIRED: "Expired",
 };
@@ -20,6 +21,7 @@ const STATUS_COLOR: Record<string, string> = {
   QUESTIONS_APPROVED: "bg-blue-500/15 text-blue-300 border border-blue-500/20",
   INVITED: "bg-indigo-500/15 text-indigo-300 border border-indigo-500/20",
   IN_PROGRESS: "bg-orange-500/15 text-orange-300 border border-orange-500/20",
+  STOPPED_TAB_CHANGES: "bg-red-500/15 text-red-300 border border-red-500/20",
   COMPLETED: "bg-emerald-500/15 text-emerald-300 border border-emerald-500/20",
   EXPIRED: "bg-slate-500/15 text-slate-400 border border-slate-500/20",
 };
@@ -30,6 +32,14 @@ const ATTENTION_EVENT_TYPES = [
   "WINDOW_BLUR",
   "FULLSCREEN_EXIT",
 ];
+const MAX_PROCTORING_VIOLATIONS = 3;
+
+function getDisplayStatus(status: string, attentionEventCount: number) {
+  if (status === "IN_PROGRESS" && attentionEventCount >= MAX_PROCTORING_VIOLATIONS) {
+    return "STOPPED_TAB_CHANGES";
+  }
+  return status;
+}
 
 export default async function DashboardPage({
   searchParams,
@@ -167,6 +177,8 @@ export default async function DashboardPage({
                 {visibleCandidates.map((c) => {
                   const latest = c.tests[0];
                   const attentionEventCount = latest?.fraudEvents.length ?? 0;
+                  const displayStatus = latest ? getDisplayStatus(latest.status, attentionEventCount) : "";
+                  const attentionDisplay = Math.min(attentionEventCount, MAX_PROCTORING_VIOLATIONS);
                   return (
                     <tr key={c.id}>
                       <td>
@@ -178,12 +190,12 @@ export default async function DashboardPage({
                       <td>
                         {latest ? (
                           <div className="flex flex-col items-start gap-1.5">
-                            <span className={`badge ${STATUS_COLOR[latest.status] ?? "bg-slate-500/15 text-slate-400"}`}>
-                              {STATUS_LABEL[latest.status] ?? latest.status}
+                            <span className={`badge ${STATUS_COLOR[displayStatus] ?? "bg-slate-500/15 text-slate-400"}`}>
+                              {STATUS_LABEL[displayStatus] ?? displayStatus}
                             </span>
                             {attentionEventCount > 0 && (
                               <span className="badge bg-red-500/10 text-red-300 border border-red-500/20">
-                                Screen/tab changes: {attentionEventCount}
+                                Screen/tab changes: {attentionDisplay}
                               </span>
                             )}
                           </div>
