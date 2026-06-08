@@ -40,7 +40,7 @@ const MAX_PROCTORING_VIOLATIONS = 3;
 const RULES = [
   "Your camera and microphone will be active for the entire interview",
   "You must remain in fullscreen mode at all times",
-  "Switching tabs, windows, or exiting fullscreen will stop your interview after 3 violations",
+  "Switching tabs, windows, or exiting fullscreen is detected and repeated violations can stop your interview",
   "Copy-paste is disabled in all response fields",
   "Your face must remain visible on camera throughout",
   "Use of a second device or phone is prohibited",
@@ -50,7 +50,7 @@ const RULES = [
 const MOBILE_RULES = [
   "Your camera and microphone will be active for the entire interview",
   "Keep this interview tab open and visible until you submit",
-  "Switching apps or leaving the interview page may be recorded as an integrity event",
+  "Switching apps or leaving the interview page is detected and repeated violations can stop your interview",
   "Copy-paste is disabled in all response fields",
   "Your face must remain visible on camera throughout",
   "Use a stable connection and keep the phone unlocked during the interview",
@@ -83,12 +83,12 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
   const [timeLeft, setTimeLeft] = useState(TOTAL_SECONDS);
   const [fraudCount, setFraudCount] = useState(0);
   const [transcript, setTranscript] = useState("");
-  const [manualResponse, setManualResponse] = useState("");
   const [codeResponse, setCodeResponse] = useState("");
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
   const [showFullscreenOverlay, setShowFullscreenOverlay] = useState(false);
   const [proctoringNotice, setProctoringNotice] = useState<ProctoringNotice | null>(null);
+  const [showStartWarning, setShowStartWarning] = useState(false);
   const [isMobileInterview, setIsMobileInterview] = useState(false);
   const fullscreenExits = useRef(0);
   const screenOrTabChanges = useRef(0);
@@ -105,7 +105,6 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
   const recognitionRestartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const shouldListenRef = useRef(false);
   const transcriptRef = useRef("");
-  const manualResponseRef = useRef("");
   const interimTranscriptRef = useRef("");
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const questionStartedAtSecondsLeft = useRef<number>(TOTAL_SECONDS);
@@ -155,8 +154,6 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
 
     const nextCount = proctoringViolations.current + 1;
     proctoringViolations.current = nextCount;
-    const remaining = Math.max(0, MAX_PROCTORING_VIOLATIONS - nextCount);
-
     logFraud(
       type,
       "HIGH",
@@ -180,7 +177,7 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
 
     setProctoringNotice({
       title: "You have been caught",
-      message: `Leaving the interview screen is not allowed. This is violation ${nextCount} of ${MAX_PROCTORING_VIOLATIONS}. ${remaining} more violation${remaining === 1 ? "" : "s"} will stop and submit the interview automatically.`,
+      message: "Leaving the interview screen is not allowed. Repeated violations can stop and submit the interview automatically.",
       terminal: false,
     });
   }
@@ -189,11 +186,6 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
     const nextValue = typeof value === "function" ? value(transcriptRef.current) : value;
     transcriptRef.current = nextValue;
     setTranscript(nextValue);
-  }, []);
-
-  const setManualResponseValue = useCallback((value: string) => {
-    manualResponseRef.current = value;
-    setManualResponse(value);
   }, []);
 
   function startSpeechRecognition() {
@@ -303,6 +295,7 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
       try { await document.documentElement.requestFullscreen(); } catch { /* ignore */ }
     }
     setPhase("interview");
+    setShowStartWarning(true);
     startTimer();
     startRecordingForQuestion();
   }
@@ -329,7 +322,6 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
     interimTranscriptRef.current = "";
     if (resetAnswer) {
       setTranscriptValue("");
-      setManualResponseValue("");
       setCodeResponse("");
     }
     setUploadError("");
@@ -400,8 +392,7 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
     try {
       const blob = await stopRecording();
       const speechTranscript = `${transcriptRef.current} ${interimTranscriptRef.current}`.replace(/\s+/g, " ").trim();
-      const typedResponse = manualResponseRef.current.replace(/\s+/g, " ").trim();
-      const cleanTranscript = [speechTranscript, typedResponse].filter(Boolean).join("\n\n").trim();
+      const cleanTranscript = speechTranscript;
       const cleanCodeResponse = codeResponse.trim();
 
       if (!blob) {
@@ -411,7 +402,7 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
       }
 
       if (!cleanTranscript && !cleanCodeResponse) {
-        setUploadError("No answer text was captured for this question. Please speak until text appears below, or type your answer before moving ahead.");
+        setUploadError("No spoken answer was captured for this question. Please speak until transcript text appears below before moving ahead.");
         if (restartOnFailure) startRecordingForQuestion({ resetAnswer: false });
         return false;
       }
@@ -644,6 +635,31 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
   return (
     <div className="min-h-screen bg-[#0a0e1a] flex flex-col">
       {/* Candidate proctoring notice */}
+      {showStartWarning && (
+        <div className="fixed inset-0 z-[55] bg-black/80 backdrop-blur-sm flex items-center justify-center px-6">
+          <div className="glass-card max-w-md w-full p-8 text-center border border-amber-500/30 shadow-2xl shadow-amber-950/20 animate-fade-in-up">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-amber-500/15 text-2xl font-black text-amber-300">
+              !
+            </div>
+            <h2 className="text-2xl font-bold text-amber-200 mb-3">Stay on this interview screen</h2>
+            <p className="text-sm leading-relaxed text-slate-200 mb-6">
+              Changing tabs, switching windows, leaving fullscreen, or opening another app is detected. Repeated violations can stop and submit the interview automatically.
+            </p>
+            <button
+              onClick={() => {
+                setShowStartWarning(false);
+                if (!isMobileInterview && !document.fullscreenElement) {
+                  void document.documentElement.requestFullscreen().catch(() => undefined);
+                }
+              }}
+              className="btn-primary w-full py-3"
+            >
+              I Understand
+            </button>
+          </div>
+        </div>
+      )}
+
       {proctoringNotice && (
         <div className="fixed inset-0 z-[60] bg-black/90 backdrop-blur-sm flex items-center justify-center px-6">
           <div className="glass-card max-w-md w-full p-8 text-center border border-red-500/30 shadow-2xl shadow-red-950/30 animate-fade-in-up">
@@ -696,7 +712,7 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
         <div className="flex items-center gap-4">
           {fraudCount > 0 && (
             <span className="badge bg-amber-500/15 text-amber-400 border border-amber-500/20">
-              Warning {fraudCount}
+              Integrity warning
             </span>
           )}
           <span className={`text-lg font-mono font-bold ${timeLeft < 300 ? "text-red-400" : "text-white"}`} style={timeLeft < 300 ? { textShadow: "0 0 8px rgba(248,113,113,0.5)" } : {}}>
@@ -746,14 +762,6 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
             </span>
             {transcript && <span className="text-emerald-400/80 text-xs line-clamp-1">{transcript.replace(/\[interim:.*?\]/g, "").slice(-80)}</span>}
           </div>
-          <label className="sr-only" htmlFor="manual-response">Answer text</label>
-          <textarea
-            id="manual-response"
-            value={manualResponse}
-            onChange={(e) => setManualResponseValue(e.target.value)}
-            placeholder="Type your answer here if the live transcript misses anything."
-            className="mb-6 min-h-32 w-full resize-y rounded-xl border border-white/10 bg-slate-900/70 p-4 text-sm text-white placeholder:text-slate-500 outline-none transition-colors focus:border-blue-400/60"
-          />
           <video ref={videoRef} autoPlay muted playsInline className="w-32 rounded-xl bg-black mb-6 self-end border border-white/10" />
           <button
             onClick={handleNext}
