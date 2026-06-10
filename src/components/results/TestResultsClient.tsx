@@ -82,6 +82,11 @@ function formatScore(score: number) {
   return Number.isInteger(score) ? String(score) : score.toFixed(1);
 }
 
+function happenedDuringInterview(event: FraudEvent, completedAt: string | null) {
+  if (!completedAt) return true;
+  return new Date(event.occurredAt).getTime() <= new Date(completedAt).getTime();
+}
+
 export function TestResultsClient({ test, shareUrl }: { test: Test; shareUrl?: string }) {
   const [openQuestion, setOpenQuestion] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -141,10 +146,11 @@ export function TestResultsClient({ test, shareUrl }: { test: Test; shareUrl?: s
     }
   }
 
-  const highCount = test.fraudEvents.filter((e) => e.severity === "HIGH").length;
-  const mediumCount = test.fraudEvents.filter((e) => e.severity === "MEDIUM").length;
-  const lowCount = test.fraudEvents.filter((e) => e.severity === "LOW").length;
-  const attentionEventCount = test.fraudEvents.filter((e) => ATTENTION_EVENT_TYPES.has(e.type)).length;
+  const fraudEvents = test.fraudEvents.filter((event) => happenedDuringInterview(event, test.completedAt));
+  const highCount = fraudEvents.filter((e) => e.severity === "HIGH").length;
+  const mediumCount = fraudEvents.filter((e) => e.severity === "MEDIUM").length;
+  const lowCount = fraudEvents.filter((e) => e.severity === "LOW").length;
+  const attentionEventCount = fraudEvents.filter((e) => ATTENTION_EVENT_TYPES.has(e.type)).length;
 
   const scoreColor = SCORE_COLOR[test.overallRating ?? ""] ?? "text-white";
   const candidateVideos = test.questions.filter((q) => q.videoUrl);
@@ -216,7 +222,7 @@ export function TestResultsClient({ test, shareUrl }: { test: Test; shareUrl?: s
       </div>
 
       {/* Fraud summary */}
-      {test.fraudEvents.length > 0 && (
+      {fraudEvents.length > 0 && (
         <div className="glass-card p-6 mb-6 animate-fade-in-up">
           <button
             className="w-full flex justify-between items-center text-left"
@@ -232,7 +238,7 @@ export function TestResultsClient({ test, shareUrl }: { test: Test; shareUrl?: s
           </button>
           {fraudOpen && (
             <div className="mt-4 space-y-2 animate-fade-in">
-              {test.fraudEvents.map((e) => (
+              {fraudEvents.map((e) => (
                 <div key={e.id} className={`flex justify-between items-center px-3 py-2 rounded-lg text-sm ${SEVERITY_COLOR[e.severity] ?? "bg-slate-800/50"}`}>
                   <div>
                     <span className="font-medium">{FRAUD_EVENT_LABEL[e.type] ?? e.type.replace(/_/g, " ")}</span>

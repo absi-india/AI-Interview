@@ -95,6 +95,7 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
   const proctoringViolations = useRef(0);
   const proctoringTerminatedRef = useRef(false);
   const autoSubmitStartedRef = useRef(false);
+  const intentionalExitRef = useRef(false);
   const lastAttentionEventAt = useRef(0);
 
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -138,6 +139,7 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
 
   const logFraud = useCallback(
     async (type: string, severity: string, detail: string) => {
+      if (intentionalExitRef.current) return;
       setFraudCount((c) => c + 1);
       fetch(`/api/interview/${inviteToken}/fraud-event`, {
         method: "POST",
@@ -150,7 +152,7 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
   );
 
   function recordProctoringViolation(type: string, detail: string) {
-    if (proctoringTerminatedRef.current || autoSubmitStartedRef.current) return;
+    if (intentionalExitRef.current || proctoringTerminatedRef.current || autoSubmitStartedRef.current) return;
 
     const nextCount = proctoringViolations.current + 1;
     proctoringViolations.current = nextCount;
@@ -435,6 +437,8 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
   }
 
   async function submitInterview() {
+    intentionalExitRef.current = true;
+    setPhase("done");
     await fetch(`/api/interview/${inviteToken}/submit`, { method: "POST" });
     if (document.fullscreenElement) await document.exitFullscreen().catch(() => undefined);
     streamRef.current?.getTracks().forEach((t) => t.stop());
@@ -500,6 +504,7 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
   useEffect(() => {
     if (phase !== "interview") return;
     const logScreenOrTabChange = (reason: string) => {
+      if (intentionalExitRef.current || proctoringTerminatedRef.current || autoSubmitStartedRef.current) return;
       const now = Date.now();
       if (now - lastAttentionEventAt.current < ATTENTION_EVENT_DEDUP_MS) return;
 

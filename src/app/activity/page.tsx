@@ -43,6 +43,11 @@ function getDisplayStatus(status: string, attentionEventCount: number) {
   return status;
 }
 
+function happenedDuringInterview(event: { occurredAt: Date }, completedAt: Date | null) {
+  if (!completedAt) return true;
+  return event.occurredAt.getTime() <= completedAt.getTime();
+}
+
 function formatDate(value: Date | null) {
   if (!value) return "-";
   return new Intl.DateTimeFormat("en", {
@@ -85,7 +90,7 @@ export default async function ActivityPage({
       questions: { select: { id: true } },
       fraudEvents: {
         where: { type: { in: ATTENTION_EVENT_TYPES } },
-        select: { id: true, severity: true },
+        select: { id: true, severity: true, occurredAt: true },
       },
     },
   });
@@ -217,7 +222,9 @@ export default async function ActivityPage({
                   const canManage = currentUser.role === "ADMIN" || test.recruiter.id === currentUser.id;
                   const inviteUrl = `${appDomain}/interview/${test.inviteToken}`;
                   const resultUrl = `${appDomain}/results/share/${test.shareToken}`;
-                  const attentionCount = test.fraudEvents.length;
+                  const attentionCount = test.fraudEvents.filter((event) =>
+                    happenedDuringInterview(event, test.completedAt)
+                  ).length;
                   const displayStatus = getDisplayStatus(test.status, attentionCount);
                   const attentionDisplay = Math.min(attentionCount, MAX_PROCTORING_VIOLATIONS);
 

@@ -41,6 +41,11 @@ function getDisplayStatus(status: string, attentionEventCount: number) {
   return status;
 }
 
+function happenedDuringInterview(event: { occurredAt: Date }, completedAt: Date | null) {
+  if (!completedAt) return true;
+  return event.occurredAt.getTime() <= completedAt.getTime();
+}
+
 export default async function DashboardPage({
   searchParams,
 }: {
@@ -68,9 +73,10 @@ export default async function DashboardPage({
           status: true,
           jobTitle: true,
           createdAt: true,
+          completedAt: true,
           fraudEvents: {
             where: { type: { in: ATTENTION_EVENT_TYPES } },
-            select: { id: true },
+            select: { id: true, occurredAt: true },
           },
         },
         orderBy: { createdAt: "desc" },
@@ -176,7 +182,9 @@ export default async function DashboardPage({
               <tbody>
                 {visibleCandidates.map((c) => {
                   const latest = c.tests[0];
-                  const attentionEventCount = latest?.fraudEvents.length ?? 0;
+                  const attentionEventCount = latest?.fraudEvents.filter((event) =>
+                    happenedDuringInterview(event, latest.completedAt)
+                  ).length ?? 0;
                   const displayStatus = latest ? getDisplayStatus(latest.status, attentionEventCount) : "";
                   const attentionDisplay = Math.min(attentionEventCount, MAX_PROCTORING_VIOLATIONS);
                   return (
