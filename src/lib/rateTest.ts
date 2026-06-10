@@ -1,6 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
-import { rateAnswer } from "@/lib/claude";
+import { rateAnswersBatch } from "@/lib/claude";
 import { sendRatingCompleteEmail } from "@/lib/mailer";
 
 const RATING_LABELS: Array<[number, string]> = [
@@ -11,46 +11,11 @@ const RATING_LABELS: Array<[number, string]> = [
   [0, "Poor"],
 ];
 
-const RATING_REQUEST_SPACING_MS = 1200;
-const RATING_BATCH_SIZE = 10;
-
-type RateableTest = { level: string };
-type RateableQuestion = {
-  id: string;
-  questionText: string;
-  category: string;
-  expectedSummary: string;
-  transcript: string | null;
-  codeResponse: string | null;
-};
-
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 function getRatingLabel(score: number): string {
   for (const [threshold, label] of RATING_LABELS) {
     if (score >= threshold) return label;
   }
   return "Poor";
-}
-
-async function rateQuestion(test: RateableTest, q: RateableQuestion) {
-  const result = await rateAnswer(
-    q.questionText,
-    q.category,
-    q.expectedSummary,
-    q.transcript,
-    q.codeResponse,
-    test.level
-  );
-
-  await prisma.question.update({
-    where: { id: q.id },
-    data: { aiScore: result.score, aiRationale: result.rationale },
-  });
-
-  return result.score;
 }
 
 export async function rateTest(
@@ -74,11 +39,27 @@ export async function rateTest(
     ? test.questions
     : test.questions.filter((q) => q.aiScore === null);
 
-  for (let idx = 0; idx < questionsToRate.length; idx += RATING_BATCH_SIZE) {
-    if (idx > 0) await sleep(RATING_REQUEST_SPACING_MS);
+  if (questionsToRate.length > 0) {
+    const ratingResults = await rateAnswersBatch(
+      questionsToRate.map((question) => ({
+        id: question.id,
+        questionText: question.questionText,
+        category: question.category,
+        expectedAnswerSummary: question.expectedSummary,
+        transcript: question.transcript,
+        codeResponse: question.codeResponse,
+      })),
+      test.level
+    );
 
-    const batch = questionsToRate.slice(idx, idx + RATING_BATCH_SIZE);
-    await Promise.all(batch.map((q) => rateQuestion(test, q)));
+    await prisma.$transaction(
+      ratingResults.map((result) =>
+        prisma.question.update({
+          where: { id: result.id },
+          data: { aiScore: result.score, aiRationale: result.rationale },
+        })
+      )
+    );
   }
 
   const scoredQuestions = await prisma.question.findMany({

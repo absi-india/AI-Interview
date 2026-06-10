@@ -3,7 +3,7 @@ import pRetry from "p-retry";
 
 const GEMINI_MODEL = process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash";
 const GEMINI_GENERATION_TIMEOUT_MS = 12000;
-const GEMINI_RATING_TIMEOUT_MS = 12000;
+const GEMINI_RATING_TIMEOUT_MS = 20000;
 const GEMINI_RATING_RETRIES = 1;
 const GEMINI_RATING_RETRY_DELAY_MS = 1200;
 
@@ -618,6 +618,19 @@ export interface RatingResult {
   rationale: string;
 }
 
+export interface BatchRatingInput {
+  id: string;
+  questionText: string;
+  category: string;
+  expectedAnswerSummary: string;
+  transcript: string | null;
+  codeResponse: string | null;
+}
+
+export interface BatchRatingResult extends RatingResult {
+  id: string;
+}
+
 function countKeywordOverlap(answer: string, expectedAnswerSummary: string, questionText: string) {
   const answerWords = new Set(normalizeForSimilarity(answer).split(" ").filter(Boolean));
   const targetWords = normalizeForSimilarity(`${expectedAnswerSummary} ${questionText}`)
@@ -752,6 +765,99 @@ Interview Level: ${level}`;
         codeLength: codeResponse?.length ?? 0,
       });
       return fallbackRating(level, questionText, category, expectedAnswerSummary, transcript, codeResponse);
+    }
+    throw err;
+  }
+}
+
+export async function rateAnswersBatch(
+  questions: BatchRatingInput[],
+  level: string
+): Promise<BatchRatingResult[]> {
+  if (questions.length === 0) return [];
+
+  const fallbackResults = () =>
+    questions.map((question) => ({
+      id: question.id,
+      ...fallbackRating(
+        level,
+        question.questionText,
+        question.category,
+        question.expectedAnswerSummary,
+        question.transcript,
+        question.codeResponse
+      ),
+    }));
+
+  const system = `You are a strict but fair technical interviewer evaluating multiple candidate responses.
+Score each response from 0 to 10 based on accuracy, depth, clarity, and relevance to its question.
+Reward complete, specific answers that address the expected answer summary even if wording differs.
+If a candidate only repeats or paraphrases the question without answering, score 0.
+Return ONLY valid JSON. No markdown, no preamble.
+Format: [{ "id": "question-id", "score": number, "rationale": "2-3 sentence evaluation" }]`;
+
+  const user = `Interview Level: ${level}
+Questions and candidate responses:
+${JSON.stringify(
+  questions.map((question) => ({
+    id: question.id,
+    question: question.questionText,
+    category: question.category,
+    expectedAnswerSummary: question.expectedAnswerSummary,
+    spokenTranscript: question.transcript ?? "No transcript provided",
+    codeOrWrittenResponse: question.codeResponse ?? "N/A",
+  })),
+  null,
+  2
+)}`;
+
+  try {
+    const raw = await callGeminiForRating(system, user);
+    const cleaned = raw.replace(/```json\n?|\n?```/g, "").trim();
+    const parsed = JSON.parse(cleaned) as unknown;
+
+    if (!Array.isArray(parsed)) return fallbackResults();
+
+    const byId = new Map<string, Partial<BatchRatingResult>>();
+    for (const item of parsed) {
+      if (!item || typeof item !== "object") continue;
+      const candidate = item as Partial<BatchRatingResult>;
+      if (typeof candidate.id === "string") byId.set(candidate.id, candidate);
+    }
+
+    return questions.map((question) => {
+      const parsedRating = byId.get(question.id);
+      if (
+        !parsedRating ||
+        typeof parsedRating.score !== "number" ||
+        typeof parsedRating.rationale !== "string"
+      ) {
+        return {
+          id: question.id,
+          ...fallbackRating(
+            level,
+            question.questionText,
+            question.category,
+            question.expectedAnswerSummary,
+            question.transcript,
+            question.codeResponse
+          ),
+        };
+      }
+
+      return {
+        id: question.id,
+        score: Math.max(0, Math.min(10, parsedRating.score)),
+        rationale: parsedRating.rationale,
+      };
+    });
+  } catch (err: unknown) {
+    if (isGeminiConfigOrAuthError(err)) {
+      console.warn("[rateAnswersBatch] Gemini unavailable; using fallback ratings", {
+        reason: err instanceof Error ? err.message : String(err),
+        questionCount: questions.length,
+      });
+      return fallbackResults();
     }
     throw err;
   }
