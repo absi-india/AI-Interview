@@ -403,12 +403,6 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
         return false;
       }
 
-      if (!cleanTranscript && !cleanCodeResponse) {
-        setUploadError("No spoken answer was captured for this question. Please speak until transcript text appears below before moving ahead.");
-        if (restartOnFailure) startRecordingForQuestion({ resetAnswer: false });
-        return false;
-      }
-
       const formData = new FormData();
       formData.append("questionId", q.id);
       if (cleanTranscript) formData.append("transcript", cleanTranscript);

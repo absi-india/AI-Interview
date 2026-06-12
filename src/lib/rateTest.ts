@@ -48,6 +48,7 @@ export async function rateTest(
         expectedAnswerSummary: question.expectedSummary,
         transcript: question.transcript,
         codeResponse: question.codeResponse,
+        hasVideo: Boolean(question.videoUrl),
       })),
       test.level
     );

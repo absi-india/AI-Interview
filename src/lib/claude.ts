@@ -625,6 +625,7 @@ export interface BatchRatingInput {
   expectedAnswerSummary: string;
   transcript: string | null;
   codeResponse: string | null;
+  hasVideo?: boolean;
 }
 
 export interface BatchRatingResult extends RatingResult {
@@ -670,7 +671,8 @@ function fallbackRating(
   category: string,
   expectedAnswerSummary: string,
   transcript: string | null,
-  codeResponse: string | null
+  codeResponse: string | null,
+  hasVideo = false
 ): RatingResult {
   const answer = `${transcript ?? ""} ${codeResponse ?? ""}`.trim();
   const wordCount = normalizeForSimilarity(answer).split(" ").filter(Boolean).length;
@@ -680,7 +682,9 @@ function fallbackRating(
     return {
       score: 0,
       rationale:
-        "No usable transcript or written response was captured for this question, so this needs manual recruiter review.",
+        hasVideo
+          ? "A video recording is available, but no usable transcript was captured for this question. Manual recruiter review of the recording is required."
+          : "No usable transcript or written response was captured for this question, so this needs manual recruiter review.",
     };
   }
 
@@ -785,7 +789,8 @@ export async function rateAnswersBatch(
         question.category,
         question.expectedAnswerSummary,
         question.transcript,
-        question.codeResponse
+        question.codeResponse,
+        Boolean(question.hasVideo)
       ),
     }));
 
@@ -840,7 +845,8 @@ ${JSON.stringify(
             question.category,
             question.expectedAnswerSummary,
             question.transcript,
-            question.codeResponse
+            question.codeResponse,
+            Boolean(question.hasVideo)
           ),
         };
       }
