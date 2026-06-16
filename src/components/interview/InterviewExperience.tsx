@@ -23,9 +23,11 @@ type Props = {
   initialStatus: string;
 };
 
-const TOTAL_SECONDS = 30 * 60; // 30-minute limit
+const TOTAL_SECONDS = 30 * 60;    // 30-minute total limit
+const QUESTION_SECONDS = 3 * 60;  // 3-minute per-question limit
 const RECORDER_MIME_TYPES = [
   "video/mp4;codecs=h264,aac",
+  "video/mp4;codecs=avc1",
   "video/mp4",
   "video/webm;codecs=vp9,opus",
   "video/webm;codecs=vp8,opus",
@@ -36,7 +38,8 @@ const RECORDING_OPTIONS = {
   audioBitsPerSecond: 32_000,
 };
 const ATTENTION_EVENT_DEDUP_MS = 750;
-const MAX_PROCTORING_VIOLATIONS = 3;
+// 3 silent violations allowed; on the 4th the interview is terminated
+const MAX_PROCTORING_VIOLATIONS = 4;
 const RULES = [
   "Your camera and microphone will be active for the entire interview",
   "You must remain in fullscreen mode at all times",
@@ -63,11 +66,32 @@ type ProctoringNotice = {
   terminal: boolean;
 };
 
+// Cross-browser fullscreen helpers (Safari uses webkit prefix)
+function requestFullscreenEl(el: HTMLElement): Promise<void> {
+  if (el.requestFullscreen) return el.requestFullscreen();
+  const s = el as HTMLElement & { webkitRequestFullscreen?: () => Promise<void> };
+  if (s.webkitRequestFullscreen) return s.webkitRequestFullscreen() ?? Promise.resolve();
+  return Promise.resolve();
+}
+function exitFullscreenDoc(): Promise<void> {
+  if (document.exitFullscreen) return document.exitFullscreen();
+  const d = document as Document & { webkitExitFullscreen?: () => Promise<void> };
+  if (d.webkitExitFullscreen) return d.webkitExitFullscreen() ?? Promise.resolve();
+  return Promise.resolve();
+}
+function getFullscreenEl(): Element | null {
+  return document.fullscreenElement ??
+    (document as Document & { webkitFullscreenElement?: Element }).webkitFullscreenElement ??
+    null;
+}
+
 function detectMobileInterview() {
   if (typeof window === "undefined") return false;
-  const coarsePointer = window.matchMedia?.("(pointer: coarse)").matches ?? false;
   const mobileUserAgent = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
-  return mobileUserAgent || (coarsePointer && navigator.maxTouchPoints > 0);
+  const coarsePointer = window.matchMedia?.("(pointer: coarse)").matches ?? false;
+  // iPad Pro (iOS 13+) reports a desktop "Macintosh" UA but still has touch points
+  const isIpadPro = /Macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints > 1;
+  return mobileUserAgent || isIpadPro || coarsePointer;
 }
 
 export function InterviewExperience({ inviteToken, candidateName, jobTitle, level, questions, initialStatus }: Props) {
@@ -107,9 +131,13 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
   const shouldListenRef = useRef(false);
   const transcriptRef = useRef("");
   const interimTranscriptRef = useRef("");
+  const [questionTimeLeft, setQuestionTimeLeft] = useState(QUESTION_SECONDS);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const questionStartedAtSecondsLeft = useRef<number>(TOTAL_SECONDS);
+  const questionTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const questionStartedAtMs = useRef<number>(Date.now());
   const uploadingRef = useRef(false);
+  const recordingUnavailableRef = useRef(false);
+  const nextLockRef = useRef(false);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -166,9 +194,9 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
       proctoringTerminatedRef.current = true;
       setShowFullscreenOverlay(false);
       setProctoringNotice({
-        title: "Interview stopped",
+        title: "You have been caught",
         message:
-          "You have been caught leaving the interview screen multiple times. Your interview is being submitted now.",
+          "You have been caught leaving the interview screen too many times. Your interview is being submitted automatically.",
         terminal: true,
       });
       window.setTimeout(() => {
@@ -176,12 +204,7 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
       }, 1200);
       return;
     }
-
-    setProctoringNotice({
-      title: "You have been caught",
-      message: "Leaving the interview screen is not allowed. Repeated violations can stop and submit the interview automatically.",
-      terminal: false,
-    });
+    // Violations 1–(MAX-1) are silently logged — no popup shown to candidate
   }
 
   const setTranscriptValue = useCallback((value: string | ((current: string) => string)) => {
@@ -293,8 +316,8 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
 
   async function beginInterview() {
     await fetch(`/api/interview/${inviteToken}/start`, { method: "POST" });
-    if (!isMobileInterview && document.documentElement.requestFullscreen) {
-      try { await document.documentElement.requestFullscreen(); } catch { /* ignore */ }
+    if (!isMobileInterview) {
+      try { await requestFullscreenEl(document.documentElement); } catch { /* ignore */ }
     }
     setPhase("interview");
     setShowStartWarning(true);
@@ -315,6 +338,34 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
     }, 1000);
   }
 
+  function startQuestionTimer() {
+    if (questionTimerRef.current) clearInterval(questionTimerRef.current);
+    setQuestionTimeLeft(QUESTION_SECONDS);
+    questionTimerRef.current = setInterval(() => {
+      setQuestionTimeLeft((t) => {
+        if (t <= 1) {
+          clearInterval(questionTimerRef.current!);
+          void handleQuestionTimeout();
+          return 0;
+        }
+        return t - 1;
+      });
+    }, 1000);
+  }
+
+  async function handleQuestionTimeout() {
+    if (uploadingRef.current || nextLockRef.current || autoSubmitStartedRef.current || proctoringTerminatedRef.current) return;
+    nextLockRef.current = true;
+    await uploadCurrentQuestion({ restartOnFailure: false });
+    nextLockRef.current = false;
+    if (currentIdx + 1 >= questions.length) {
+      await submitInterview();
+    } else {
+      setCurrentIdx((i) => i + 1);
+      startRecordingForQuestion();
+    }
+  }
+
   function startRecordingForQuestion({ resetAnswer = true } = {}) {
     if (!streamRef.current) return;
     attachPreviewStream();
@@ -327,11 +378,13 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
       setCodeResponse("");
     }
     setUploadError("");
-    questionStartedAtSecondsLeft.current = timeLeft;
+    if (resetAnswer) startQuestionTimer();
+    questionStartedAtMs.current = Date.now();
+    recordingUnavailableRef.current = false;
 
     try {
       if (!("MediaRecorder" in window)) {
-        setUploadError("Recording is not available in this browser. Please use the latest Chrome, Edge, or Safari.");
+        recordingUnavailableRef.current = true;
         return;
       }
       const mimeType = RECORDER_MIME_TYPES.find((type) => MediaRecorder.isTypeSupported(type));
@@ -346,7 +399,7 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
       recorder.start(1000);
       recorderRef.current = recorder;
     } catch {
-      setUploadError("Recording is not available in this browser. Please use the latest Chrome, Edge, or Safari.");
+      recordingUnavailableRef.current = true;
     }
 
     startSpeechRecognition();
@@ -374,6 +427,8 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
       recorderRef.current.onstop = () => {
         const type = recorderRef.current?.mimeType || chunksRef.current[0]?.type || "video/webm";
         const blob = new Blob(chunksRef.current, { type });
+        // iOS MediaRecorder may start without throwing but yield no data
+        if (blob.size === 0) recordingUnavailableRef.current = true;
         resolve(blob.size > 0 ? blob : null);
       };
       try {
@@ -397,7 +452,7 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
       const cleanTranscript = speechTranscript;
       const cleanCodeResponse = codeResponse.trim();
 
-      if (!blob) {
+      if (!blob && !recordingUnavailableRef.current) {
         setUploadError("Video recording was not captured. Keep camera and microphone allowed, stay on this screen, and retry before moving ahead.");
         if (restartOnFailure) startRecordingForQuestion({ resetAnswer: false });
         return false;
@@ -407,8 +462,10 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
       formData.append("questionId", q.id);
       if (cleanTranscript) formData.append("transcript", cleanTranscript);
       if (cleanCodeResponse) formData.append("codeResponse", cleanCodeResponse);
-      const extension = blob.type.includes("mp4") ? "mp4" : "webm";
-      formData.append("video", blob, `${q.id}.${extension}`);
+      if (blob) {
+        const extension = blob.type.includes("mp4") ? "mp4" : "webm";
+        formData.append("video", blob, `${q.id}.${extension}`);
+      }
 
       const response = await fetch(`/api/interview/${inviteToken}/upload`, { method: "POST", body: formData });
       if (!response.ok) {
@@ -432,26 +489,30 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
 
   async function submitInterview() {
     intentionalExitRef.current = true;
+    if (questionTimerRef.current) clearInterval(questionTimerRef.current);
     setPhase("done");
     await fetch(`/api/interview/${inviteToken}/submit`, { method: "POST" });
-    if (document.fullscreenElement) await document.exitFullscreen().catch(() => undefined);
+    if (getFullscreenEl()) await exitFullscreenDoc().catch(() => undefined);
     streamRef.current?.getTracks().forEach((t) => t.stop());
     router.push(`/interview/${inviteToken}/complete`);
   }
 
   async function handleNext() {
-    if (uploadingRef.current) return;
+    if (uploadingRef.current || nextLockRef.current) return;
+    nextLockRef.current = true;
 
-    const timeSpent = Math.max(0, questionStartedAtSecondsLeft.current - timeLeft);
+    const timeSpentMs = Date.now() - questionStartedAtMs.current;
+    const timeSpent = Math.floor(timeSpentMs / 1000);
 
-    // Log rapid answer
     if (timeSpent < 15 && ["INTERMEDIATE", "ADVANCED", "PRACTICAL"].includes(level)) {
-      logFraud("RAPID_ANSWER", "LOW", `Answered in ${Math.round(timeSpent)}s`);
+      logFraud("RAPID_ANSWER", "LOW", `Answered in ${timeSpent}s`);
     }
 
     const uploaded = await uploadCurrentQuestion();
+    nextLockRef.current = false;
     if (!uploaded) return;
 
+    if (questionTimerRef.current) clearInterval(questionTimerRef.current);
     if (currentIdx + 1 >= questions.length) {
       await submitInterview();
     } else {
@@ -464,12 +525,10 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
     if (autoSubmitStartedRef.current) return;
     autoSubmitStartedRef.current = true;
     clearInterval(timerRef.current!);
+    if (questionTimerRef.current) clearInterval(questionTimerRef.current);
     if (!uploadingRef.current && phase === "interview") {
-      const uploaded = await uploadCurrentQuestion({ restartOnFailure: true });
-      if (!uploaded) {
-        autoSubmitStartedRef.current = false;
-        return;
-      }
+      // Best-effort upload — always proceed to submit even if it fails
+      await uploadCurrentQuestion({ restartOnFailure: false });
     } else {
       await stopRecording();
     }
@@ -481,7 +540,7 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
     if (phase !== "interview") return;
     if (isMobileInterview) return;
     const handleFsChange = () => {
-      if (!document.fullscreenElement) {
+      if (!getFullscreenEl()) {
         setShowFullscreenOverlay(true);
         fullscreenExits.current += 1;
         recordProctoringViolation("FULLSCREEN_EXIT", `Fullscreen exited #${fullscreenExits.current}`);
@@ -490,7 +549,11 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
       }
     };
     document.addEventListener("fullscreenchange", handleFsChange);
-    return () => document.removeEventListener("fullscreenchange", handleFsChange);
+    document.addEventListener("webkitfullscreenchange", handleFsChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFsChange);
+      document.removeEventListener("webkitfullscreenchange", handleFsChange);
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, isMobileInterview]);
 
@@ -504,10 +567,6 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
 
       lastAttentionEventAt.current = now;
       screenOrTabChanges.current += 1;
-      if (isMobileInterview) {
-        logFraud("SCREEN_OR_TAB_CHANGE", "LOW", `${reason} on mobile #${screenOrTabChanges.current}`);
-        return;
-      }
       recordProctoringViolation("SCREEN_OR_TAB_CHANGE", `${reason} #${screenOrTabChanges.current}`);
     };
 
@@ -551,6 +610,10 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
 
   const mm = String(Math.floor(timeLeft / 60)).padStart(2, "0");
   const ss = String(timeLeft % 60).padStart(2, "0");
+  const qmm = String(Math.floor(questionTimeLeft / 60)).padStart(2, "0");
+  const qss = String(questionTimeLeft % 60).padStart(2, "0");
+  const questionTimerCritical = questionTimeLeft <= 30;
+  const questionTimerWarning = questionTimeLeft <= 60 && !questionTimerCritical;
   const q = questions[currentIdx];
   const isPractical = level === "PRACTICAL";
   const insecureCameraMessage =
@@ -615,7 +678,7 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
           </div>
 
           <div className="text-sm text-slate-500 mb-4">
-            {questions.length} questions • 30-minute limit • Chrome or Edge required
+            {questions.length} questions • 3 min per question • 30-minute total limit • Chrome or Edge required
           </div>
 
           <button
@@ -647,8 +710,8 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
             <button
               onClick={() => {
                 setShowStartWarning(false);
-                if (!isMobileInterview && !document.fullscreenElement) {
-                  void document.documentElement.requestFullscreen().catch(() => undefined);
+                if (!isMobileInterview && !getFullscreenEl()) {
+                  void requestFullscreenEl(document.documentElement).catch(() => undefined);
                 }
               }}
               className="btn-primary w-full py-3"
@@ -673,8 +736,8 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
               <button
                 onClick={() => {
                   setProctoringNotice(null);
-                  if (!document.fullscreenElement) {
-                    void document.documentElement.requestFullscreen().catch(() => undefined);
+                  if (!getFullscreenEl()) {
+                    void requestFullscreenEl(document.documentElement).catch(() => undefined);
                   }
                 }}
                 className="btn-primary w-full py-3"
@@ -693,7 +756,7 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
             <h2 className="text-xl font-bold text-red-400 mb-2">Fullscreen Violation</h2>
             <p className="text-slate-300 mb-4">You have been caught leaving fullscreen. Return now or the interview may be submitted automatically.</p>
             <button
-              onClick={() => document.documentElement.requestFullscreen().catch(() => undefined)}
+              onClick={() => requestFullscreenEl(document.documentElement).catch(() => undefined)}
               className="btn-primary px-6 py-2"
             >
               Return to Fullscreen
@@ -714,9 +777,24 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
               Integrity warning
             </span>
           )}
-          <span className={`text-lg font-mono font-bold ${timeLeft < 300 ? "text-red-400" : "text-white"}`} style={timeLeft < 300 ? { textShadow: "0 0 8px rgba(248,113,113,0.5)" } : {}}>
-            {mm}:{ss}
-          </span>
+          {/* Per-question countdown */}
+          <div className="flex flex-col items-center">
+            <span className="text-[10px] text-slate-500 uppercase tracking-wider leading-none mb-0.5">This Q</span>
+            <span
+              className={`text-lg font-mono font-bold ${questionTimerCritical ? "text-red-400" : questionTimerWarning ? "text-amber-400" : "text-white"}`}
+              style={questionTimerCritical ? { textShadow: "0 0 8px rgba(248,113,113,0.5)" } : {}}
+            >
+              {qmm}:{qss}
+            </span>
+          </div>
+          <span className="text-slate-700">|</span>
+          {/* Total interview countdown */}
+          <div className="flex flex-col items-center">
+            <span className="text-[10px] text-slate-500 uppercase tracking-wider leading-none mb-0.5">Total</span>
+            <span className={`text-sm font-mono font-semibold ${timeLeft < 300 ? "text-red-400" : "text-slate-400"}`}>
+              {mm}:{ss}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -738,10 +816,27 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
               <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">{q.category}</p>
               <p className="text-white text-sm leading-relaxed">{q.questionText}</p>
             </div>
+            {/* Per-question progress bar */}
+            <div className="mt-4 mb-2">
+              <div className="flex justify-between text-xs mb-1">
+                <span className={questionTimerCritical ? "text-red-400 font-semibold" : questionTimerWarning ? "text-amber-400" : "text-slate-500"}>
+                  {questionTimerCritical ? "⚠ Time almost up!" : questionTimerWarning ? "Less than 1 min left" : "Time per question"}
+                </span>
+                <span className={`font-mono font-semibold ${questionTimerCritical ? "text-red-400" : questionTimerWarning ? "text-amber-400" : "text-slate-400"}`}>
+                  {qmm}:{qss}
+                </span>
+              </div>
+              <div className="h-1.5 w-full rounded-full bg-white/10 overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all duration-1000 ${questionTimerCritical ? "bg-red-500" : questionTimerWarning ? "bg-amber-400" : "bg-blue-500"}`}
+                  style={{ width: `${(questionTimeLeft / QUESTION_SECONDS) * 100}%` }}
+                />
+              </div>
+            </div>
             <button
               onClick={handleNext}
               disabled={uploading}
-              className="btn-primary mt-4 w-full py-3"
+              className="btn-primary w-full py-3"
             >
               {uploading ? "Uploading…" : currentIdx + 1 >= questions.length ? "Submit Interview" : "Next Question"}
             </button>
@@ -762,6 +857,23 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
             {transcript && <span className="text-emerald-400/80 text-xs line-clamp-1">{transcript.replace(/\[interim:.*?\]/g, "").slice(-80)}</span>}
           </div>
           <video ref={videoRef} autoPlay muted playsInline className="w-32 rounded-xl bg-black mb-6 self-end border border-white/10" />
+          {/* Per-question progress bar */}
+          <div className="mb-4">
+            <div className="flex justify-between text-xs mb-1">
+              <span className={questionTimerCritical ? "text-red-400 font-semibold" : questionTimerWarning ? "text-amber-400" : "text-slate-500"}>
+                {questionTimerCritical ? "⚠ Time almost up!" : questionTimerWarning ? "Less than 1 min left" : "Time per question"}
+              </span>
+              <span className={`font-mono font-semibold ${questionTimerCritical ? "text-red-400" : questionTimerWarning ? "text-amber-400" : "text-slate-400"}`}>
+                {qmm}:{qss}
+              </span>
+            </div>
+            <div className="h-1.5 w-full rounded-full bg-white/10 overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all duration-1000 ${questionTimerCritical ? "bg-red-500" : questionTimerWarning ? "bg-amber-400" : "bg-blue-500"}`}
+                style={{ width: `${(questionTimeLeft / QUESTION_SECONDS) * 100}%` }}
+              />
+            </div>
+          </div>
           <button
             onClick={handleNext}
             disabled={uploading}

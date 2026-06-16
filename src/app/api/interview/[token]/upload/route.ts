@@ -31,9 +31,8 @@ export async function POST(
   const recordingExtension = recordingContentType.includes("mp4") ? "mp4" : "webm";
 
   if (!questionId) return NextResponse.json({ error: "questionId required" }, { status: 400 });
-  if (videoSize <= 0) {
-    console.warn("[interview/upload] Missing recording rejected", { token, questionId });
-    return NextResponse.json({ error: "No video recording was received" }, { status: 400 });
+  if (videoSize <= 0 && !transcriptText && !codeText) {
+    return NextResponse.json({ error: "No response data received" }, { status: 400 });
   }
 
   const question = await prisma.question.findUnique({ where: { id: questionId } });
