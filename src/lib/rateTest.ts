@@ -71,7 +71,7 @@ export async function rateTest(
   }
 
   if (blankQuestions.length > 0) {
-    const blankRationale = "No spoken response or written answer was captured for this question. This may indicate the interview timer expired before the candidate could respond. Manual recruiter review of any available recording is recommended.";
+    const blankRationale = "The 30-minute interview timer ran out before the candidate reached or completed this question — no spoken response or written answer was captured. This question has been excluded from the overall score. If a video recording is available, please review it manually.";
     await prisma.$transaction(
       blankQuestions.map((q) =>
         prisma.question.update({

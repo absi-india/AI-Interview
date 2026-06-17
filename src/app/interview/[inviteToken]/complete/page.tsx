@@ -27,6 +27,9 @@ export default function CompletePage({
         <p className="text-slate-400">
           Thank you! Your interview has been submitted successfully. The recruiter will review your responses and be in touch soon.
         </p>
+        <p className="text-xs text-slate-500 mt-3">
+          If the 30-minute time limit was reached before you finished all questions, any unanswered questions were noted as timer-expired and will not count against your score.
+        </p>
         <div className="mt-6 pt-6 border-t border-white/5">
           <BrandLogo size="sm" />
         </div>

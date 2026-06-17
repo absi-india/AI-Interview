@@ -310,11 +310,13 @@ export function TestResultsClient({ test, shareUrl }: { test: Test; shareUrl?: s
                 <span className="badge bg-slate-700/50 text-slate-400 border border-white/5">{q.category}</span>
               </div>
               <div className="flex items-center gap-3">
-                {q.aiScore !== null && (
+                {q.aiScore !== null ? (
                   <span className={`text-sm font-bold ${scoreColorClass(q.aiScore)}`}>
                     {formatScore(scoreOutOfFive(q.aiScore))}/5
                   </span>
-                )}
+                ) : q.aiRationale ? (
+                  <span className="text-xs font-medium text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-lg">Timer expired</span>
+                ) : null}
                 <span className="text-slate-500 text-sm">{openQuestion === q.id ? "▲" : "▼"}</span>
               </div>
             </button>
@@ -345,14 +347,19 @@ export function TestResultsClient({ test, shareUrl }: { test: Test; shareUrl?: s
                     <pre className="text-xs bg-[#0a0e1a] text-emerald-300 p-4 rounded-xl overflow-auto border border-white/5">{q.codeResponse}</pre>
                   </div>
                 )}
-                {q.aiScore !== null && (
+                {q.aiScore !== null ? (
                   <div className="bg-blue-500/10 border border-blue-500/15 rounded-xl p-4">
                     <div className="flex items-center gap-2 mb-1">
                       <span className={`text-lg font-bold ${scoreColorClass(q.aiScore)}`}>{formatScore(scoreOutOfFive(q.aiScore))}/5</span>
                     </div>
                     {q.aiRationale && <p className="text-sm text-slate-300">{q.aiRationale}</p>}
                   </div>
-                )}
+                ) : q.aiRationale ? (
+                  <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4">
+                    <p className="text-xs font-semibold text-amber-400 mb-1">Not scored — timer expired</p>
+                    <p className="text-sm text-slate-300">{q.aiRationale}</p>
+                  </div>
+                ) : null}
               </div>
             )}
           </div>
