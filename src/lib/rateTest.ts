@@ -35,13 +35,20 @@ export async function rateTest(
   if (!test || test.status !== "COMPLETED") return { ok: false };
   if (test.overallScore !== null && !options.force) return { ok: true, alreadyRated: true };
 
-  const questionsToRate = options.force
+  const pool = options.force
     ? test.questions
     : test.questions.filter((q) => q.aiScore === null);
 
-  if (questionsToRate.length > 0) {
+  const answeredQuestions = pool.filter(
+    (q) => (q.transcript?.trim() ?? "") !== "" || (q.codeResponse?.trim() ?? "") !== ""
+  );
+  const blankQuestions = pool.filter(
+    (q) => (q.transcript?.trim() ?? "") === "" && (q.codeResponse?.trim() ?? "") === ""
+  );
+
+  if (answeredQuestions.length > 0) {
     const ratingResults = await rateAnswersBatch(
-      questionsToRate.map((question) => ({
+      answeredQuestions.map((question) => ({
         id: question.id,
         questionText: question.questionText,
         category: question.category,
@@ -58,6 +65,18 @@ export async function rateTest(
         prisma.question.update({
           where: { id: result.id },
           data: { aiScore: result.score, aiRationale: result.rationale },
+        })
+      )
+    );
+  }
+
+  if (blankQuestions.length > 0) {
+    const blankRationale = "No spoken response or written answer was captured for this question. This may indicate the interview timer expired before the candidate could respond. Manual recruiter review of any available recording is recommended.";
+    await prisma.$transaction(
+      blankQuestions.map((q) =>
+        prisma.question.update({
+          where: { id: q.id },
+          data: { aiScore: null, aiRationale: blankRationale },
         })
       )
     );
