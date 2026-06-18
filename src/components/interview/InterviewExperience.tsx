@@ -322,6 +322,7 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
     setPhase("interview");
     setShowStartWarning(true);
     startTimer();
+    startContinuousRecording();
     startRecordingForQuestion();
   }
 
@@ -366,11 +367,35 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
     }
   }
 
-  function startRecordingForQuestion({ resetAnswer = true } = {}) {
+  // Start ONE recorder for the whole interview. Never stopped between questions —
+  // only snapshotted. This prevents phones from producing empty blobs when a new
+  // MediaRecorder is created on the same stream after the previous one stopped.
+  function startContinuousRecording() {
     if (!streamRef.current) return;
-    attachPreviewStream();
     chunksRef.current = [];
     recorderRef.current = null;
+    recordingUnavailableRef.current = false;
+    if (!("MediaRecorder" in window)) {
+      recordingUnavailableRef.current = true;
+      return;
+    }
+    try {
+      const mimeType = RECORDER_MIME_TYPES.find((type) => MediaRecorder.isTypeSupported(type));
+      const recorder = new MediaRecorder(
+        streamRef.current,
+        mimeType ? { mimeType, ...RECORDING_OPTIONS } : RECORDING_OPTIONS
+      );
+      recorder.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
+      recorder.onerror = () => { recordingUnavailableRef.current = true; };
+      recorder.start(1000);
+      recorderRef.current = recorder;
+    } catch {
+      recordingUnavailableRef.current = true;
+    }
+  }
+
+  function startRecordingForQuestion({ resetAnswer = true } = {}) {
+    attachPreviewStream();
     shouldListenRef.current = true;
     interimTranscriptRef.current = "";
     if (resetAnswer) {
@@ -380,28 +405,6 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
     setUploadError("");
     if (resetAnswer) startQuestionTimer();
     questionStartedAtMs.current = Date.now();
-    recordingUnavailableRef.current = false;
-
-    try {
-      if (!("MediaRecorder" in window)) {
-        recordingUnavailableRef.current = true;
-        return;
-      }
-      const mimeType = RECORDER_MIME_TYPES.find((type) => MediaRecorder.isTypeSupported(type));
-      const recorder = new MediaRecorder(
-        streamRef.current,
-        mimeType ? { mimeType, ...RECORDING_OPTIONS } : RECORDING_OPTIONS
-      );
-      recorder.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
-      recorder.onerror = () => {
-        setUploadError("Recording failed for this question. Please retry before moving ahead.");
-      };
-      recorder.start(1000);
-      recorderRef.current = recorder;
-    } catch {
-      recordingUnavailableRef.current = true;
-    }
-
     startSpeechRecognition();
   }
 
@@ -411,7 +414,37 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
     attachPreviewStream();
   }, [attachPreviewStream, cameraReady, phase, currentIdx]);
 
-  function stopRecording(): Promise<Blob | null> {
+  // Snapshot the accumulated chunks for the current question WITHOUT stopping the
+  // recorder. The recorder keeps running so the next question always has video.
+  function snapshotRecording(): Promise<Blob | null> {
+    return new Promise((resolve) => {
+      if (!recorderRef.current || recorderRef.current.state !== "recording") {
+        if (chunksRef.current.length > 0) {
+          const type = chunksRef.current[0]?.type || "video/webm";
+          const blob = new Blob(chunksRef.current, { type });
+          chunksRef.current = [];
+          resolve(blob.size > 0 ? blob : null);
+        } else {
+          resolve(null);
+        }
+        return;
+      }
+      // requestData flushes any buffered data into ondataavailable
+      try { recorderRef.current.requestData(); } catch { /* ignore */ }
+      // Give ondataavailable 300 ms to fire before we snapshot
+      setTimeout(() => {
+        const snappedChunks = [...chunksRef.current];
+        chunksRef.current = []; // clear for next question
+        if (snappedChunks.length === 0) { resolve(null); return; }
+        const type = recorderRef.current?.mimeType || snappedChunks[0]?.type || "video/webm";
+        const blob = new Blob(snappedChunks, { type });
+        resolve(blob.size > 0 ? blob : null);
+      }, 300);
+    });
+  }
+
+  // Stop speech recognition (called between questions and at interview end)
+  function stopSpeechRecognition() {
     shouldListenRef.current = false;
     if (recognitionRestartTimerRef.current) {
       clearTimeout(recognitionRestartTimerRef.current);
@@ -419,23 +452,25 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
     }
     recognitionRef.current?.stop();
     recognitionRef.current = null;
+  }
+
+  // Fully stop the MediaRecorder at interview end
+  function stopRecording(): Promise<Blob | null> {
+    stopSpeechRecognition();
     return new Promise((resolve) => {
       if (!recorderRef.current || recorderRef.current.state === "inactive") {
         resolve(null);
         return;
       }
       recorderRef.current.onstop = () => {
-        const type = recorderRef.current?.mimeType || chunksRef.current[0]?.type || "video/webm";
-        const blob = new Blob(chunksRef.current, { type });
-        // iOS MediaRecorder may start without throwing but yield no data
-        if (blob.size === 0) recordingUnavailableRef.current = true;
+        const snappedChunks = [...chunksRef.current];
+        chunksRef.current = [];
+        if (snappedChunks.length === 0) { resolve(null); return; }
+        const type = recorderRef.current?.mimeType || snappedChunks[0]?.type || "video/webm";
+        const blob = new Blob(snappedChunks, { type });
         resolve(blob.size > 0 ? blob : null);
       };
-      try {
-        recorderRef.current.requestData();
-      } catch {
-        // Some browsers throw when no data is available yet; stop still flushes what exists.
-      }
+      try { recorderRef.current.requestData(); } catch { /* ignore */ }
       recorderRef.current.stop();
     });
   }
@@ -447,7 +482,8 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
     setUploadError("");
 
     try {
-      const blob = await stopRecording();
+      stopSpeechRecognition();
+      const blob = await snapshotRecording();
       const speechTranscript = `${transcriptRef.current} ${interimTranscriptRef.current}`.replace(/\s+/g, " ").trim();
       const cleanTranscript = speechTranscript;
       const cleanCodeResponse = codeResponse.trim();
