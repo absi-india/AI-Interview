@@ -138,6 +138,13 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
   const uploadingRef = useRef(false);
   const recordingUnavailableRef = useRef(false);
   const nextLockRef = useRef(false);
+  // Mirror of currentIdx in a ref so timer callbacks always read the current value
+  // even when captured in a stale closure.
+  const currentIdxRef = useRef(0);
+
+  useEffect(() => {
+    currentIdxRef.current = currentIdx;
+  }, [currentIdx]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -359,7 +366,7 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
     nextLockRef.current = true;
     await uploadCurrentQuestion({ restartOnFailure: false });
     nextLockRef.current = false;
-    if (currentIdx + 1 >= questions.length) {
+    if (currentIdxRef.current + 1 >= questions.length) {
       await submitInterview();
     } else {
       setCurrentIdx((i) => i + 1);
@@ -476,7 +483,7 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
   }
 
   async function uploadCurrentQuestion({ restartOnFailure = true } = {}) {
-    const q = questions[currentIdx];
+    const q = questions[currentIdxRef.current];
     uploadingRef.current = true;
     setUploading(true);
     setUploadError("");
