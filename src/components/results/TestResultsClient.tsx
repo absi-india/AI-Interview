@@ -43,6 +43,7 @@ const SCORE_COLOR: Record<string, string> = {
   Average: "text-amber-400",
   "Below Average": "text-orange-400",
   Poor: "text-red-400",
+  "No Answers": "text-slate-500",
 };
 
 const SEVERITY_COLOR: Record<string, string> = {
@@ -171,7 +172,12 @@ export function TestResultsClient({ test, shareUrl }: { test: Test; shareUrl?: s
             </p>
           </div>
           <div className="text-right">
-            {test.overallScore !== null ? (
+            {test.overallRating === "No Answers" ? (
+              <div className="text-right">
+                <div className="text-lg font-semibold text-slate-500">Not Scored</div>
+                <div className="text-xs text-slate-600 mt-1">No answers captured</div>
+              </div>
+            ) : test.overallScore !== null ? (
               <>
                 <div className={`text-5xl font-bold ${scoreColor}`} style={{ textShadow: "0 0 20px currentColor" }}>{overallScore?.toFixed(1)}</div>
                 <div className="text-sm text-slate-500">/ 5</div>
@@ -179,7 +185,7 @@ export function TestResultsClient({ test, shareUrl }: { test: Test; shareUrl?: s
               </>
             ) : (
               <div className="text-slate-500 text-sm">
-                {test.status === "COMPLETED" ? "Rating in progress…" : test.status.replace(/_/g, " ")}
+                {test.status === "COMPLETED" ? "Scoring in progress…" : test.status.replace(/_/g, " ")}
               </div>
             )}
           </div>
@@ -212,6 +218,12 @@ export function TestResultsClient({ test, shareUrl }: { test: Test; shareUrl?: s
             )}
             {performanceMessage && <p className="text-sm text-slate-400">{performanceMessage}</p>}
             {rerateMessage && <p className="text-sm text-slate-400">{rerateMessage}</p>}
+          </div>
+        )}
+        {test.overallRating === "No Answers" && (
+          <div className="mt-4 rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+            <p className="font-semibold mb-1">No answers were captured for this interview.</p>
+            <p className="text-amber-300/80">All questions either timed out or produced no transcript or written response. This is usually caused by the candidate denying microphone permission, having a broken microphone, or a poor network connection during upload. Review the video recordings manually if available.</p>
           </div>
         )}
         {attentionEventCount > 0 && (

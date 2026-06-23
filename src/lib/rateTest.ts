@@ -91,11 +91,13 @@ export async function rateTest(
     .filter((score): score is number => typeof score === "number");
 
   if (ratings.length === 0) {
+    // All questions were blank/unanswered — finalize with 0 so the UI
+    // doesn't stay stuck at "Rating in progress..." forever.
     await prisma.test.update({
       where: { id: testId },
-      data: { overallScore: null, overallRating: null },
+      data: { overallScore: 0, overallRating: "No Answers" },
     });
-    return { ok: false };
+    return { ok: true };
   }
 
   const overallScore =
