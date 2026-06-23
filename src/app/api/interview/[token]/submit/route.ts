@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
+import { after } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { enqueueAiRating } from "@/lib/queue";
+
+export const maxDuration = 60;
 
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ token: string }> }
 ) {
   const { token } = await params;
@@ -22,12 +24,16 @@ export async function POST(
     data: { status: "COMPLETED", completedAt, timeUsedSeconds },
   });
 
-  // Enqueue AI rating (best-effort — may fail if Redis is unavailable)
-  try {
-    await enqueueAiRating(test.id);
-  } catch {
-    // Redis not running in dev — rating will be skipped
-  }
+  // Run AI scoring after the response is sent — no Redis needed.
+  // after() keeps the function alive on Vercel until scoring completes.
+  const testId = test.id;
+  const origin = req.nextUrl.origin;
+  after(async () => {
+    const { rateTest } = await import("@/lib/rateTest");
+    await rateTest(testId, origin).catch((err: unknown) => {
+      console.error("[submit] background rateTest failed", err);
+    });
+  });
 
   return NextResponse.json({ ok: true });
 }
