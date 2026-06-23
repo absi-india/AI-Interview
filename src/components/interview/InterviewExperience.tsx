@@ -34,7 +34,7 @@ const RECORDER_MIME_TYPES = [
   "video/webm",
 ];
 const RECORDING_OPTIONS = {
-  videoBitsPerSecond: 250_000,
+  videoBitsPerSecond: 150_000,  // 150kbps — keeps 3-min video ~3.2MB, under Vercel's 4.5MB limit
   audioBitsPerSecond: 32_000,
 };
 const ATTENTION_EVENT_DEDUP_MS = 750;
