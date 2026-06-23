@@ -364,7 +364,9 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
   async function handleQuestionTimeout() {
     if (uploadingRef.current || nextLockRef.current || autoSubmitStartedRef.current || proctoringTerminatedRef.current) return;
     nextLockRef.current = true;
-    await uploadCurrentQuestion({ restartOnFailure: false });
+    console.info("[interview] question timer expired", { idx: currentIdxRef.current, chunks: chunksRef.current.length, recorderState: recorderRef.current?.state });
+    const uploaded = await uploadCurrentQuestion({ restartOnFailure: false });
+    if (!uploaded) console.warn("[interview] upload failed/skipped for question", currentIdxRef.current, "— moving on");
     nextLockRef.current = false;
     if (currentIdxRef.current + 1 >= questions.length) {
       await submitInterview();
@@ -438,15 +440,19 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
       }
       // requestData flushes any buffered data into ondataavailable
       try { recorderRef.current.requestData(); } catch { /* ignore */ }
-      // Give ondataavailable 300 ms to fire before we snapshot
+      // Give ondataavailable 600 ms to fire — some mobile/Safari browsers are slow to flush
       setTimeout(() => {
         const snappedChunks = [...chunksRef.current];
         chunksRef.current = []; // clear for next question
-        if (snappedChunks.length === 0) { resolve(null); return; }
+        if (snappedChunks.length === 0) {
+          console.warn("[recording] snapshotRecording: no chunks for question", currentIdxRef.current, "recorder state:", recorderRef.current?.state);
+          resolve(null);
+          return;
+        }
         const type = recorderRef.current?.mimeType || snappedChunks[0]?.type || "video/webm";
         const blob = new Blob(snappedChunks, { type });
         resolve(blob.size > 0 ? blob : null);
-      }, 300);
+      }, 600);
     });
   }
 
