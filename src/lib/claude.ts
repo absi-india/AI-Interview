@@ -1,8 +1,11 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import OpenAI from "openai";
 import pRetry from "p-retry";
 
 const GEMINI_MODEL = process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash";
+const OPENAI_MODEL = process.env.OPENAI_MODEL?.trim() || "gpt-4o-mini";
 const GEMINI_GENERATION_TIMEOUT_MS = 12000;
+const OPENAI_GENERATION_TIMEOUT_MS = 30000;
 const GEMINI_RATING_TIMEOUT_MS = 20000;
 const GEMINI_RATING_RETRIES = 1;
 const GEMINI_RATING_RETRY_DELAY_MS = 1200;
@@ -170,6 +173,47 @@ function getGeminiApiKey(): string | null {
   if (key.toLowerCase().includes("replace")) return null;
 
   return key;
+}
+
+function getOpenAiApiKey(): string | null {
+  const key = process.env.OPENAI_API_KEY?.trim();
+  if (!key) return null;
+  if (key.includes("...")) return null;
+  if (key.toLowerCase().includes("your-")) return null;
+  if (key.toLowerCase().includes("replace")) return null;
+  return key;
+}
+
+async function callOpenAI(system: string, user: string, timeoutMs = OPENAI_GENERATION_TIMEOUT_MS): Promise<string> {
+  const apiKey = getOpenAiApiKey();
+  if (!apiKey) throw new Error("OPENAI_NOT_CONFIGURED");
+
+  const client = new OpenAI({ apiKey, timeout: timeoutMs });
+
+  const response = await client.chat.completions.create({
+    model: OPENAI_MODEL,
+    messages: [
+      { role: "system", content: system },
+      { role: "user", content: user },
+    ],
+    temperature: 0.7,
+  });
+
+  return response.choices[0]?.message?.content ?? "";
+}
+
+function isOpenAiConfigOrAuthError(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+  const message = err.message.toLowerCase();
+  return (
+    message.includes("openai_not_configured") ||
+    message.includes("api key") ||
+    message.includes("401") ||
+    message.includes("403") ||
+    message.includes("timeout") ||
+    message.includes("connection error") ||
+    message.includes("econnrefused")
+  );
 }
 
 async function callGemini(system: string, user: string, timeoutMs = GEMINI_GENERATION_TIMEOUT_MS): Promise<string> {
@@ -585,7 +629,7 @@ ${previousQuestionsText}
 Regeneration Seed: ${avoidQuestions.length > 0 ? `${Date.now()}-${Math.random().toString(36).slice(2)}` : "first-generation"}`;
 
   try {
-    const rawResponse = await callGemini(systemPrompt, userPrompt);
+    const rawResponse = await callOpenAI(systemPrompt, userPrompt);
     const cleaned = rawResponse.replace(/```json\n?|\n?```/g, "").trim();
     const parsed = JSON.parse(cleaned);
     const questions = normalizeQuestions(parsed, level, jobDescription, avoidQuestions);
@@ -595,19 +639,19 @@ Regeneration Seed: ${avoidQuestions.length > 0 ? `${Date.now()}-${Math.random().
       debug: { systemPrompt, userPrompt, rawResponse },
     };
   } catch (err: unknown) {
-    if (!isGeminiConfigOrAuthError(err)) {
+    if (!isOpenAiConfigOrAuthError(err)) {
       throw err;
     }
 
     const questions = fallbackQuestions(level, jobDescription, avoidQuestions);
-    const reason = err instanceof Error ? err.message : "Gemini unavailable";
+    const reason = err instanceof Error ? err.message : "OpenAI unavailable";
 
     return {
       questions,
       debug: {
         systemPrompt,
         userPrompt,
-        rawResponse: `Fallback question generation used because Gemini was unavailable.\nReason: ${reason}`,
+        rawResponse: `Fallback question generation used because OpenAI was unavailable.\nReason: ${reason}`,
       },
     };
   }
