@@ -1,14 +1,7 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
 import OpenAI from "openai";
-import pRetry from "p-retry";
 
-const GEMINI_MODEL = process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash";
 const OPENAI_MODEL = process.env.OPENAI_MODEL?.trim() || "gpt-4o-mini";
-const GEMINI_GENERATION_TIMEOUT_MS = 12000;
 const OPENAI_GENERATION_TIMEOUT_MS = 30000;
-const GEMINI_RATING_TIMEOUT_MS = 20000;
-const GEMINI_RATING_RETRIES = 1;
-const GEMINI_RATING_RETRY_DELAY_MS = 1200;
 
 const STOP_WORDS = new Set([
   "a",
@@ -163,17 +156,6 @@ const TECHNOLOGY_PHRASES = [
   "stakeholder communication",
 ];
 
-function getGeminiApiKey(): string | null {
-  const key = process.env.GEMINI_API_KEY?.trim();
-  if (!key) return null;
-
-  // Common placeholder forms from docs/examples.
-  if (key.includes("...")) return null;
-  if (key.toLowerCase().includes("your-")) return null;
-  if (key.toLowerCase().includes("replace")) return null;
-
-  return key;
-}
 
 function getOpenAiApiKey(): string | null {
   const key = process.env.OPENAI_API_KEY?.trim();
@@ -216,62 +198,7 @@ function isOpenAiConfigOrAuthError(err: unknown): boolean {
   );
 }
 
-async function callGemini(system: string, user: string, timeoutMs = GEMINI_GENERATION_TIMEOUT_MS): Promise<string> {
-  const apiKey = getGeminiApiKey();
-  if (!apiKey) throw new Error("GEMINI_NOT_CONFIGURED");
 
-  const genAI = new GoogleGenerativeAI(apiKey);
-
-  return pRetry(
-    async () => {
-      const model = genAI.getGenerativeModel({
-        model: GEMINI_MODEL,
-        systemInstruction: system,
-      });
-      const result = await model.generateContent(user, { timeout: timeoutMs });
-      return result.response.text();
-    },
-    { retries: 0 }
-  );
-}
-
-function isGeminiConfigOrAuthError(err: unknown): boolean {
-  if (!(err instanceof Error)) return false;
-  const message = err.message.toLowerCase();
-  return (
-    message.includes("gemini_not_configured") ||
-    message.includes("api key") ||
-    message.includes("403") ||
-    message.includes("404") ||
-    message.includes("not found") ||
-    message.includes("not supported") ||
-    message.includes("aborted") ||
-    message.includes("timeout") ||
-    message.includes("permission_denied") ||
-    message.includes("unregistered callers") ||
-    message.includes("googlegenerativeai error")
-  );
-}
-
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-async function callGeminiForRating(system: string, user: string): Promise<string> {
-  let lastError: unknown = null;
-
-  for (let attempt = 0; attempt <= GEMINI_RATING_RETRIES; attempt += 1) {
-    try {
-      return await callGemini(system, user, GEMINI_RATING_TIMEOUT_MS);
-    } catch (err: unknown) {
-      lastError = err;
-      if (!isGeminiConfigOrAuthError(err) || attempt === GEMINI_RATING_RETRIES) break;
-      await sleep(GEMINI_RATING_RETRY_DELAY_MS * (attempt + 1));
-    }
-  }
-
-  throw lastError instanceof Error ? lastError : new Error(String(lastError));
-}
 
 function extractKeywords(jobDescription: string): string[] {
   const text = jobDescription.toLowerCase();
@@ -793,7 +720,7 @@ Candidate's Code/Written Response: ${codeResponse ?? "N/A"}
 Interview Level: ${level}`;
 
   try {
-    const raw = await callGeminiForRating(system, user);
+    const raw = await callOpenAI(system, user, 30000);
     const cleaned = raw.replace(/```json\n?|\n?```/g, "").trim();
     const parsed = JSON.parse(cleaned) as Partial<RatingResult>;
 
@@ -806,20 +733,10 @@ Interview Level: ${level}`;
       rationale: parsed.rationale,
     };
   } catch (err: unknown) {
-    if (isGeminiConfigOrAuthError(err)) {
-      console.warn("[rateAnswer] Gemini unavailable; trying OpenAI fallback", {
+    if (isOpenAiConfigOrAuthError(err)) {
+      console.warn("[rateAnswer] OpenAI unavailable; using keyword fallback", {
         reason: err instanceof Error ? err.message : String(err),
       });
-      try {
-        const raw = await callOpenAI(system, user, 30000);
-        const cleaned = raw.replace(/```json\n?|\n?```/g, "").trim();
-        const parsed = JSON.parse(cleaned) as Partial<RatingResult>;
-        if (typeof parsed.score === "number" && typeof parsed.rationale === "string") {
-          return { score: Math.max(0, Math.min(10, parsed.score)), rationale: parsed.rationale };
-        }
-      } catch (openAiErr) {
-        console.warn("[rateAnswer] OpenAI fallback also failed", openAiErr);
-      }
       return fallbackRating(level, questionText, category, expectedAnswerSummary, transcript, codeResponse);
     }
     throw err;
@@ -869,7 +786,7 @@ ${JSON.stringify(
 )}`;
 
   try {
-    const raw = await callGeminiForRating(system, user);
+    const raw = await callOpenAI(system, user, 45000);
     const cleaned = raw.replace(/```json\n?|\n?```/g, "").trim();
     const parsed = JSON.parse(cleaned) as unknown;
 
@@ -910,33 +827,11 @@ ${JSON.stringify(
       };
     });
   } catch (err: unknown) {
-    if (isGeminiConfigOrAuthError(err)) {
-      console.warn("[rateAnswersBatch] Gemini unavailable; trying OpenAI fallback", {
+    if (isOpenAiConfigOrAuthError(err)) {
+      console.warn("[rateAnswersBatch] OpenAI unavailable; using keyword fallback", {
         reason: err instanceof Error ? err.message : String(err),
         questionCount: questions.length,
       });
-      try {
-        const raw = await callOpenAI(system, user, 45000);
-        const cleaned = raw.replace(/```json\n?|\n?```/g, "").trim();
-        const parsed = JSON.parse(cleaned) as unknown;
-        if (Array.isArray(parsed)) {
-          const byId = new Map<string, Partial<BatchRatingResult>>();
-          for (const item of parsed) {
-            if (!item || typeof item !== "object") continue;
-            const candidate = item as Partial<BatchRatingResult>;
-            if (typeof candidate.id === "string") byId.set(candidate.id, candidate);
-          }
-          return questions.map((question) => {
-            const r = byId.get(question.id);
-            if (!r || typeof r.score !== "number" || typeof r.rationale !== "string") {
-              return { id: question.id, ...fallbackRating(level, question.questionText, question.category, question.expectedAnswerSummary, question.transcript, question.codeResponse, Boolean(question.hasVideo)) };
-            }
-            return { id: question.id, score: Math.max(0, Math.min(10, r.score)), rationale: r.rationale };
-          });
-        }
-      } catch (openAiErr) {
-        console.warn("[rateAnswersBatch] OpenAI fallback also failed", openAiErr);
-      }
       return fallbackResults();
     }
     throw err;
