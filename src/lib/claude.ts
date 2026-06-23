@@ -807,11 +807,19 @@ Interview Level: ${level}`;
     };
   } catch (err: unknown) {
     if (isGeminiConfigOrAuthError(err)) {
-      console.warn("[rateAnswer] Gemini unavailable; using fallback rating", {
+      console.warn("[rateAnswer] Gemini unavailable; trying OpenAI fallback", {
         reason: err instanceof Error ? err.message : String(err),
-        transcriptLength: transcript?.length ?? 0,
-        codeLength: codeResponse?.length ?? 0,
       });
+      try {
+        const raw = await callOpenAI(system, user, 30000);
+        const cleaned = raw.replace(/```json\n?|\n?```/g, "").trim();
+        const parsed = JSON.parse(cleaned) as Partial<RatingResult>;
+        if (typeof parsed.score === "number" && typeof parsed.rationale === "string") {
+          return { score: Math.max(0, Math.min(10, parsed.score)), rationale: parsed.rationale };
+        }
+      } catch (openAiErr) {
+        console.warn("[rateAnswer] OpenAI fallback also failed", openAiErr);
+      }
       return fallbackRating(level, questionText, category, expectedAnswerSummary, transcript, codeResponse);
     }
     throw err;
@@ -903,10 +911,32 @@ ${JSON.stringify(
     });
   } catch (err: unknown) {
     if (isGeminiConfigOrAuthError(err)) {
-      console.warn("[rateAnswersBatch] Gemini unavailable; using fallback ratings", {
+      console.warn("[rateAnswersBatch] Gemini unavailable; trying OpenAI fallback", {
         reason: err instanceof Error ? err.message : String(err),
         questionCount: questions.length,
       });
+      try {
+        const raw = await callOpenAI(system, user, 45000);
+        const cleaned = raw.replace(/```json\n?|\n?```/g, "").trim();
+        const parsed = JSON.parse(cleaned) as unknown;
+        if (Array.isArray(parsed)) {
+          const byId = new Map<string, Partial<BatchRatingResult>>();
+          for (const item of parsed) {
+            if (!item || typeof item !== "object") continue;
+            const candidate = item as Partial<BatchRatingResult>;
+            if (typeof candidate.id === "string") byId.set(candidate.id, candidate);
+          }
+          return questions.map((question) => {
+            const r = byId.get(question.id);
+            if (!r || typeof r.score !== "number" || typeof r.rationale !== "string") {
+              return { id: question.id, ...fallbackRating(level, question.questionText, question.category, question.expectedAnswerSummary, question.transcript, question.codeResponse, Boolean(question.hasVideo)) };
+            }
+            return { id: question.id, score: Math.max(0, Math.min(10, r.score)), rationale: r.rationale };
+          });
+        }
+      } catch (openAiErr) {
+        console.warn("[rateAnswersBatch] OpenAI fallback also failed", openAiErr);
+      }
       return fallbackResults();
     }
     throw err;
