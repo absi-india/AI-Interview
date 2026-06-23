@@ -438,21 +438,32 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
         }
         return;
       }
-      // requestData flushes any buffered data into ondataavailable
+
+      // Grab all chunks accumulated so far immediately — these are the reliable bulk
+      // (up to ~180 chunks after a 3-minute question at 1000ms interval).
+      // We do this BEFORE calling requestData() because requestData() can disrupt
+      // ondataavailable on Android WebView / older Safari, causing the wait below to
+      // produce zero chunks and the whole snapshot to appear empty.
+      const mainChunks = [...chunksRef.current];
+      chunksRef.current = [];
+
+      // requestData() flushes the last partial second that hasn't emitted yet.
+      // Collect any tail chunks it produces in a short window.
       try { recorderRef.current.requestData(); } catch { /* ignore */ }
-      // Give ondataavailable 600 ms to fire — some mobile/Safari browsers are slow to flush
       setTimeout(() => {
-        const snappedChunks = [...chunksRef.current];
-        chunksRef.current = []; // clear for next question
-        if (snappedChunks.length === 0) {
-          console.warn("[recording] snapshotRecording: no chunks for question", currentIdxRef.current, "recorder state:", recorderRef.current?.state);
+        const tailChunks = [...chunksRef.current];
+        chunksRef.current = [];
+
+        const allChunks = [...mainChunks, ...tailChunks];
+        if (allChunks.length === 0) {
+          console.warn("[recording] snapshotRecording: no chunks for Q", currentIdxRef.current, "recorder:", recorderRef.current?.state);
           resolve(null);
           return;
         }
-        const type = recorderRef.current?.mimeType || snappedChunks[0]?.type || "video/webm";
-        const blob = new Blob(snappedChunks, { type });
+        const type = recorderRef.current?.mimeType || allChunks[0]?.type || "video/webm";
+        const blob = new Blob(allChunks, { type });
         resolve(blob.size > 0 ? blob : null);
-      }, 600);
+      }, 400);
     });
   }
 
