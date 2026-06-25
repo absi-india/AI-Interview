@@ -1,6 +1,25 @@
+import { prisma } from "@/lib/prisma";
+import { redirect } from "next/navigation";
 import { BrandLogo } from "@/components/BrandLogo";
 
-export default function CompletePage() {
+export default async function CompletePage({
+  params,
+}: {
+  params: Promise<{ inviteToken: string }>;
+}) {
+  const { inviteToken } = await params;
+  const decodedToken = decodeURIComponent(inviteToken).trim();
+
+  const test = await prisma.test.findFirst({
+    where: { inviteToken: decodedToken, status: "COMPLETED" },
+    select: { id: true },
+  });
+
+  if (!test) {
+    // Token invalid, not found, or interview not yet completed — send them back.
+    redirect(`/interview/${inviteToken}`);
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center" style={{ background: "linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)" }}>
       <div className="glass-card p-12 max-w-lg text-center animate-fade-in-up">

@@ -79,8 +79,12 @@ export async function POST(
   await prisma.question.update({
     where: { id: questionId },
     data: {
-      transcript: transcriptText || undefined,
-      codeResponse: codeText || undefined,
+      // null clears stale data from a previous partial upload; undefined would
+      // silently preserve old garbage if this upload sends empty text.
+      transcript: transcriptText || null,
+      codeResponse: codeText || null,
+      // Video is only updated when a new file was actually uploaded — we never
+      // want to wipe an existing clip just because this retry had no new video.
       videoUrl: videoUrl ?? undefined,
     },
   });
