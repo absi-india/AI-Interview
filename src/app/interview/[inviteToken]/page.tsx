@@ -18,13 +18,7 @@ export default async function InterviewPage({
   const { inviteToken } = await params;
   const decodedToken = decodeURIComponent(inviteToken).trim();
   const test = await prisma.test.findFirst({
-    where: {
-      OR: [
-        { inviteToken: decodedToken },
-        { inviteToken: { contains: decodedToken } },
-        { inviteToken: { endsWith: decodedToken } },
-      ],
-    },
+    where: { inviteToken: decodedToken },
     include: {
       candidate: { select: { name: true } },
       questions: { orderBy: { order: "asc" }, select: { id: true, order: true, questionText: true, category: true, codeLanguageHint: true } },

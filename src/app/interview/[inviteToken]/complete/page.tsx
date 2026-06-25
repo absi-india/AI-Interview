@@ -1,22 +1,6 @@
-"use client";
-
-import { useEffect } from "react";
-import { use } from "react";
 import { BrandLogo } from "@/components/BrandLogo";
 
-export default function CompletePage({
-  params,
-}: {
-  params: Promise<{ inviteToken: string }>;
-}) {
-  const { inviteToken } = use(params);
-
-  useEffect(() => {
-    fetch(`/api/interview/${inviteToken}/rate`, { method: "POST" }).catch(() => {
-      // best-effort — cron will catch it if this fails
-    });
-  }, [inviteToken]);
-
+export default function CompletePage() {
   return (
     <div className="min-h-screen flex items-center justify-center" style={{ background: "linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)" }}>
       <div className="glass-card p-12 max-w-lg text-center animate-fade-in-up">
