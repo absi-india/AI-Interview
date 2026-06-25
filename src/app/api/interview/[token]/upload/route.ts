@@ -34,6 +34,12 @@ export async function POST(
   if (videoSize <= 0 && !transcriptText && !codeText) {
     return NextResponse.json({ error: "No response data received" }, { status: 400 });
   }
+  if (videoSize > 10 * 1024 * 1024) {
+    return NextResponse.json(
+      { error: `Video file is too large (${Math.round(videoSize / 1024 / 1024)}MB). Check your browser settings or contact your recruiter.` },
+      { status: 413 }
+    );
+  }
 
   const question = await prisma.question.findUnique({ where: { id: questionId } });
   if (!question || question.testId !== test.id) {
@@ -73,8 +79,12 @@ export async function POST(
   await prisma.question.update({
     where: { id: questionId },
     data: {
-      transcript: transcriptText || undefined,
-      codeResponse: codeText || undefined,
+      // null clears stale data from a previous partial upload; undefined would
+      // silently preserve old garbage if this upload sends empty text.
+      transcript: transcriptText || null,
+      codeResponse: codeText || null,
+      // Video is only updated when a new file was actually uploaded — we never
+      // want to wipe an existing clip just because this retry had no new video.
       videoUrl: videoUrl ?? undefined,
     },
   });

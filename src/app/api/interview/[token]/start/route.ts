@@ -14,6 +14,9 @@ export async function POST(
     if (test.inviteExpiresAt && test.inviteExpiresAt < new Date()) {
       return NextResponse.json({ error: "Link expired" }, { status: 410 });
     }
+    if (!["INVITED", "IN_PROGRESS"].includes(test.status)) {
+      return NextResponse.json({ error: "This interview is not ready to start yet. Please contact your recruiter." }, { status: 409 });
+    }
 
     if (test.status === "INVITED") {
       await prisma.test.update({
