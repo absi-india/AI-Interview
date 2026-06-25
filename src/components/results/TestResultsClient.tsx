@@ -125,7 +125,7 @@ export function TestResultsClient({ test, shareUrl }: { test: Test; shareUrl?: s
     }
   }
 
-  async function rerateWithGemini() {
+  async function rerateWithAI() {
     setRerating(true);
     setRerateMessage("");
 
@@ -134,14 +134,14 @@ export function TestResultsClient({ test, shareUrl }: { test: Test; shareUrl?: s
       const body = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        setRerateMessage(typeof body?.error === "string" ? body.error : "Failed to re-run Gemini scoring.");
+        setRerateMessage(typeof body?.error === "string" ? body.error : "Failed to re-run AI scoring.");
         return;
       }
 
-      setRerateMessage("Gemini scoring updated. Refreshing results...");
+      setRerateMessage("AI scoring updated. Refreshing results...");
       window.location.reload();
     } catch {
-      setRerateMessage("Failed to re-run Gemini scoring. Please try again.");
+      setRerateMessage("Failed to re-run AI scoring. Please try again.");
     } finally {
       setRerating(false);
     }
@@ -209,11 +209,11 @@ export function TestResultsClient({ test, shareUrl }: { test: Test; shareUrl?: s
             </button>
             {test.status === "COMPLETED" && (
               <button
-                onClick={rerateWithGemini}
+                onClick={rerateWithAI}
                 disabled={rerating}
                 className="btn-secondary text-sm disabled:opacity-70 disabled:cursor-not-allowed"
               >
-                {rerating ? "Re-scoring..." : "Re-run Gemini Scoring"}
+                {rerating ? "Re-scoring..." : "Re-run AI Scoring"}
               </button>
             )}
             {performanceMessage && <p className="text-sm text-slate-400">{performanceMessage}</p>}
@@ -327,7 +327,7 @@ export function TestResultsClient({ test, shareUrl }: { test: Test; shareUrl?: s
                     {formatScore(scoreOutOfFive(q.aiScore))}/5
                   </span>
                 ) : q.aiRationale ? (
-                  <span className="text-xs font-medium text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-lg">Timer expired</span>
+                  <span className="text-xs font-medium text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-lg">Not answered</span>
                 ) : null}
                 <span className="text-slate-500 text-sm">{openQuestion === q.id ? "▲" : "▼"}</span>
               </div>
@@ -368,7 +368,7 @@ export function TestResultsClient({ test, shareUrl }: { test: Test; shareUrl?: s
                   </div>
                 ) : q.aiRationale ? (
                   <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4">
-                    <p className="text-xs font-semibold text-amber-400 mb-1">Not scored — timer expired</p>
+                    <p className="text-xs font-semibold text-amber-400 mb-1">Not scored — no answer captured</p>
                     <p className="text-sm text-slate-300">{q.aiRationale}</p>
                   </div>
                 ) : null}
