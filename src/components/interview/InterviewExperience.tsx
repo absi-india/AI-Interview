@@ -322,10 +322,10 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
       try { await requestFullscreenEl(document.documentElement); } catch { /* ignore */ }
     }
     setPhase("interview");
-    setShowStartWarning(true);
-    startTimer();
     startContinuousRecording();
-    startRecordingForQuestion();
+    setShowStartWarning(true);
+    // startTimer() and startRecordingForQuestion() are called when the candidate
+    // dismisses the start warning, so Q1's 3-minute clock doesn't tick while they read it.
   }
 
   function startTimer() {
@@ -465,6 +465,11 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
   // Stop speech recognition (called between questions and at interview end)
   function stopSpeechRecognition() {
     shouldListenRef.current = false;
+    // Flush any pending interim transcript so it isn't lost if recognition stops mid-word.
+    if (interimTranscriptRef.current) {
+      setTranscriptValue((c) => `${c} ${interimTranscriptRef.current}`.replace(/\s+/g, " ").trim());
+      interimTranscriptRef.current = "";
+    }
     if (recognitionRestartTimerRef.current) {
       clearTimeout(recognitionRestartTimerRef.current);
       recognitionRestartTimerRef.current = null;
@@ -522,7 +527,14 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
         formData.append("video", blob, `${q.id}.${extension}`);
       }
 
-      const response = await fetch(`/api/interview/${inviteToken}/upload`, { method: "POST", body: formData });
+      const uploadController = new AbortController();
+      const uploadTimeout = setTimeout(() => uploadController.abort(), 40_000);
+      let response: Response;
+      try {
+        response = await fetch(`/api/interview/${inviteToken}/upload`, { method: "POST", body: formData, signal: uploadController.signal });
+      } finally {
+        clearTimeout(uploadTimeout);
+      }
       if (!response.ok) {
         const body = await response.json().catch(() => ({}));
         const message = typeof body?.error === "string" ? body.error : `Upload failed (${response.status})`;
@@ -532,8 +544,13 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
       }
 
       return true;
-    } catch {
-      setUploadError("Upload failed because the network or server was unavailable. Please retry before moving ahead.");
+    } catch (err) {
+      const isTimeout = err instanceof Error && err.name === "AbortError";
+      setUploadError(
+        isTimeout
+          ? "Upload timed out — check your internet connection and retry."
+          : "Upload failed because the network or server was unavailable. Please retry before moving ahead."
+      );
       if (restartOnFailure) startRecordingForQuestion({ resetAnswer: false });
       return false;
     } finally {
@@ -760,11 +777,13 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
             </div>
             <h2 className="text-2xl font-bold text-amber-200 mb-3">Stay on this interview screen</h2>
             <p className="text-sm leading-relaxed text-slate-200 mb-6">
-              Changing tabs, switching windows, leaving fullscreen, or opening another app is detected. Repeated violations can stop and submit the interview automatically.
+              Changing tabs, switching windows, leaving fullscreen, or opening another app is detected and reported to the recruiter. Stay on this page for the full interview.
             </p>
             <button
               onClick={() => {
                 setShowStartWarning(false);
+                startTimer();
+                startRecordingForQuestion();
                 if (!isMobileInterview && !getFullscreenEl()) {
                   void requestFullscreenEl(document.documentElement).catch(() => undefined);
                 }
