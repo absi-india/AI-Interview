@@ -38,8 +38,7 @@ const RECORDING_OPTIONS = {
   audioBitsPerSecond: 32_000,
 };
 const ATTENTION_EVENT_DEDUP_MS = 750;
-// 3 silent violations allowed; on the 4th the interview is terminated
-const MAX_PROCTORING_VIOLATIONS = 4;
+// Violations are logged for recruiter review but never force-terminate the interview.
 const RULES = [
   "Your camera and microphone will be active for the entire interview",
   "You must remain in fullscreen mode at all times",
@@ -187,31 +186,27 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
   );
 
   function recordProctoringViolation(type: string, detail: string) {
-    if (intentionalExitRef.current || proctoringTerminatedRef.current || autoSubmitStartedRef.current) return;
+    if (intentionalExitRef.current || autoSubmitStartedRef.current) return;
 
     const nextCount = proctoringViolations.current + 1;
     proctoringViolations.current = nextCount;
     logFraud(
       type,
       "HIGH",
-      `${detail} (Proctoring violation ${nextCount}/${MAX_PROCTORING_VIOLATIONS})`
+      `${detail} (Proctoring violation ${nextCount})`
     );
 
-    if (nextCount >= MAX_PROCTORING_VIOLATIONS) {
-      proctoringTerminatedRef.current = true;
+    // First violation: show a visible warning so the candidate knows to stay on screen.
+    // We never force-terminate — violations are logged for recruiter review only.
+    if (nextCount === 1) {
       setShowFullscreenOverlay(false);
       setProctoringNotice({
-        title: "You have been caught",
+        title: "Stay on this screen",
         message:
-          "You have been caught leaving the interview screen too many times. Your interview is being submitted automatically.",
-        terminal: true,
+          "You left the interview screen. Switching tabs, apps, or losing focus is recorded and reported to the recruiter. Please stay on this page.",
+        terminal: false,
       });
-      window.setTimeout(() => {
-        void handleAutoSubmit();
-      }, 1200);
-      return;
     }
-    // Violations 1–(MAX-1) are silently logged — no popup shown to candidate
   }
 
   const setTranscriptValue = useCallback((value: string | ((current: string) => string)) => {
@@ -814,7 +809,7 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center">
           <div className="glass-card p-8 max-w-sm text-center animate-fade-in-up">
             <h2 className="text-xl font-bold text-red-400 mb-2">Fullscreen Violation</h2>
-            <p className="text-slate-300 mb-4">You have been caught leaving fullscreen. Return now or the interview may be submitted automatically.</p>
+            <p className="text-slate-300 mb-4">You have left fullscreen mode. This has been recorded. Please return to fullscreen to continue your interview.</p>
             <button
               onClick={() => requestFullscreenEl(document.documentElement).catch(() => undefined)}
               className="btn-primary px-6 py-2"
