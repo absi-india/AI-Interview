@@ -95,9 +95,10 @@ function detectMobileInterview() {
 
 export function InterviewExperience({ inviteToken, candidateName, jobTitle, level, questions, initialStatus }: Props) {
   const router = useRouter();
-  const [phase, setPhase] = useState<"prechecks" | "interview" | "done">(
-    initialStatus === "IN_PROGRESS" ? "interview" : "prechecks"
-  );
+  // Always start at prechecks so camera/recording/timers are properly initialized.
+  // If the page was reloaded mid-interview (IN_PROGRESS), the banner in prechecks
+  // tells the candidate to reconnect their camera and resume.
+  const [phase, setPhase] = useState<"prechecks" | "interview" | "done">("prechecks");
   const [agreed, setAgreed] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
   const [cameraError, setCameraError] = useState("");
@@ -317,7 +318,15 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
   }
 
   async function beginInterview() {
-    await fetch(`/api/interview/${inviteToken}/start`, { method: "POST" });
+    const startRes = await fetch(`/api/interview/${inviteToken}/start`, { method: "POST" });
+    if (!startRes.ok) {
+      const body = await startRes.json().catch(() => ({}));
+      setCameraError(
+        (body as { error?: string }).error ??
+        "Could not start the interview. The link may have expired — please contact your recruiter."
+      );
+      return;
+    }
     if (!isMobileInterview) {
       try { await requestFullscreenEl(document.documentElement); } catch { /* ignore */ }
     }
@@ -708,6 +717,12 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
               <p className="text-slate-400 text-sm">{candidateName} — {jobTitle} ({level})</p>
             </div>
           </div>
+
+          {initialStatus === "IN_PROGRESS" && (
+            <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4 mb-4">
+              <p className="text-blue-300 text-sm font-medium">Your previous session was interrupted. Reconnect your camera below to resume — your progress so far has been saved.</p>
+            </div>
+          )}
 
           <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-5 mb-6">
             <h2 className="font-semibold text-amber-300 mb-3">Interview Rules</h2>
