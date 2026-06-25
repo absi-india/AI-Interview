@@ -71,7 +71,7 @@ export async function rateTest(
   }
 
   if (blankQuestions.length > 0) {
-    const blankRationale = "The 30-minute interview timer ran out before the candidate reached or completed this question — no spoken response or written answer was captured. This question has been excluded from the overall score. If a video recording is available, please review it manually.";
+    const blankRationale = "No answer was captured for this question — the candidate may have submitted early, skipped this question, or run out of time. This question has been excluded from the overall score. If a video recording is available, please review it manually.";
     await prisma.$transaction(
       blankQuestions.map((q) =>
         prisma.question.update({
