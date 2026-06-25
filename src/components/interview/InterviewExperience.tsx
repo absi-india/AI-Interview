@@ -369,8 +369,14 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
     if (uploadingRef.current || nextLockRef.current || autoSubmitStartedRef.current || proctoringTerminatedRef.current) return;
     nextLockRef.current = true;
     console.info("[interview] question timer expired", { idx: currentIdxRef.current, chunks: chunksRef.current.length, recorderState: recorderRef.current?.state });
-    const uploaded = await uploadCurrentQuestion({ restartOnFailure: false });
-    if (!uploaded) console.warn("[interview] upload failed/skipped for question", currentIdxRef.current, "— moving on");
+    let uploaded = await uploadCurrentQuestion({ restartOnFailure: false });
+    if (!uploaded) {
+      // Transcript is still in transcriptRef.current; recorder keeps running so
+      // new chunks accumulate. Wait 3s then retry — preserves the text answer.
+      await new Promise<void>((r) => setTimeout(r, 3000));
+      uploaded = await uploadCurrentQuestion({ restartOnFailure: false });
+      if (!uploaded) console.warn("[interview] upload retry failed for question", currentIdxRef.current, "— moving on");
+    }
     nextLockRef.current = false;
     if (currentIdxRef.current + 1 >= questions.length) {
       await submitInterview();
@@ -527,6 +533,15 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
         return false;
       }
 
+      // Guard against unexpectedly large blobs before hitting the network.
+      // At 150kbps a 3-minute clip should be ~3.2MB; 10MB is a safe ceiling.
+      const MAX_VIDEO_BYTES = 10 * 1024 * 1024;
+      if (blob && blob.size > MAX_VIDEO_BYTES) {
+        setUploadError(`Recording is too large to upload (${Math.round(blob.size / 1024 / 1024)}MB). Please try a different browser or contact your recruiter.`);
+        if (restartOnFailure) startRecordingForQuestion({ resetAnswer: false });
+        return false;
+      }
+
       const formData = new FormData();
       formData.append("questionId", q.id);
       if (cleanTranscript) formData.append("transcript", cleanTranscript);
@@ -572,7 +587,16 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
     intentionalExitRef.current = true;
     if (questionTimerRef.current) clearInterval(questionTimerRef.current);
     setPhase("done");
-    await fetch(`/api/interview/${inviteToken}/submit`, { method: "POST" });
+    // Retry once on network/5xx failure — a permanent failure leaves the test
+    // IN_PROGRESS until the overnight cron rescues it, so one retry is worth it.
+    let submitted = false;
+    for (let attempt = 0; attempt < 2 && !submitted; attempt++) {
+      if (attempt > 0) await new Promise<void>((r) => setTimeout(r, 2000));
+      try {
+        const res = await fetch(`/api/interview/${inviteToken}/submit`, { method: "POST" });
+        submitted = res.ok || res.status === 400; // 400 = already completed, that's fine
+      } catch { /* network error, will retry */ }
+    }
     if (getFullscreenEl()) await exitFullscreenDoc().catch(() => undefined);
     streamRef.current?.getTracks().forEach((t) => t.stop());
     router.push(`/interview/${inviteToken}/complete`);
@@ -608,8 +632,13 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
     clearInterval(timerRef.current!);
     if (questionTimerRef.current) clearInterval(questionTimerRef.current);
     if (!uploadingRef.current && phase === "interview") {
-      // Best-effort upload — always proceed to submit even if it fails
-      await uploadCurrentQuestion({ restartOnFailure: false });
+      // Best-effort upload for the last question — retry once if it fails so
+      // the candidate's final answer isn't silently dropped.
+      const uploaded = await uploadCurrentQuestion({ restartOnFailure: false });
+      if (!uploaded) {
+        await new Promise<void>((r) => setTimeout(r, 2000));
+        await uploadCurrentQuestion({ restartOnFailure: false });
+      }
     } else {
       await stopRecording();
     }
