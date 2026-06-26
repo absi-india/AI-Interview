@@ -126,6 +126,9 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
   const streamRef = useRef<MediaStream | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+  // First chunk from the recorder contains the WebM/MP4 container header (init segment).
+  // Q2+ blobs must be prepended with it or the browser can't decode the video.
+  const initSegmentRef = useRef<Blob | null>(null);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const recognitionRestartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const shouldListenRef = useRef(false);
@@ -402,6 +405,7 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
   function startContinuousRecording() {
     if (!streamRef.current) return;
     chunksRef.current = [];
+    initSegmentRef.current = null;
     recorderRef.current = null;
     recordingUnavailableRef.current = false;
     if (!("MediaRecorder" in window)) {
@@ -414,7 +418,12 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
         streamRef.current,
         mimeType ? { mimeType, ...RECORDING_OPTIONS } : RECORDING_OPTIONS
       );
-      recorder.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          if (!initSegmentRef.current) initSegmentRef.current = e.data;
+          chunksRef.current.push(e.data);
+        }
+      };
       recorder.onerror = () => { recordingUnavailableRef.current = true; };
       recorder.start(1000);
       recorderRef.current = recorder;
@@ -449,8 +458,11 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
     return new Promise((resolve) => {
       if (!recorderRef.current || recorderRef.current.state !== "recording") {
         if (chunksRef.current.length > 0) {
-          const type = chunksRef.current[0]?.type || "video/webm";
-          const blob = new Blob(chunksRef.current, { type });
+          const init = initSegmentRef.current;
+          const chunks = chunksRef.current;
+          const chunksForBlob = init && chunks[0] !== init ? [init, ...chunks] : chunks;
+          const type = chunksForBlob[0]?.type || "video/webm";
+          const blob = new Blob(chunksForBlob, { type });
           chunksRef.current = [];
           resolve(blob.size > 0 ? blob : null);
         } else {
@@ -480,8 +492,13 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
           resolve(null);
           return;
         }
-        const type = recorderRef.current?.mimeType || allChunks[0]?.type || "video/webm";
-        const blob = new Blob(allChunks, { type });
+        // Q2+ blobs don't contain the WebM/MP4 init segment (container header) because
+        // it was only emitted in the first ondataavailable event. Prepend it so the
+        // browser can decode the video; skip if allChunks already starts with it (Q1).
+        const init = initSegmentRef.current;
+        const chunksForBlob = init && allChunks[0] !== init ? [init, ...allChunks] : allChunks;
+        const type = recorderRef.current?.mimeType || chunksForBlob[0]?.type || "video/webm";
+        const blob = new Blob(chunksForBlob, { type });
         resolve(blob.size > 0 ? blob : null);
       }, 400);
     });
