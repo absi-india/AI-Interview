@@ -296,6 +296,15 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
           autoGainControl: true,
         },
       });
+      // Verify both camera and microphone tracks are present
+      const missingVideo = stream.getVideoTracks().length === 0;
+      const missingAudio = stream.getAudioTracks().length === 0;
+      if (missingVideo || missingAudio) {
+        stream.getTracks().forEach((t) => t.stop());
+        const missing = missingVideo && missingAudio ? "camera and microphone" : missingVideo ? "camera" : "microphone";
+        setCameraError(`${missing.charAt(0).toUpperCase() + missing.slice(1)} access is required to start the interview. No ${missing} was detected. Please connect a ${missing} and try again.`);
+        return;
+      }
       streamRef.current = stream;
       setCameraError("");
       attachPreviewStream();
@@ -304,11 +313,11 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
       setCameraReady(false);
       const errorName = err instanceof DOMException ? err.name : "";
       if (errorName === "NotAllowedError") {
-        setCameraError("Camera/microphone access was blocked. Click the lock icon in the address bar, allow camera and microphone, then try again.");
+        setCameraError("You must allow camera and microphone access to take this interview. Click the lock icon in your browser address bar, set Camera and Microphone to 'Allow', then click 'Try Camera Again'.");
       } else if (errorName === "NotFoundError") {
-        setCameraError("No camera or microphone was found. Please connect a device and try again.");
+        setCameraError("No camera or microphone was found on this device. Please connect a camera and microphone, then try again.");
       } else if (errorName === "NotReadableError") {
-        setCameraError("Camera or microphone is already in use by another app. Close Zoom/Teams/Meet or other camera apps and try again.");
+        setCameraError("Camera or microphone is already in use by another app. Close Zoom, Teams, Meet, or any other camera app, then try again.");
       } else {
         setCameraError("Camera/microphone could not start. Please check browser permissions and try again.");
       }
@@ -318,6 +327,7 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
   }
 
   async function beginInterview() {
+    if (!cameraReady) return;
     const startRes = await fetch(`/api/interview/${inviteToken}/start`, { method: "POST" });
     if (!startRes.ok) {
       const body = await startRes.json().catch(() => ({}));
@@ -804,6 +814,11 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
           >
             Begin Interview
           </button>
+          {!cameraReady && (
+            <p className="mt-3 text-center text-sm text-red-400">
+              Camera and microphone access must be granted before you can begin the interview.
+            </p>
+          )}
         </div>
       </div>
     );
