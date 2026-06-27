@@ -179,7 +179,7 @@ export function TestResultsClient({ test, shareUrl }: { test: Test; shareUrl?: s
               </div>
             ) : test.overallScore !== null ? (
               <>
-                <div className={`text-5xl font-bold tracking-tight ${scoreColor}`}>{overallScore?.toFixed(1)}<span className="text-2xl text-[#94a3b8] font-semibold">/5</span></div>
+                <div className={`text-5xl font-bold tracking-tight animate-pulse-glow-text ${scoreColor}`}>{overallScore?.toFixed(1)}<span className="text-2xl text-[#94a3b8] font-semibold">/5</span></div>
                 <div className={`mt-2 inline-flex items-center badge ${scoreColor}`} style={{ background: "#f1f5f9" }}>{test.overallRating}</div>
               </>
             ) : (

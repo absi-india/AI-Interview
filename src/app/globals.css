@@ -187,11 +187,42 @@ body {
   50% { box-shadow: 0 0 20px rgba(37, 99, 235, 0.4); }
 }
 
+@keyframes pulseGlow {
+  0%, 100% { text-shadow: 0 4px 18px rgba(21, 128, 61, 0.28); }
+  50% { text-shadow: 0 4px 32px rgba(21, 128, 61, 0.55); }
+}
+@keyframes growBar {
+  from { transform: scaleY(0); }
+  to { transform: scaleY(1); }
+}
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 .animate-fade-in-up {
   animation: fadeInUp 0.5s ease-out both;
 }
 .animate-fade-in {
   animation: fadeIn 0.4s ease-out both;
+}
+.animate-pulse-glow-text {
+  animation: pulseGlow 3s ease-in-out infinite;
+}
+.animate-grow-bar {
+  animation: growBar 0.6s ease-out both;
+  transform-origin: bottom;
+}
+.animate-toast-in {
+  animation: toastIn 0.4s ease-out both;
+}
+
+/* Skeleton loading shimmer */
+.skel {
+  background: linear-gradient(90deg, #eef1f6 25%, #dfe5ee 37%, #eef1f6 63%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease infinite;
+  border-radius: 6px;
 }
 
 /* Staggered children */

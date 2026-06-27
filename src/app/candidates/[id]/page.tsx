@@ -3,7 +3,19 @@ import { prisma } from "@/lib/prisma";
 import { isHttpUrl, parseResumeFileRef } from "@/lib/resume";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
+import { Fragment } from "react";
 import { DeleteCandidateButton } from "@/components/DeleteCandidateButton";
+
+const LIFECYCLE_STEPS = ["Questions", "Approved", "Invited", "In Progress", "Completed"];
+const LIFECYCLE_STEP_INDEX: Record<string, number> = {
+  QUESTIONS_PENDING: 0,
+  QUESTIONS_APPROVED: 1,
+  INVITED: 2,
+  IN_PROGRESS: 3,
+  STOPPED_TAB_CHANGES: 3,
+  COMPLETED: 4,
+  EXPIRED: 2,
+};
 
 const STATUS_COLOR: Record<string, string> = {
   QUESTIONS_PENDING: "bg-[#fef3c7] text-[#b45309]",
@@ -43,6 +55,9 @@ export default async function CandidateProfilePage({
       ? resumeFile.objectKey
       : `/api/candidates/${candidate.id}/resume`
     : null;
+
+  const latestTest = candidate.tests[0];
+  const currentStep = latestTest ? LIFECYCLE_STEP_INDEX[latestTest.status] ?? 0 : -1;
 
   return (
     <div className="min-h-screen p-8" style={{ background: "#f4f6f9" }}>
@@ -106,6 +121,51 @@ export default async function CandidateProfilePage({
             </div>
           )}
         </div>
+
+        {latestTest && (
+          <div className="glass-card p-6 mb-6 animate-fade-in-up">
+            <h2 className="text-sm font-semibold text-[#0f172a] mb-[18px]">
+              Latest test progress <span className="font-normal text-[#94a3b8]">· {latestTest.jobTitle}</span>
+            </h2>
+            <div className="flex items-start px-2">
+              {LIFECYCLE_STEPS.map((label, i) => {
+                const done = i < currentStep;
+                const active = i === currentStep;
+                return (
+                  <Fragment key={label}>
+                    {i > 0 && (
+                      <div
+                        className="flex-1 h-0.5 mt-[13px] -mx-2.5"
+                        style={{ background: i <= currentStep ? "#16a34a" : "#e2e8f0" }}
+                      />
+                    )}
+                    <div className="flex flex-col items-center gap-2 flex-none w-24">
+                      <div
+                        className={`w-7 h-7 rounded-full flex items-center justify-center border-2 ${
+                          done
+                            ? "bg-[#16a34a] border-[#16a34a]"
+                            : active
+                              ? "bg-[#2563eb] border-[#2563eb]"
+                              : "bg-white border-[#cbd5e1]"
+                        }`}
+                        style={active ? { boxShadow: "0 0 0 4px rgba(37,99,235,0.16)" } : {}}
+                      >
+                        {done ? (
+                          <span className="text-white text-[11px] font-bold">✓</span>
+                        ) : active ? (
+                          <span className="w-[7px] h-[7px] rounded-full bg-white" />
+                        ) : null}
+                      </div>
+                      <span className={`text-[11px] font-semibold text-center ${i <= currentStep ? "text-[#0f172a]" : "text-[#94a3b8]"}`}>
+                        {label}
+                      </span>
+                    </div>
+                  </Fragment>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         <h2 className="text-lg font-semibold text-[#0f172a] mb-3">Test History</h2>
         {candidate.tests.length === 0 ? (
