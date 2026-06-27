@@ -19,13 +19,13 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 const STATUS_COLOR: Record<string, string> = {
-  QUESTIONS_PENDING: "bg-amber-500/15 text-amber-300 border border-amber-500/20",
-  QUESTIONS_APPROVED: "bg-blue-500/15 text-blue-300 border border-blue-500/20",
-  INVITED: "bg-indigo-500/15 text-indigo-300 border border-indigo-500/20",
-  IN_PROGRESS: "bg-orange-500/15 text-orange-300 border border-orange-500/20",
-  STOPPED_TAB_CHANGES: "bg-red-500/15 text-red-300 border border-red-500/20",
-  COMPLETED: "bg-emerald-500/15 text-emerald-300 border border-emerald-500/20",
-  EXPIRED: "bg-slate-500/15 text-slate-400 border border-slate-500/20",
+  QUESTIONS_PENDING: "bg-[#fef3c7] text-[#b45309]",
+  QUESTIONS_APPROVED: "bg-[#dbeafe] text-[#2563eb]",
+  INVITED: "bg-[#e0e7ff] text-[#4f46e5]",
+  IN_PROGRESS: "bg-[#dbeafe] text-[#2563eb]",
+  STOPPED_TAB_CHANGES: "bg-[#fee2e2] text-[#dc2626]",
+  COMPLETED: "bg-[#dcfce7] text-[#15803d]",
+  EXPIRED: "bg-[#f1f5f9] text-[#64748b]",
 };
 
 const ATTENTION_EVENT_TYPES = [
@@ -132,17 +132,22 @@ export default async function ActivityPage({
   const statusOptions = ["ALL", ...Object.keys(STATUS_LABEL)];
 
   return (
-    <div className="min-h-screen" style={{ background: "linear-gradient(180deg, #0f172a 0%, #1a2332 100%)" }}>
+    <div className="min-h-screen" style={{ background: "#f4f6f9" }}>
       <nav className="nav-absi px-6 py-4 flex justify-between items-center">
-        <div className="flex items-center gap-3">
-          <BrandLogo size="sm" />
+        <div className="flex items-center gap-6">
+          <div className="flex items-center gap-3">
+            <BrandLogo size="sm" />
+            <span className="font-semibold text-[15px] text-[#0f172a] hidden sm:inline">Technical Interview Portal</span>
+          </div>
+          <div className="flex gap-5">
+            <Link href="/dashboard" className="text-sm text-[#475569] hover:text-[#2563eb] font-medium transition-colors">Candidates</Link>
+            <span className="text-sm text-[#2563eb] font-semibold">Activity</span>
+          </div>
         </div>
-        <div className="flex items-center gap-4">
-          <Link href="/dashboard" className="text-sm text-slate-400 hover:text-blue-300 font-medium transition-colors">Candidates</Link>
-          <span className="text-sm text-blue-300 font-medium">Activity</span>
-          <span className="text-sm text-slate-400">
+        <div className="flex items-center gap-5">
+          <span className="text-sm text-[#0f172a] font-semibold flex items-center gap-2">
             {displayName}
-            <span className="ml-1.5 badge bg-blue-500/15 text-blue-300 border border-blue-500/20 text-xs">{currentUser.role}</span>
+            <span className="badge bg-[#eff4ff] text-[#2563eb] font-mono text-[10.5px] tracking-wide">{currentUser.role}</span>
           </span>
           <SignOutButton />
         </div>
@@ -151,28 +156,28 @@ export default async function ActivityPage({
       <main className="mx-auto max-w-7xl px-6 py-8">
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-white">Recruiter Activity</h2>
-            <p className="mt-1 text-sm text-slate-500">All interviews in one place: who sent which test, to whom, and what happened next.</p>
+            <h2 className="text-[22px] font-semibold text-[#0f172a] tracking-tight">Recruiter Activity</h2>
+            <p className="mt-1 text-sm text-[#64748b]">All interviews in one place: who sent which test, to whom, and what happened next.</p>
           </div>
           <Link href="/tests/new" className="btn-primary">Schedule Test</Link>
         </div>
 
-        <div className="mb-6 grid gap-3 md:grid-cols-4">
-          <div className="glass-card p-4">
-            <div className="text-xs uppercase tracking-wide text-slate-500">Invited</div>
-            <div className="mt-1 text-2xl font-bold text-indigo-300">{invitedCount}</div>
+        <div className="mb-6 grid gap-4 md:grid-cols-4">
+          <div className="glass-card p-5">
+            <div className="mono-eyebrow text-[11px]">INVITED</div>
+            <div className="mt-2.5 text-[28px] font-bold tracking-tight text-[#4f46e5]">{invitedCount}</div>
           </div>
-          <div className="glass-card p-4">
-            <div className="text-xs uppercase tracking-wide text-slate-500">In Progress</div>
-            <div className="mt-1 text-2xl font-bold text-orange-300">{activeCount}</div>
+          <div className="glass-card p-5">
+            <div className="mono-eyebrow text-[11px]">IN PROGRESS</div>
+            <div className="mt-2.5 text-[28px] font-bold tracking-tight text-[#2563eb]">{activeCount}</div>
           </div>
-          <div className="glass-card p-4">
-            <div className="text-xs uppercase tracking-wide text-slate-500">Completed</div>
-            <div className="mt-1 text-2xl font-bold text-emerald-300">{completedCount}</div>
+          <div className="glass-card p-5">
+            <div className="mono-eyebrow text-[11px]">COMPLETED</div>
+            <div className="mt-2.5 text-[28px] font-bold tracking-tight text-[#15803d]">{completedCount}</div>
           </div>
-          <div className="glass-card p-4">
-            <div className="text-xs uppercase tracking-wide text-slate-500">Integrity Flags</div>
-            <div className="mt-1 text-2xl font-bold text-red-300">{integrityCount}</div>
+          <div className="glass-card p-5">
+            <div className="mono-eyebrow text-[11px]">INTEGRITY FLAGS</div>
+            <div className="mt-2.5 text-[28px] font-bold tracking-tight text-[#dc2626]">{integrityCount}</div>
           </div>
         </div>
 
@@ -192,7 +197,7 @@ export default async function ActivityPage({
             ))}
           </select>
           <div className="flex gap-2">
-            <button type="submit" className="btn-primary px-5">Filter</button>
+            <button type="submit" className="btn-ink px-5">Filter</button>
             {(searchQuery || statusFilter !== "ALL") && (
               <Link href="/activity" className="btn-secondary px-5">Clear</Link>
             )}
@@ -215,7 +220,7 @@ export default async function ActivityPage({
             <tbody>
               {visibleTests.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-10 text-center text-slate-500">No activity found.</td>
+                  <td colSpan={7} className="py-10 text-center text-[#94a3b8]">No activity found.</td>
                 </tr>
               ) : (
                 visibleTests.map((test) => {
@@ -231,51 +236,51 @@ export default async function ActivityPage({
                   return (
                     <tr key={test.id}>
                       <td>
-                        <div className="font-medium text-white">{test.recruiter.name}</div>
-                        <div className="mt-0.5 text-xs text-slate-500">{test.recruiter.email}</div>
+                        <div className="font-medium text-[#0f172a]">{test.recruiter.name}</div>
+                        <div className="mt-0.5 font-mono text-[11px] text-[#94a3b8]">{test.recruiter.email}</div>
                       </td>
                       <td>
-                        <div className="font-medium text-white">{test.candidate.name}</div>
-                        <div className="mt-0.5 text-xs text-slate-500">{test.candidate.email}</div>
-                        <div className="mt-0.5 text-xs text-slate-600">{test.candidate.phone}</div>
+                        <div className="font-medium text-[#0f172a]">{test.candidate.name}</div>
+                        <div className="mt-0.5 font-mono text-[11px] text-[#94a3b8]">{test.candidate.email}</div>
+                        <div className="mt-0.5 font-mono text-[11px] text-[#94a3b8]">{test.candidate.phone}</div>
                       </td>
                       <td>
-                        <div className="font-medium text-slate-200">{test.jobTitle || "Training"}</div>
+                        <div className="font-medium text-[#334155]">{test.jobTitle || "Training"}</div>
                         <div className="mt-1 flex flex-wrap gap-1.5">
-                          <span className="badge bg-slate-700/50 text-slate-300 border border-white/5">{test.level}</span>
-                          <span className="badge bg-slate-800/60 text-slate-400 border border-white/5">{test.questions.length} questions</span>
+                          <span className="badge bg-[#f1f5f9] text-[#475569]">{test.level}</span>
+                          <span className="badge bg-[#f1f5f9] text-[#64748b]">{test.questions.length} questions</span>
                         </div>
                       </td>
                       <td>
                         <div className="flex flex-col items-start gap-1.5">
-                          <span className={`badge ${STATUS_COLOR[displayStatus] ?? "bg-slate-500/15 text-slate-400"}`}>
+                          <span className={`badge ${STATUS_COLOR[displayStatus] ?? "bg-[#f1f5f9] text-[#64748b]"}`}>
                             {STATUS_LABEL[displayStatus] ?? displayStatus}
                           </span>
                           {attentionCount > 0 && (
-                            <span className="badge bg-red-500/10 text-red-300 border border-red-500/20">
+                            <span className="badge bg-[#fee2e2] text-[#dc2626]">
                               Screen/tab: {attentionDisplay}
                             </span>
                           )}
                         </div>
                       </td>
-                      <td className="text-xs text-slate-500">
+                      <td className="font-mono text-[11px] text-[#94a3b8] leading-relaxed">
                         <div>Created: {formatDate(test.createdAt)}</div>
                         <div>Started: {formatDate(test.startedAt)}</div>
                         <div>Done: {formatDate(test.completedAt)}</div>
                       </td>
                       <td>
-                        <div className="font-semibold text-white">{formatScore(test.overallScore)}</div>
-                        <div className="mt-0.5 text-xs text-slate-500">{test.overallRating ?? "-"}</div>
+                        <div className="font-mono font-semibold text-[#0f172a]">{formatScore(test.overallScore)}</div>
+                        <div className="mt-0.5 text-xs text-[#64748b]">{test.overallRating ?? "-"}</div>
                       </td>
                       <td>
                         <div className="flex flex-col items-start gap-1.5">
                           {canManage && (
-                            <Link href={`/tests/${test.id}`} className="text-blue-400 hover:text-blue-300 font-medium transition-colors">
+                            <Link href={`/tests/${test.id}`} className="text-[#2563eb] hover:text-[#1d4ed8] font-medium transition-colors">
                               Details
                             </Link>
                           )}
                           {canManage && ["QUESTIONS_PENDING", "INVITED"].includes(test.status) && (
-                            <Link href={`/tests/${test.id}/review-questions`} className="text-amber-300 hover:text-amber-200 font-medium transition-colors">
+                            <Link href={`/tests/${test.id}/review-questions`} className="text-[#b45309] hover:text-[#92400e] font-medium transition-colors">
                               Review/Invite
                             </Link>
                           )}

@@ -13,7 +13,7 @@ type DeleteCandidateButtonProps = {
 export function DeleteCandidateButton({
   candidateId,
   candidateName,
-  className = "text-red-400 hover:text-red-300 transition-colors disabled:text-slate-600 disabled:no-underline text-sm font-medium",
+  className = "text-[#dc2626] hover:text-[#b91c1c] transition-colors disabled:text-[#cbd5e1] disabled:no-underline text-sm font-medium",
   redirectTo,
 }: DeleteCandidateButtonProps) {
   const router = useRouter();

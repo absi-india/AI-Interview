@@ -15,7 +15,7 @@ export function CopyLinkButton({ value, label }: { value: string; label: string 
     <button
       type="button"
       onClick={copyLink}
-      className="text-blue-400 hover:text-blue-300 font-medium transition-colors"
+      className="text-[#64748b] hover:text-[#2563eb] font-medium transition-colors"
     >
       {copied ? "Copied" : label}
     </button>

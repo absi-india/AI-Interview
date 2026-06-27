@@ -46,42 +46,31 @@ function AiConversationPanel({ debug }: { debug: AiDebugInfo }) {
     <div className="mt-6 glass-card overflow-hidden">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center justify-between px-4 py-3 bg-violet-500/5 text-sm font-medium text-violet-300 hover:bg-violet-500/10 transition-colors"
+        className="w-full flex items-center justify-between px-4 py-3 bg-[#f8fafc] text-sm font-semibold text-[#475569] hover:bg-[#f1f5f9] transition-colors border-b border-[#f0f2f6]"
       >
-        <span className="flex items-center gap-2">
-          <span className="text-base">🤖</span> AI Conversation Log
-        </span>
-        <span className="text-violet-400 text-xs">{open ? "▲ hide" : "▼ show"}</span>
+        <span>AI Conversation Log</span>
+        <span className="font-mono text-[#94a3b8] text-xs">{open ? "▲ hide" : "▼ show"}</span>
       </button>
 
       {open && (
-        <div className="divide-y divide-white/5">
-          <div className="p-4 bg-slate-800/30">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">System Prompt</span>
-              <span className="text-xs px-1.5 py-0.5 bg-slate-700/50 text-slate-400 rounded">sent to AI</span>
-            </div>
-            <pre className="text-xs text-slate-300 whitespace-pre-wrap font-mono bg-slate-900/50 border border-white/5 rounded-lg p-3 max-h-48 overflow-y-auto">
+        <div className="p-4 flex flex-col gap-3">
+          <div className="bg-[#f1f5f9] border-l-[3px] border-[#64748b] rounded-md p-3">
+            <div className="mono-eyebrow text-[10.5px] !text-[#64748b] font-semibold mb-1.5">System Prompt</div>
+            <pre className="text-[11.5px] text-[#475569] whitespace-pre-wrap font-mono leading-relaxed max-h-48 overflow-y-auto">
               {debug.systemPrompt}
             </pre>
           </div>
 
-          <div className="p-4 bg-blue-500/5">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-xs font-semibold text-blue-400 uppercase tracking-wide">User Prompt</span>
-              <span className="text-xs px-1.5 py-0.5 bg-blue-500/15 text-blue-300 rounded">job details</span>
-            </div>
-            <pre className="text-xs text-blue-200 whitespace-pre-wrap font-mono bg-slate-900/50 border border-blue-500/10 rounded-lg p-3 max-h-48 overflow-y-auto">
+          <div className="bg-[#eff4ff] border-l-[3px] border-[#2563eb] rounded-md p-3">
+            <div className="mono-eyebrow text-[10.5px] !text-[#2563eb] font-semibold mb-1.5">User Prompt</div>
+            <pre className="text-[11.5px] text-[#3b5bbf] whitespace-pre-wrap font-mono leading-relaxed max-h-48 overflow-y-auto">
               {debug.userPrompt}
             </pre>
           </div>
 
-          <div className="p-4 bg-emerald-500/5">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-xs font-semibold text-emerald-400 uppercase tracking-wide">AI Response</span>
-              <span className="text-xs px-1.5 py-0.5 bg-emerald-500/15 text-emerald-300 rounded">raw output</span>
-            </div>
-            <pre className="text-xs text-emerald-200 whitespace-pre-wrap font-mono bg-slate-900/50 border border-emerald-500/10 rounded-lg p-3 max-h-64 overflow-y-auto">
+          <div className="bg-[#f0fdf4] border-l-[3px] border-[#16a34a] rounded-md p-3">
+            <div className="mono-eyebrow text-[10.5px] !text-[#16a34a] font-semibold mb-1.5">AI Response</div>
+            <pre className="text-[11.5px] text-[#15803d] whitespace-pre-wrap font-mono leading-relaxed max-h-64 overflow-y-auto">
               {debug.rawResponse}
             </pre>
           </div>
@@ -287,17 +276,17 @@ function ScheduleTestForm() {
 
   return (
     <>
-      <div className="min-h-screen p-8" style={{ background: "linear-gradient(180deg, #0f172a 0%, #1a2332 100%)" }}>
+      <div className="min-h-screen p-8" style={{ background: "#f4f6f9" }}>
         <div className="max-w-2xl mx-auto">
           <div className="mb-6 animate-fade-in">
-            <Link href="/dashboard" className="text-sm text-blue-400 hover:text-blue-300 font-medium transition-colors flex items-center gap-1">
+            <Link href="/dashboard" className="text-sm text-[#2563eb] hover:text-[#1d4ed8] font-medium transition-colors flex items-center gap-1">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
               Dashboard
             </Link>
           </div>
           <div className="glass-card p-8 animate-fade-in-up">
-            <h1 className="text-xl font-bold text-white mb-2">Schedule Technical Interview</h1>
-            <p className="text-sm text-slate-400 mb-8">
+            <h1 className="text-xl font-semibold tracking-tight text-[#0f172a] mb-2">Schedule Technical Interview</h1>
+            <p className="text-sm text-[#64748b] mb-8">
               Generate questions from a JD or use Training to provide your own practice questions without AI token usage.
             </p>
 
@@ -305,18 +294,18 @@ function ScheduleTestForm() {
               <form onSubmit={handleSubmit} className="space-y-6">
                 {/* Custom Candidate Picker */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1">Candidate *</label>
+                  <label className="block text-[13px] font-medium text-[#334155] mb-1.5">Candidate *</label>
                   <div className="relative" ref={dropdownRef}>
                     <button
                       type="button"
                       onClick={() => setDropdownOpen((v) => !v)}
                       className="input-dark w-full text-left flex items-center justify-between"
                     >
-                      <span className={selectedCandidate ? "text-white" : "text-slate-500"}>
+                      <span className={selectedCandidate ? "text-[#0f172a]" : "text-[#9aa6b4]"}>
                         {selectedCandidate ? selectedCandidate.name : "Select candidate…"}
                       </span>
                       <svg
-                        className={`w-4 h-4 text-slate-400 transition-transform ${dropdownOpen ? "rotate-180" : ""}`}
+                        className={`w-4 h-4 text-[#94a3b8] transition-transform ${dropdownOpen ? "rotate-180" : ""}`}
                         fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
                       >
                         <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
@@ -324,16 +313,16 @@ function ScheduleTestForm() {
                     </button>
 
                     {dropdownOpen && (
-                      <div className="absolute top-full left-0 right-0 mt-1 z-40 rounded-xl border border-white/10 bg-slate-900/95 backdrop-blur-sm shadow-2xl overflow-hidden">
+                      <div className="absolute top-full left-0 right-0 mt-1 z-40 rounded-xl border border-[#e3e8ef] bg-white shadow-[0_16px_40px_-12px_rgba(15,23,42,0.2)] overflow-hidden">
                         <div className="max-h-60 overflow-y-auto">
                           {candidates.length === 0 ? (
-                            <p className="px-4 py-3 text-sm text-slate-500">No candidates yet</p>
+                            <p className="px-4 py-3 text-sm text-[#94a3b8]">No candidates yet</p>
                           ) : (
                             candidates.map((c) => (
                               <div
                                 key={c.id}
                                 className={`group flex items-center gap-2 px-3 py-2.5 transition-colors ${
-                                  candidateId === c.id ? "bg-blue-500/10" : "hover:bg-white/5"
+                                  candidateId === c.id ? "bg-[#eff4ff]" : "hover:bg-[#f8fafc]"
                                 }`}
                               >
                                 <button
@@ -341,14 +330,14 @@ function ScheduleTestForm() {
                                   onClick={() => { setCandidateId(c.id); setDropdownOpen(false); }}
                                   className="flex-1 text-left min-w-0"
                                 >
-                                  <span className="block text-sm font-medium text-white truncate">{c.name}</span>
-                                  <span className="block text-xs text-slate-400 truncate">{c.email}</span>
+                                  <span className="block text-sm font-medium text-[#0f172a] truncate">{c.name}</span>
+                                  <span className="block text-xs text-[#64748b] truncate">{c.email}</span>
                                 </button>
                                 <div className="flex items-center gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                                   <button
                                     type="button"
                                     onClick={(e) => { e.stopPropagation(); handleEditClick(c); }}
-                                    className="p-1.5 rounded-lg hover:bg-blue-500/20 text-slate-400 hover:text-blue-300 transition-colors"
+                                    className="p-1.5 rounded-lg hover:bg-[#eff4ff] text-[#94a3b8] hover:text-[#2563eb] transition-colors"
                                     title="Edit candidate"
                                   >
                                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -358,7 +347,7 @@ function ScheduleTestForm() {
                                   <button
                                     type="button"
                                     onClick={(e) => { e.stopPropagation(); setDeletingCandidate({ id: c.id, name: c.name }); setDropdownOpen(false); }}
-                                    className="p-1.5 rounded-lg hover:bg-red-500/20 text-slate-400 hover:text-red-300 transition-colors"
+                                    className="p-1.5 rounded-lg hover:bg-[#fee2e2] text-[#94a3b8] hover:text-[#dc2626] transition-colors"
                                     title="Delete candidate"
                                   >
                                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -370,11 +359,11 @@ function ScheduleTestForm() {
                             ))
                           )}
                         </div>
-                        <div className="border-t border-white/5">
+                        <div className="border-t border-[#f0f2f6]">
                           <Link
                             href="/candidates/new"
                             onClick={() => setDropdownOpen(false)}
-                            className="flex items-center gap-2 px-3 py-2.5 text-sm text-blue-400 hover:text-blue-300 hover:bg-white/5 transition-colors"
+                            className="flex items-center gap-2 px-3 py-2.5 text-sm text-[#2563eb] hover:text-[#1d4ed8] hover:bg-[#f8fafc] transition-colors"
                           >
                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
@@ -388,7 +377,7 @@ function ScheduleTestForm() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1">
+                  <label className="block text-[13px] font-medium text-[#334155] mb-1.5">
                     {isTraining ? "Session Name" : "Job Title *"}
                   </label>
                   <input
@@ -403,7 +392,7 @@ function ScheduleTestForm() {
 
                 {!isTraining && (
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1">Job Description *</label>
+                  <label className="block text-[13px] font-medium text-[#334155] mb-1.5">Job Description *</label>
                   <textarea
                     value={jobDescription}
                     onChange={(e) => setJobDescription(e.target.value)}
@@ -423,8 +412,8 @@ function ScheduleTestForm() {
                         key={l.value}
                         className={`flex items-start gap-3 p-3.5 rounded-xl cursor-pointer transition-all duration-200 border ${
                           level === l.value
-                            ? "border-blue-500/40 bg-blue-500/10 shadow-md"
-                            : "border-white/5 bg-slate-800/30 hover:bg-slate-800/50 hover:border-white/10"
+                            ? "border-[#2563eb] bg-[#eff4ff] shadow-sm"
+                            : "border-[#e0e6ee] bg-white hover:bg-[#f8fafc] hover:border-[#cdd6e2]"
                         }`}
                       >
                         <input
@@ -433,14 +422,14 @@ function ScheduleTestForm() {
                           value={l.value}
                           checked={level === l.value}
                           onChange={() => setLevel(l.value)}
-                          className="mt-1 accent-blue-500"
+                          className="mt-1 accent-[#2563eb]"
                         />
                         <div>
-                          <div className="font-medium text-sm text-white flex items-center gap-2">
+                          <div className={`font-semibold text-sm flex items-center gap-2 ${level === l.value ? "text-[#1d4ed8]" : "text-[#0f172a]"}`}>
                             {l.icon && <span>{l.icon}</span>}
                             <span>{l.label}</span>
                           </div>
-                          <div className="text-xs text-slate-400 mt-0.5">{l.desc}</div>
+                          <div className={`text-xs mt-0.5 ${level === l.value ? "text-[#3b5bbf]" : "text-[#64748b]"}`}>{l.desc}</div>
                         </div>
                       </label>
                     ))}
@@ -448,10 +437,10 @@ function ScheduleTestForm() {
                 </div>
 
                 {isTraining && (
-                  <div className="space-y-3 rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-4">
+                  <div className="space-y-3 rounded-xl border border-[#bae6fd] bg-[#f0f9ff] p-4">
                     <div>
-                      <label className="block text-sm font-medium text-cyan-200 mb-1">Training Questions *</label>
-                      <p className="text-xs text-slate-400 mb-3">
+                      <label className="block text-[13px] font-medium text-[#0369a1] mb-1">Training Questions *</label>
+                      <p className="text-xs text-[#64748b] mb-3">
                         Paste one question per line, or upload PDF, DOCX, TXT, MD, or CSV. These questions are saved directly without AI generation.
                       </p>
                       <textarea
@@ -464,7 +453,7 @@ function ScheduleTestForm() {
                       />
                     </div>
                     <div>
-                      <label className="inline-flex cursor-pointer items-center justify-center rounded-lg border border-white/10 bg-slate-800/60 px-4 py-2 text-sm font-medium text-slate-200 transition-colors hover:bg-slate-700/70">
+                      <label className="inline-flex cursor-pointer items-center justify-center rounded-lg border border-[#e0e6ee] bg-white px-4 py-2 text-sm font-medium text-[#475569] transition-colors hover:bg-[#f8fafc]">
                         Upload Questions File
                         <input
                           ref={trainingFileInputRef}
@@ -475,15 +464,15 @@ function ScheduleTestForm() {
                         />
                       </label>
                       {extractingTrainingFile && (
-                        <span className="ml-3 text-xs text-cyan-300">Reading file...</span>
+                        <span className="ml-3 text-xs text-[#0369a1]">Reading file...</span>
                       )}
                       {trainingFileName && (
-                        <span className="ml-3 inline-flex items-center gap-2 text-xs text-cyan-300">
+                        <span className="ml-3 inline-flex items-center gap-2 text-xs text-[#0369a1]">
                           Loaded {trainingFileName}
                           <button
                             type="button"
                             onClick={clearTrainingFile}
-                            className="rounded-md border border-red-400/25 bg-red-500/10 px-2 py-1 font-medium text-red-300 transition-colors hover:bg-red-500/20"
+                            className="rounded-md border border-[#fecaca] bg-[#fef2f2] px-2 py-1 font-medium text-[#dc2626] transition-colors hover:bg-[#fee2e2]"
                           >
                             Remove
                           </button>
@@ -493,7 +482,7 @@ function ScheduleTestForm() {
                   </div>
                 )}
 
-                {error && <p className="text-red-400 text-sm">{error}</p>}
+                {error && <p className="text-red-600 text-sm">{error}</p>}
 
                 <button
                   type="submit"
@@ -507,11 +496,11 @@ function ScheduleTestForm() {
               </form>
             ) : (
               <div className="space-y-4 animate-fade-in">
-                <div className="flex items-center gap-3 p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
-                  <span className="text-2xl">✅</span>
+                <div className="flex items-center gap-3 p-4 bg-[#f0fdf4] border border-[#bbf7d0] rounded-xl">
+                  <span className="flex h-9 w-9 flex-none items-center justify-center rounded-lg bg-[#dcfce7] text-lg font-bold text-[#15803d]">✓</span>
                   <div>
-                    <p className="font-semibold text-emerald-300">10 questions generated!</p>
-                    <p className="text-sm text-emerald-400/70">Review the AI conversation below, then proceed to review questions.</p>
+                    <p className="font-semibold text-[#15803d]">10 questions generated!</p>
+                    <p className="text-sm text-[#16a34a]/80">Review the AI conversation below, then proceed to review questions.</p>
                   </div>
                 </div>
 
@@ -519,7 +508,7 @@ function ScheduleTestForm() {
 
                 <button
                   onClick={() => router.push(`/tests/${generatedTestId}/review-questions`)}
-                  className="btn-primary w-full py-3"
+                  className="btn-ink w-full py-3"
                 >
                   Review &amp; Edit Questions →
                 </button>
@@ -533,11 +522,11 @@ function ScheduleTestForm() {
       {editingCandidate && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="glass-card p-6 max-w-md w-full animate-fade-in-up">
-            <h3 className="text-white font-semibold text-lg mb-1">Edit Candidate</h3>
-            <p className="text-xs text-slate-500 mb-5">Changes apply immediately.</p>
+            <h3 className="text-[#0f172a] font-semibold text-lg mb-1">Edit Candidate</h3>
+            <p className="text-xs text-[#64748b] mb-5">Changes apply immediately.</p>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1">Full Name *</label>
+                <label className="block text-[13px] font-medium text-[#334155] mb-1.5">Full Name *</label>
                 <input
                   type="text"
                   value={editForm.name}
@@ -547,7 +536,7 @@ function ScheduleTestForm() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1">Email *</label>
+                <label className="block text-[13px] font-medium text-[#334155] mb-1.5">Email *</label>
                 <input
                   type="email"
                   value={editForm.email}
@@ -556,7 +545,7 @@ function ScheduleTestForm() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1">Phone *</label>
+                <label className="block text-[13px] font-medium text-[#334155] mb-1.5">Phone *</label>
                 <input
                   type="text"
                   value={editForm.phone}
@@ -565,7 +554,7 @@ function ScheduleTestForm() {
                   placeholder="+91 98765 43210"
                 />
               </div>
-              {editError && <p className="text-sm text-red-400">{editError}</p>}
+              {editError && <p className="text-sm text-red-600">{editError}</p>}
               <div className="flex gap-3 pt-1">
                 <button
                   type="button"
@@ -593,25 +582,25 @@ function ScheduleTestForm() {
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="glass-card p-6 max-w-sm w-full animate-fade-in-up">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-full bg-red-500/15 border border-red-500/20 flex items-center justify-center flex-shrink-0">
-                <svg className="w-5 h-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <div className="w-10 h-10 rounded-full bg-[#fee2e2] flex items-center justify-center flex-shrink-0">
+                <svg className="w-5 h-5 text-[#dc2626]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                 </svg>
               </div>
               <div>
-                <h3 className="text-white font-semibold">Delete Candidate</h3>
-                <p className="text-xs text-slate-500">This cannot be undone</p>
+                <h3 className="text-[#0f172a] font-semibold">Delete Candidate</h3>
+                <p className="text-xs text-[#64748b]">This cannot be undone</p>
               </div>
             </div>
-            <p className="text-sm text-slate-400 mb-5">
-              Delete <span className="text-white font-medium">{deletingCandidate.name}</span>? All their tests and results will be permanently removed.
+            <p className="text-sm text-[#475569] mb-5">
+              Delete <span className="text-[#0f172a] font-medium">{deletingCandidate.name}</span>? All their tests and results will be permanently removed.
             </p>
             <div className="flex gap-3">
               <button
                 type="button"
                 onClick={handleDeleteConfirm}
                 disabled={deleteLoading}
-                className="flex-1 rounded-xl border border-red-500/30 bg-red-500/15 px-4 py-2 text-sm font-semibold text-red-300 transition-colors hover:bg-red-500/25 disabled:opacity-50"
+                className="flex-1 rounded-xl border border-[#fecaca] bg-[#fef2f2] px-4 py-2 text-sm font-semibold text-[#dc2626] transition-colors hover:bg-[#fee2e2] disabled:opacity-50"
               >
                 {deleteLoading ? "Deleting..." : "Delete"}
               </button>
@@ -632,7 +621,7 @@ function ScheduleTestForm() {
 
 export default function ScheduleTestPage() {
   return (
-    <Suspense fallback={<div className="p-8 text-slate-500">Loading…</div>}>
+    <Suspense fallback={<div className="p-8 text-[#64748b]">Loading…</div>}>
       <ScheduleTestForm />
     </Suspense>
   );

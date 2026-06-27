@@ -21,19 +21,19 @@ export default async function CompletePage({
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center" style={{ background: "linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)" }}>
-      <div className="glass-card p-12 max-w-lg text-center animate-fade-in-up">
-        <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 mb-6 shadow-lg" style={{ boxShadow: "0 8px 32px rgba(16,185,129,0.3)" }}>
-          <svg className="w-10 h-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+    <div className="min-h-screen flex items-center justify-center p-6" style={{ background: "linear-gradient(180deg, #f7f9fc 0%, #eaeff6 100%)" }}>
+      <div className="max-w-lg w-full text-center rounded-[18px] border border-[#e3e8ef] bg-white p-12 shadow-[0_20px_60px_-18px_rgba(15,23,42,0.22)] animate-fade-in-up">
+        <div className="inline-flex items-center justify-center w-[66px] h-[66px] rounded-full bg-[#dcfce7] mb-6">
+          <svg className="w-9 h-9 text-[#16a34a]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
         </div>
-        <h1 className="text-2xl font-bold text-white mb-3">Interview Submitted!</h1>
-        <p className="text-slate-400">
+        <h1 className="text-2xl font-semibold tracking-tight text-[#0f172a] mb-2.5">Interview Submitted!</h1>
+        <p className="text-[#64748b] leading-relaxed">
           Thank you! Your interview has been submitted successfully. The recruiter will review your responses and be in touch soon.
         </p>
-        <p className="text-xs text-slate-500 mt-3">
+        <p className="font-mono text-xs text-[#94a3b8] mt-3">
           Any questions you did not reach will not count against your score.
         </p>
-        <div className="mt-6 pt-6 border-t border-white/5">
+        <div className="mt-7 pt-6 border-t border-[#f0f2f6] flex justify-center">
           <BrandLogo size="sm" />
         </div>
       </div>

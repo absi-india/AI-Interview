@@ -48,9 +48,9 @@ export default async function TestResultsPage({
   };
 
   return (
-    <div className="min-h-screen" style={{ background: "linear-gradient(180deg, #0f172a 0%, #1a2332 100%)" }}>
+    <div className="min-h-screen" style={{ background: "#f4f6f9" }}>
       <nav className="nav-absi flex items-center justify-between px-6 py-4">
-        <Link href="/dashboard" className="text-sm text-blue-400 hover:text-blue-300 font-medium transition-colors flex items-center gap-1">
+        <Link href="/dashboard" className="text-sm text-[#2563eb] hover:text-[#1d4ed8] font-medium transition-colors flex items-center gap-1">
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
           Back to Dashboard
         </Link>
@@ -58,7 +58,7 @@ export default async function TestResultsPage({
           {["QUESTIONS_PENDING", "INVITED"].includes(test.status) && (
             <Link
               href={`/tests/${id}/review-questions`}
-              className="rounded-lg bg-amber-500/15 border border-amber-500/20 px-3 py-1.5 text-sm font-medium text-amber-300 hover:bg-amber-500/25 transition-colors"
+              className="rounded-lg bg-[#eff4ff] border border-[#dbe6ff] px-3 py-1.5 text-sm font-medium text-[#2563eb] hover:bg-[#dbe6ff] transition-colors"
             >
               {test.status === "INVITED" ? "Resend Invite" : "Review Questions"}
             </Link>
@@ -66,7 +66,7 @@ export default async function TestResultsPage({
         </div>
       </nav>
       {(inviteStatus === "sent" || inviteStatus === "resent") && (
-        <div className="mx-6 mt-4 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300 animate-fade-in">
+        <div className="mx-6 mt-4 rounded-xl border border-[#bbf7d0] bg-[#f0fdf4] px-4 py-3 text-sm text-[#15803d] animate-fade-in">
           {inviteStatus === "resent"
             ? "Invite email resent successfully."
             : "Invite email sent successfully."}

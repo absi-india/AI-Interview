@@ -170,26 +170,26 @@ export default function EditCandidatePage() {
   }
 
   return (
-    <div className="min-h-screen p-8" style={{ background: "linear-gradient(180deg, #0f172a 0%, #1a2332 100%)" }}>
+    <div className="min-h-screen p-8" style={{ background: "#f4f6f9" }}>
       <div className="max-w-2xl mx-auto">
         <div className="mb-6 animate-fade-in">
-          <Link href={`/candidates/${candidateId}`} className="text-sm text-blue-400 hover:text-blue-300 font-medium transition-colors">
+          <Link href={`/candidates/${candidateId}`} className="text-sm text-[#2563eb] hover:text-[#1d4ed8] font-medium transition-colors">
             Back to candidate
           </Link>
         </div>
 
         <div className="glass-card p-8 animate-fade-in-up">
-          <h1 className="text-xl font-bold text-white mb-2">Edit Candidate</h1>
-          <p className="text-sm text-slate-400 mb-6">
+          <h1 className="text-xl font-semibold tracking-tight text-[#0f172a] mb-2">Edit Candidate</h1>
+          <p className="text-sm text-[#64748b] mb-6">
             Update contact details and paste resume text or a resume URL.
           </p>
 
           {loading ? (
-            <p className="text-sm text-slate-400">Loading...</p>
+            <p className="text-sm text-[#64748b]">Loading...</p>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1">Full Name *</label>
+                <label className="block text-[13px] font-medium text-[#334155] mb-1.5">Full Name *</label>
                 <input
                   type="text"
                   value={form.name}
@@ -200,7 +200,7 @@ export default function EditCandidatePage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1">Email *</label>
+                <label className="block text-[13px] font-medium text-[#334155] mb-1.5">Email *</label>
                 <input
                   type="email"
                   value={form.email}
@@ -211,7 +211,7 @@ export default function EditCandidatePage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1">Phone *</label>
+                <label className="block text-[13px] font-medium text-[#334155] mb-1.5">Phone *</label>
                 <CountryPhoneInput
                   value={form.phone}
                   onChange={(phone) => setForm((f) => ({ ...f, phone }))}
@@ -222,7 +222,7 @@ export default function EditCandidatePage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1">Resume (paste text or URL)</label>
+                <label className="block text-[13px] font-medium text-[#334155] mb-1.5">Resume (paste text or URL)</label>
                 <textarea
                   value={form.resume}
                   onChange={(e) => {
@@ -236,25 +236,25 @@ export default function EditCandidatePage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1">
+                <label className="block text-[13px] font-medium text-[#334155] mb-1.5">
                   Resume Attachment (PDF, DOC, DOCX, PPT, PPTX, TXT, RTF, ODT)
                 </label>
                 <input
                   type="file"
                   accept=".pdf,.doc,.docx,.ppt,.pptx,.txt,.rtf,.odt,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,text/plain,application/rtf,application/vnd.oasis.opendocument.text"
                   onChange={(e) => handleResumeFileChange(e.target.files?.[0] ?? null)}
-                  className="input-dark file:mr-3 file:rounded-lg file:border-0 file:bg-blue-500/15 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-blue-200 hover:file:bg-blue-500/25"
+                  className="input-dark file:mr-3 file:rounded-lg file:border-0 file:bg-[#eff4ff] file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-[#2563eb] hover:file:bg-[#dbe6ff]"
                 />
-                <p className="text-xs text-slate-500 mt-1">Max size: 10MB</p>
+                <p className="font-mono text-xs text-[#94a3b8] mt-1">Max size: 10MB</p>
                 {resumeFile && (
                   <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
-                    <span className="text-blue-300">Selected: {resumeFile.name}</span>
+                    <span className="text-[#2563eb]">Selected: {resumeFile.name}</span>
                     {resumePreviewUrl && (
                       <a
                         href={resumePreviewUrl}
                         target="_blank"
                         rel="noreferrer"
-                        className="text-blue-400 hover:text-blue-300 underline"
+                        className="text-[#2563eb] hover:text-[#1d4ed8] underline"
                       >
                         Open selected resume
                       </a>
@@ -262,14 +262,14 @@ export default function EditCandidatePage() {
                   </div>
                 )}
                 {!resumeFile && resumeFileName && (
-                  <p className="text-xs text-slate-400 mt-1">
+                  <p className="text-xs text-[#64748b] mt-1">
                     Current file:{" "}
                     {resumeDownloadPath ? (
                       <a
                         href={resumeDownloadPath}
                         target="_blank"
                         rel="noreferrer"
-                        className="text-blue-400 hover:text-blue-300 underline"
+                        className="text-[#2563eb] hover:text-[#1d4ed8] underline"
                       >
                         {resumeFileName}
                       </a>
@@ -280,7 +280,7 @@ export default function EditCandidatePage() {
                 )}
               </div>
 
-              {error && <p className="text-red-400 text-sm">{error}</p>}
+              {error && <p className="text-red-600 text-sm">{error}</p>}
 
               <div className="flex gap-3">
                 <button

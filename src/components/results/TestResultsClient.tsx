@@ -38,18 +38,18 @@ type Test = {
 };
 
 const SCORE_COLOR: Record<string, string> = {
-  Excellent: "text-emerald-400",
-  Good: "text-blue-400",
-  Average: "text-amber-400",
-  "Below Average": "text-orange-400",
-  Poor: "text-red-400",
-  "No Answers": "text-slate-500",
+  Excellent: "text-[#15803d]",
+  Good: "text-[#2563eb]",
+  Average: "text-[#b45309]",
+  "Below Average": "text-[#ea580c]",
+  Poor: "text-[#dc2626]",
+  "No Answers": "text-[#64748b]",
 };
 
 const SEVERITY_COLOR: Record<string, string> = {
-  HIGH: "text-red-400 bg-red-500/10 border border-red-500/15",
-  MEDIUM: "text-amber-400 bg-amber-500/10 border border-amber-500/15",
-  LOW: "text-yellow-400 bg-yellow-500/10 border border-yellow-500/15",
+  HIGH: "text-[#dc2626] bg-[#fef2f2] border-l-[3px] border-[#dc2626]",
+  MEDIUM: "text-[#b45309] bg-[#fffbeb] border-l-[3px] border-[#d97706]",
+  LOW: "text-[#475569] bg-[#f8fafc] border-l-[3px] border-[#94a3b8]",
 };
 
 const FRAUD_EVENT_LABEL: Record<string, string> = {
@@ -74,9 +74,9 @@ function scoreOutOfFive(score: number) {
 
 function scoreColorClass(score: number) {
   const fivePointScore = scoreOutOfFive(score);
-  if (fivePointScore >= 4) return "text-emerald-400";
-  if (fivePointScore >= 3) return "text-amber-400";
-  return "text-red-400";
+  if (fivePointScore >= 4) return "text-[#15803d]";
+  if (fivePointScore >= 3) return "text-[#b45309]";
+  return "text-[#dc2626]";
 }
 
 function formatScore(score: number) {
@@ -164,27 +164,26 @@ export function TestResultsClient({ test, shareUrl }: { test: Test; shareUrl?: s
       <div className="glass-card p-6 mb-6 animate-fade-in-up">
         <div className="flex justify-between items-start">
           <div>
-            <h1 className="text-2xl font-bold text-white">{test.candidate.name}</h1>
-            <p className="text-slate-400">{test.jobTitle} • {test.level}</p>
-            <p className="text-sm text-slate-500 mt-1">
+            <h1 className="text-2xl font-semibold tracking-tight text-[#0f172a]">{test.candidate.name}</h1>
+            <p className="text-[#64748b] mt-0.5">{test.jobTitle} • <span className="font-semibold text-[#4f46e5]">{test.level}</span></p>
+            <p className="font-mono text-xs text-[#94a3b8] mt-1.5">
               {test.completedAt ? `Completed ${new Date(test.completedAt).toLocaleString()}` : `Status: ${test.status}`}
               {test.timeUsedSeconds ? ` • ${Math.floor(test.timeUsedSeconds / 60)}m ${test.timeUsedSeconds % 60}s` : ""}
             </p>
           </div>
-          <div className="text-right">
+          <div className="text-right pl-6">
             {test.overallRating === "No Answers" ? (
               <div className="text-right">
-                <div className="text-lg font-semibold text-slate-500">Not Scored</div>
-                <div className="text-xs text-slate-600 mt-1">No answers captured</div>
+                <div className="text-lg font-semibold text-[#64748b]">Not Scored</div>
+                <div className="text-xs text-[#94a3b8] mt-1">No answers captured</div>
               </div>
             ) : test.overallScore !== null ? (
               <>
-                <div className={`text-5xl font-bold ${scoreColor}`} style={{ textShadow: "0 0 20px currentColor" }}>{overallScore?.toFixed(1)}</div>
-                <div className="text-sm text-slate-500">/ 5</div>
-                <div className={`text-sm font-medium mt-1 ${scoreColor}`}>{test.overallRating}</div>
+                <div className={`text-5xl font-bold tracking-tight ${scoreColor}`}>{overallScore?.toFixed(1)}<span className="text-2xl text-[#94a3b8] font-semibold">/5</span></div>
+                <div className={`mt-2 inline-flex items-center badge ${scoreColor}`} style={{ background: "#f1f5f9" }}>{test.overallRating}</div>
               </>
             ) : (
-              <div className="text-slate-500 text-sm">
+              <div className="text-[#64748b] text-sm">
                 {test.status === "COMPLETED" ? "Scoring in progress…" : test.status.replace(/_/g, " ")}
               </div>
             )}
@@ -216,18 +215,18 @@ export function TestResultsClient({ test, shareUrl }: { test: Test; shareUrl?: s
                 {rerating ? "Re-scoring..." : "Re-run AI Scoring"}
               </button>
             )}
-            {performanceMessage && <p className="text-sm text-slate-400">{performanceMessage}</p>}
-            {rerateMessage && <p className="text-sm text-slate-400">{rerateMessage}</p>}
+            {performanceMessage && <p className="text-sm text-[#64748b]">{performanceMessage}</p>}
+            {rerateMessage && <p className="text-sm text-[#64748b]">{rerateMessage}</p>}
           </div>
         )}
         {test.overallRating === "No Answers" && (
-          <div className="mt-4 rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
-            <p className="font-semibold mb-1">No answers were captured for this interview.</p>
-            <p className="text-amber-300/80">All questions either timed out or produced no transcript or written response. This is usually caused by the candidate denying microphone permission, having a broken microphone, or a poor network connection during upload. Review the video recordings manually if available.</p>
+          <div className="mt-4 rounded-xl border border-[#fde68a] bg-[#fffbeb] px-4 py-3 text-sm text-[#92590f]">
+            <p className="font-semibold mb-1 text-[#b45309]">No answers were captured for this interview.</p>
+            <p>All questions either timed out or produced no transcript or written response. This is usually caused by the candidate denying microphone permission, having a broken microphone, or a poor network connection during upload. Review the video recordings manually if available.</p>
           </div>
         )}
         {attentionEventCount > 0 && (
-          <div className="mt-4 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+          <div className="mt-4 rounded-xl border border-[#fecaca] bg-[#fef2f2] px-4 py-3 text-sm text-[#b91c1c]">
             Candidate changed tabs, windows, or fullscreen {attentionEventCount} time{attentionEventCount === 1 ? "" : "s"} during the interview.
           </div>
         )}
@@ -240,18 +239,18 @@ export function TestResultsClient({ test, shareUrl }: { test: Test; shareUrl?: s
             className="w-full flex justify-between items-center text-left"
             onClick={() => setFraudOpen((o) => !o)}
           >
-            <h2 className="text-lg font-semibold text-white">Interview Integrity Report</h2>
-            <div className="flex gap-3 text-sm">
-              {highCount > 0 && <span className="text-red-400 font-medium">HIGH: {highCount}</span>}
-              {mediumCount > 0 && <span className="text-amber-400 font-medium">MEDIUM: {mediumCount}</span>}
-              {lowCount > 0 && <span className="text-yellow-400 font-medium">LOW: {lowCount}</span>}
-              <span className="text-slate-500">{fraudOpen ? "▲" : "▼"}</span>
+            <h2 className="text-lg font-semibold text-[#0f172a]">Interview Integrity Report</h2>
+            <div className="flex gap-3 text-sm items-center">
+              {highCount > 0 && <span className="font-mono text-[#dc2626] font-medium">HIGH: {highCount}</span>}
+              {mediumCount > 0 && <span className="font-mono text-[#d97706] font-medium">MED: {mediumCount}</span>}
+              {lowCount > 0 && <span className="font-mono text-[#64748b] font-medium">LOW: {lowCount}</span>}
+              <span className="text-[#94a3b8]">{fraudOpen ? "▲" : "▼"}</span>
             </div>
           </button>
           {fraudOpen && (
             <div className="mt-4 space-y-2 animate-fade-in">
               {fraudEvents.map((e) => (
-                <div key={e.id} className={`flex justify-between items-center px-3 py-2 rounded-lg text-sm ${SEVERITY_COLOR[e.severity] ?? "bg-slate-800/50"}`}>
+                <div key={e.id} className={`flex justify-between items-center px-3 py-2 rounded-lg text-sm ${SEVERITY_COLOR[e.severity] ?? "bg-[#f8fafc]"}`}>
                   <div>
                     <span className="font-medium">{FRAUD_EVENT_LABEL[e.type] ?? e.type.replace(/_/g, " ")}</span>
                     {e.detail && <span className="ml-2 text-xs opacity-70">{e.detail}</span>}
@@ -269,9 +268,9 @@ export function TestResultsClient({ test, shareUrl }: { test: Test; shareUrl?: s
         <div className="flex flex-col gap-4">
           <div className="flex items-center justify-between gap-4">
             <div>
-              <h2 className="text-lg font-semibold text-white">Candidate Video</h2>
+              <h2 className="text-lg font-semibold text-[#0f172a]">Candidate Video</h2>
               {selectedVideo && (
-                <p className="text-sm text-slate-500 mt-1">Question {selectedVideo.order} recording</p>
+                <p className="font-mono text-xs text-[#94a3b8] mt-1">Question {selectedVideo.order} recording</p>
               )}
             </div>
             {candidateVideos.length > 1 && (
@@ -281,10 +280,10 @@ export function TestResultsClient({ test, shareUrl }: { test: Test; shareUrl?: s
                     key={q.id}
                     type="button"
                     onClick={() => setSelectedVideoId(q.id)}
-                    className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                    className={`rounded-lg px-3 py-1.5 font-mono text-xs font-semibold transition-colors ${
                       selectedVideo?.id === q.id
-                        ? "border-blue-400/40 bg-blue-500/20 text-blue-200"
-                        : "border-white/10 bg-slate-800/50 text-slate-400 hover:bg-slate-700/60 hover:text-white"
+                        ? "bg-[#2563eb] text-white"
+                        : "bg-[#f1f5f9] text-[#64748b] hover:bg-[#e2e8f0] hover:text-[#334155]"
                     }`}
                   >
                     Q{q.order}
@@ -296,11 +295,11 @@ export function TestResultsClient({ test, shareUrl }: { test: Test; shareUrl?: s
           {selectedVideo?.videoUrl ? (
             <video
               controls
-              className="w-full max-h-[520px] rounded-xl bg-black border border-white/5"
+              className="w-full max-h-[520px] rounded-xl bg-black border border-[#e7ebf0]"
               src={selectedVideo.videoUrl}
             />
           ) : (
-            <div className="rounded-xl border border-white/5 bg-slate-900/40 px-4 py-6 text-sm text-slate-400">
+            <div className="rounded-xl border border-[#e7ebf0] bg-[#f8fafc] px-4 py-6 text-sm text-[#64748b]">
               No saved candidate video is available for this interview.
             </div>
           )}
@@ -308,68 +307,68 @@ export function TestResultsClient({ test, shareUrl }: { test: Test; shareUrl?: s
       </div>
 
       {/* Questions accordion */}
-      <h2 className="text-lg font-semibold text-white mb-3">Question Responses</h2>
+      <h2 className="text-lg font-semibold text-[#0f172a] mb-3">Question Responses</h2>
       <div className="space-y-3 stagger">
         {test.questions.map((q) => (
           <div key={q.id} className="glass-card overflow-hidden animate-fade-in-up">
             <button
-              className="w-full flex justify-between items-center px-6 py-4 text-left hover:bg-white/[0.02] transition-colors"
+              className="w-full flex justify-between items-center px-6 py-4 text-left hover:bg-[#fafbfd] transition-colors"
               onClick={() => setOpenQuestion(openQuestion === q.id ? null : q.id)}
             >
               <div className="flex items-center gap-3">
-                <span className="font-medium text-slate-500 text-sm">Q{q.order}</span>
-                <span className="text-sm font-medium text-white line-clamp-1">{q.questionText}</span>
-                <span className="badge bg-slate-700/50 text-slate-400 border border-white/5">{q.category}</span>
+                <span className="font-mono font-semibold text-[#2563eb] text-sm">Q{q.order}</span>
+                <span className="text-sm font-medium text-[#0f172a] line-clamp-1">{q.questionText}</span>
+                <span className="badge bg-[#f1f5f9] text-[#475569]">{q.category}</span>
               </div>
               <div className="flex items-center gap-3">
                 {q.aiScore !== null ? (
-                  <span className={`text-sm font-bold ${scoreColorClass(q.aiScore)}`}>
+                  <span className={`font-mono text-sm font-bold ${scoreColorClass(q.aiScore)}`}>
                     {formatScore(scoreOutOfFive(q.aiScore))}/5
                   </span>
                 ) : q.aiRationale ? (
-                  <span className="text-xs font-medium text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-lg">Not answered</span>
+                  <span className="badge bg-[#fef3c7] text-[#b45309]">Not answered</span>
                 ) : null}
-                <span className="text-slate-500 text-sm">{openQuestion === q.id ? "▲" : "▼"}</span>
+                <span className="text-[#94a3b8] text-sm">{openQuestion === q.id ? "▲" : "▼"}</span>
               </div>
             </button>
             {openQuestion === q.id && (
-              <div className="px-6 pb-6 border-t border-white/5 animate-fade-in">
-                <p className="text-sm text-slate-300 mt-4 font-medium mb-3">{q.questionText}</p>
+              <div className="px-6 pb-6 border-t border-[#f0f2f6] animate-fade-in">
+                <p className="text-sm text-[#0f172a] mt-4 font-medium mb-3">{q.questionText}</p>
                 {q.expectedSummary && (
                   <div className="mb-4">
-                    <p className="text-xs font-medium text-slate-500 mb-1">Expected Answer</p>
-                    <p className="text-sm text-slate-300 bg-emerald-500/10 border border-emerald-500/15 p-3 rounded-xl">{q.expectedSummary}</p>
+                    <p className="mono-eyebrow text-[10.5px] mb-1.5">Expected Answer</p>
+                    <p className="text-sm text-[#15803d] bg-[#f0fdf4] border border-[#dcfce7] p-3 rounded-xl">{q.expectedSummary}</p>
                   </div>
                 )}
                 {q.videoUrl && (
                   <div className="mb-4">
-                    <p className="text-xs font-medium text-slate-500 mb-1">Video Response</p>
-                    <video controls className="w-full max-w-2xl rounded-xl bg-black border border-white/5" src={q.videoUrl} />
+                    <p className="mono-eyebrow text-[10.5px] mb-1.5">Video Response</p>
+                    <video controls className="w-full max-w-2xl rounded-xl bg-black border border-[#e7ebf0]" src={q.videoUrl} />
                   </div>
                 )}
                 {q.transcript && (
                   <div className="mb-4">
-                    <p className="text-xs font-medium text-slate-500 mb-1">Transcript</p>
-                    <p className="text-sm text-slate-300 bg-slate-800/50 border border-white/5 p-3 rounded-xl">{q.transcript}</p>
+                    <p className="mono-eyebrow text-[10.5px] mb-1.5">Transcript</p>
+                    <p className="text-sm text-[#475569] bg-[#f8fafc] border border-[#eef1f5] p-3 rounded-xl">{q.transcript}</p>
                   </div>
                 )}
                 {q.codeResponse && (
                   <div className="mb-4">
-                    <p className="text-xs font-medium text-slate-500 mb-1">Code Response</p>
-                    <pre className="text-xs bg-[#0a0e1a] text-emerald-300 p-4 rounded-xl overflow-auto border border-white/5">{q.codeResponse}</pre>
+                    <p className="mono-eyebrow text-[10.5px] mb-1.5">Code Response</p>
+                    <pre className="text-xs bg-[#0b1220] text-[#cbd5e1] p-4 rounded-xl overflow-auto border border-[#1e293b] font-mono">{q.codeResponse}</pre>
                   </div>
                 )}
                 {q.aiScore !== null ? (
-                  <div className="bg-blue-500/10 border border-blue-500/15 rounded-xl p-4">
+                  <div className="bg-[#eff4ff] border border-[#dbe6ff] rounded-xl p-4">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className={`text-lg font-bold ${scoreColorClass(q.aiScore)}`}>{formatScore(scoreOutOfFive(q.aiScore))}/5</span>
+                      <span className={`font-mono text-lg font-bold ${scoreColorClass(q.aiScore)}`}>{formatScore(scoreOutOfFive(q.aiScore))}/5</span>
                     </div>
-                    {q.aiRationale && <p className="text-sm text-slate-300">{q.aiRationale}</p>}
+                    {q.aiRationale && <p className="text-sm text-[#3b5bbf]">{q.aiRationale}</p>}
                   </div>
                 ) : q.aiRationale ? (
-                  <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4">
-                    <p className="text-xs font-semibold text-amber-400 mb-1">Not scored — no answer captured</p>
-                    <p className="text-sm text-slate-300">{q.aiRationale}</p>
+                  <div className="bg-[#fffbeb] border border-[#fde68a] rounded-xl p-4">
+                    <p className="mono-eyebrow text-[10.5px] !text-[#b45309] font-semibold mb-1">Not scored — no answer captured</p>
+                    <p className="text-sm text-[#92590f]">{q.aiRationale}</p>
                   </div>
                 ) : null}
               </div>

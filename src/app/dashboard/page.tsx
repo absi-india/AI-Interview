@@ -17,13 +17,13 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 const STATUS_COLOR: Record<string, string> = {
-  QUESTIONS_PENDING: "bg-amber-500/15 text-amber-300 border border-amber-500/20",
-  QUESTIONS_APPROVED: "bg-blue-500/15 text-blue-300 border border-blue-500/20",
-  INVITED: "bg-indigo-500/15 text-indigo-300 border border-indigo-500/20",
-  IN_PROGRESS: "bg-orange-500/15 text-orange-300 border border-orange-500/20",
-  STOPPED_TAB_CHANGES: "bg-red-500/15 text-red-300 border border-red-500/20",
-  COMPLETED: "bg-emerald-500/15 text-emerald-300 border border-emerald-500/20",
-  EXPIRED: "bg-slate-500/15 text-slate-400 border border-slate-500/20",
+  QUESTIONS_PENDING: "bg-[#fef3c7] text-[#b45309]",
+  QUESTIONS_APPROVED: "bg-[#dbeafe] text-[#2563eb]",
+  INVITED: "bg-[#e0e7ff] text-[#4f46e5]",
+  IN_PROGRESS: "bg-[#dbeafe] text-[#2563eb]",
+  STOPPED_TAB_CHANGES: "bg-[#fee2e2] text-[#dc2626]",
+  COMPLETED: "bg-[#dcfce7] text-[#15803d]",
+  EXPIRED: "bg-[#f1f5f9] text-[#64748b]",
 };
 
 const ATTENTION_EVENT_TYPES = [
@@ -100,21 +100,22 @@ export default async function DashboardPage({
     : candidates;
 
   return (
-    <div className="min-h-screen" style={{ background: "linear-gradient(180deg, #0f172a 0%, #1a2332 100%)" }}>
+    <div className="min-h-screen" style={{ background: "#f4f6f9" }}>
       {/* Nav */}
       <nav className="nav-absi px-6 py-4 flex justify-between items-center">
         <div className="flex items-center gap-3">
           <BrandLogo size="sm" />
+          <span className="font-semibold text-[15px] text-[#0f172a] hidden sm:inline">Technical Interview Portal</span>
         </div>
-        <div className="flex items-center gap-4">
-          <Link href="/activity" className="text-sm text-blue-400 hover:text-blue-300 font-medium transition-colors">Activity</Link>
-          <span className="text-sm text-slate-400">
-            {displayName}
-            <span className="ml-1.5 badge bg-blue-500/15 text-blue-300 border border-blue-500/20 text-xs">{role}</span>
-          </span>
+        <div className="flex items-center gap-5">
+          <Link href="/activity" className="text-sm text-[#475569] hover:text-[#2563eb] font-medium transition-colors">Activity</Link>
           {role === "ADMIN" && (
-            <Link href="/admin" className="text-sm text-blue-400 hover:text-blue-300 font-medium transition-colors">Admin Panel</Link>
+            <Link href="/admin" className="text-sm text-[#475569] hover:text-[#2563eb] font-medium transition-colors">Admin Panel</Link>
           )}
+          <span className="text-sm text-[#0f172a] font-semibold flex items-center gap-2">
+            {displayName}
+            <span className="badge bg-[#eff4ff] text-[#2563eb] font-mono text-[10.5px] tracking-wide">{role}</span>
+          </span>
           <SignOutButton />
         </div>
       </nav>
@@ -122,8 +123,8 @@ export default async function DashboardPage({
       <main className="max-w-6xl mx-auto px-6 py-8">
         <div className="flex flex-col gap-4 mb-6 animate-fade-in sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-xl font-bold text-white">Candidates</h2>
-            <p className="text-sm text-slate-500 mt-1">Search by name, email, or phone number.</p>
+            <h2 className="text-[22px] font-semibold text-[#0f172a] tracking-tight">Candidates</h2>
+            <p className="text-sm text-[#64748b] mt-1">Search by name, email, or phone number.</p>
           </div>
           <Link
             href="/candidates/new"
@@ -136,7 +137,7 @@ export default async function DashboardPage({
 
         <form action="/dashboard" className="mb-5 grid gap-3 animate-fade-in sm:grid-cols-[1fr_auto]">
           <div className="relative">
-            <svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94a3b8]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-4.35-4.35M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z" />
             </svg>
             <input
@@ -148,7 +149,7 @@ export default async function DashboardPage({
             />
           </div>
           <div className="flex gap-2">
-            <button type="submit" className="btn-primary px-5">Search</button>
+            <button type="submit" className="btn-ink px-5">Search</button>
             {searchQuery && (
               <Link href="/dashboard" className="btn-secondary px-5">
                 Clear
@@ -159,14 +160,13 @@ export default async function DashboardPage({
 
         {candidates.length === 0 ? (
           <div className="text-center py-16 glass-card animate-fade-in-up">
-            <div className="text-4xl mb-4">👤</div>
-            <p className="text-slate-400">No candidates yet.</p>
-            <Link href="/candidates/new" className="text-blue-400 hover:text-blue-300 font-medium transition-colors">Add your first candidate</Link>
+            <p className="text-[#475569]">No candidates yet.</p>
+            <Link href="/candidates/new" className="text-[#2563eb] hover:text-[#1d4ed8] font-medium transition-colors">Add your first candidate</Link>
           </div>
         ) : visibleCandidates.length === 0 ? (
           <div className="text-center py-12 glass-card animate-fade-in-up">
-            <p className="text-slate-300 font-medium">No matching candidates</p>
-            <p className="text-sm text-slate-500 mt-1">Try a different name, email, or phone number.</p>
+            <p className="text-[#0f172a] font-medium">No matching candidates</p>
+            <p className="text-sm text-[#64748b] mt-1">Try a different name, email, or phone number.</p>
           </div>
         ) : (
           <div className="glass-card overflow-hidden animate-fade-in-up">
@@ -190,31 +190,31 @@ export default async function DashboardPage({
                   return (
                     <tr key={c.id}>
                       <td>
-                        <Link href={`/candidates/${c.id}`} className="font-medium text-white hover:text-blue-400 transition-colors">{c.name}</Link>
-                        <div className="text-slate-500 text-xs mt-0.5">{c.email}</div>
-                        <div className="text-slate-600 text-xs mt-0.5">{c.phone}</div>
+                        <Link href={`/candidates/${c.id}`} className="font-semibold text-[#2563eb] hover:text-[#1d4ed8] transition-colors">{c.name}</Link>
+                        <div className="text-[#64748b] text-xs mt-0.5">{c.email}</div>
+                        <div className="font-mono text-[#94a3b8] text-[11px] mt-0.5">{c.phone}</div>
                       </td>
-                      <td className="text-slate-400">{latest?.jobTitle ?? "—"}</td>
+                      <td className="text-[#334155]">{latest?.jobTitle ?? "—"}</td>
                       <td>
                         {latest ? (
                           <div className="flex flex-col items-start gap-1.5">
-                            <span className={`badge ${STATUS_COLOR[displayStatus] ?? "bg-slate-500/15 text-slate-400"}`}>
+                            <span className={`badge ${STATUS_COLOR[displayStatus] ?? "bg-[#f1f5f9] text-[#64748b]"}`}>
                               {STATUS_LABEL[displayStatus] ?? displayStatus}
                             </span>
                             {attentionEventCount > 0 && (
-                              <span className="badge bg-red-500/10 text-red-300 border border-red-500/20">
+                              <span className="badge bg-[#fee2e2] text-[#dc2626]">
                                 Screen/tab changes: {attentionDisplay}
                               </span>
                             )}
                           </div>
                         ) : (
-                          <span className="text-slate-600 text-xs">No tests</span>
+                          <span className="text-[#94a3b8] text-xs">No tests</span>
                         )}
                       </td>
                       <td>
-                        <div className="flex gap-3">
-                          <Link href={`/candidates/${c.id}`} className="text-blue-400 hover:text-blue-300 font-medium transition-colors">View</Link>
-                          <Link href={`/tests/new?candidateId=${c.id}`} className="text-emerald-400 hover:text-emerald-300 font-medium transition-colors">Schedule Test</Link>
+                        <div className="flex gap-3.5">
+                          <Link href={`/candidates/${c.id}`} className="text-[#2563eb] hover:text-[#1d4ed8] font-medium transition-colors">View</Link>
+                          <Link href={`/tests/new?candidateId=${c.id}`} className="text-[#475569] hover:text-[#0f172a] font-medium transition-colors">Schedule</Link>
                           <DeleteCandidateButton candidateId={c.id} candidateName={c.name} />
                         </div>
                       </td>

@@ -42,8 +42,7 @@ const localDevPassword = "admin123";
 function StatusDot({ ok }: { ok: boolean }) {
   return (
     <span
-      className={`inline-block w-2 h-2 rounded-full flex-shrink-0 ${ok ? "bg-emerald-400" : "bg-red-400"}`}
-      style={{ boxShadow: ok ? "0 0 6px rgba(52,211,153,0.5)" : "0 0 6px rgba(248,113,113,0.5)" }}
+      className={`inline-block w-2 h-2 rounded-full flex-shrink-0 ${ok ? "bg-emerald-500" : "bg-red-500"}`}
     />
   );
 }
@@ -66,8 +65,8 @@ function HealthPanel() {
 
   if (loading) {
     return (
-      <div className="mt-6 pt-4 border-t border-white/5 flex items-center gap-2 text-xs text-slate-500">
-        <span className="inline-block w-2 h-2 rounded-full bg-slate-600 animate-pulse" />
+      <div className="mt-6 flex items-center gap-2 text-xs text-slate-400">
+        <span className="inline-block w-2 h-2 rounded-full bg-slate-300 animate-pulse" />
         Checking system status…
       </div>
     );
@@ -75,7 +74,7 @@ function HealthPanel() {
 
   if (!health) {
     return (
-      <div className="mt-6 pt-4 border-t border-white/5 text-xs text-slate-500">
+      <div className="mt-6 text-xs text-slate-400">
         System status unavailable
       </div>
     );
@@ -89,30 +88,32 @@ function HealthPanel() {
   };
 
   return (
-    <div className="mt-6 pt-4 border-t border-white/5">
+    <div className="w-full max-w-md mt-4 rounded-2xl border border-[#e3e8ef] bg-white shadow-[0_8px_24px_-14px_rgba(15,23,42,0.18)] overflow-hidden">
       <button
         onClick={() => setExpanded((v) => !v)}
-        className="flex items-center gap-2 text-xs text-slate-400 hover:text-slate-300 w-full text-left transition-colors"
+        className="flex items-center gap-2.5 w-full text-left px-[18px] py-[13px]"
       >
         <StatusDot ok={health.ok} />
-        <span className="flex-1">
+        <span className="flex-1 text-[13px] font-medium text-[#334155]">
           {health.ok ? "All systems operational" : "System issues detected"}
         </span>
-        <span className="text-slate-500">{expanded ? "▲" : "▼"}</span>
+        <span className="font-mono text-[11px] text-[#94a3b8]">{expanded ? "▲" : "▼"}</span>
       </button>
 
       {expanded && (
-        <div className="mt-3 space-y-2 animate-fade-in">
+        <div className="px-[18px] pb-3.5 pt-1 border-t border-[#f0f2f6] animate-fade-in">
           {(Object.entries(health.checks) as [keyof HealthData["checks"], ServiceCheck][]).map(
             ([key, check]) => (
-              <div key={key} className="flex items-start gap-2 text-xs">
-                <StatusDot ok={check.ok} />
-                <span className="font-medium text-slate-400 w-20 flex-shrink-0">{labels[key]}</span>
-                <span className={check.ok ? "text-slate-500" : "text-red-400"}>{check.message}</span>
+              <div key={key} className="flex items-center justify-between py-2 text-xs border-b border-[#f6f8fb] last:border-0">
+                <span className="flex items-center gap-2 text-[#475569]">
+                  <StatusDot ok={check.ok} />
+                  <span className="font-medium">{labels[key]}</span>
+                </span>
+                <span className={`font-mono text-[11px] ${check.ok ? "text-[#94a3b8]" : "text-red-500"}`}>{check.message}</span>
               </div>
             ),
           )}
-          <p className="text-xs text-slate-600 pt-1">Node {health.node}</p>
+          <p className="font-mono text-[10.5px] text-[#cbd5e1] pt-1.5">Node {health.node}</p>
         </div>
       )}
     </div>
@@ -151,11 +152,11 @@ function ForgotPasswordForm({ onBack }: { onBack: () => void }) {
   if (status === "sent") {
     return (
       <div className="text-center animate-fade-in">
-        <p className="text-sm text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-3 mb-4">
+        <p className="text-sm text-[#15803d] bg-[#f0fdf4] border border-[#bbf7d0] rounded-xl px-4 py-3 mb-4">
           If an account exists for <strong>{email}</strong>, a temporary password has been sent.
           Check your inbox (and spam folder).
         </p>
-        <button onClick={onBack} className="text-sm text-blue-400 hover:text-blue-300 transition-colors">
+        <button onClick={onBack} className="text-sm text-[#2563eb] hover:text-[#1d4ed8] transition-colors">
           Back to sign in
         </button>
       </div>
@@ -164,13 +165,13 @@ function ForgotPasswordForm({ onBack }: { onBack: () => void }) {
 
   return (
     <div className="animate-fade-in">
-      <h2 className="text-lg font-semibold text-white mb-1">Reset password</h2>
-      <p className="text-sm text-slate-400 mb-6">
+      <h2 className="text-lg font-semibold text-[#0f172a] mb-1">Reset password</h2>
+      <p className="text-sm text-[#64748b] mb-6">
         Enter your email and we&apos;ll send a temporary password.
       </p>
       <form onSubmit={handleReset} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-slate-300 mb-1">Email</label>
+          <label className="block text-[13px] font-medium text-[#334155] mb-1.5">Email</label>
             <input
               type="email"
               value={email}
@@ -181,7 +182,7 @@ function ForgotPasswordForm({ onBack }: { onBack: () => void }) {
               placeholder="you@example.com"
             />
         </div>
-        {status === "error" && <p className="text-red-400 text-sm">{error}</p>}
+        {status === "error" && <p className="text-red-600 text-sm">{error}</p>}
         <button
           type="submit"
           disabled={status === "sending"}
@@ -193,7 +194,7 @@ function ForgotPasswordForm({ onBack }: { onBack: () => void }) {
       <button
         onClick={onBack}
         suppressHydrationWarning
-        className="mt-4 w-full text-sm text-slate-400 hover:text-slate-300 text-center transition-colors"
+        className="mt-4 w-full text-sm text-[#64748b] hover:text-[#334155] text-center transition-colors"
       >
         Back to sign in
       </button>
@@ -294,30 +295,30 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-grid-pattern" style={{ background: "linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)" }}>
+    <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-grid-pattern" style={{ background: "linear-gradient(180deg, #f7f9fc 0%, #eaeff6 100%)" }}>
       {/* Decorative blobs */}
       <div className="fixed top-0 left-0 w-full h-full pointer-events-none overflow-hidden">
         <div className="absolute -top-32 -left-32 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl" />
         <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl" />
       </div>
 
-      <div className="w-full max-w-md glass-card p-8 relative z-10 animate-fade-in-up">
+      <div className="w-full max-w-md relative z-10 rounded-[18px] border border-[#e3e8ef] bg-white p-9 shadow-[0_20px_60px_-18px_rgba(15,23,42,0.22)] animate-fade-in-up">
         {showReset ? (
           <ForgotPasswordForm onBack={() => setShowReset(false)} />
         ) : (
           <>
             {/* Branding */}
-            <div className="text-center mb-8">
+            <div className="flex flex-col items-center text-center mb-7">
               <BrandLogo size="lg" className="mb-4" />
-              <h1 className="text-2xl font-bold text-white">
+              <h1 className="text-xl font-semibold text-[#0f172a] tracking-tight">
                 Technical Interview Portal
               </h1>
+              <p className="text-[#64748b] mt-1.5 text-sm">Sign in to your account</p>
             </div>
 
-            <p className="text-slate-400 mb-6 text-sm text-center">Sign in to your account</p>
-            <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
+            <form onSubmit={handleSubmit} className="space-y-[18px]" autoComplete="off">
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1">Email</label>
+                <label className="block text-[13px] font-medium text-[#334155] mb-1.5">Email</label>
                 <input
                   type="email"
                   value={email}
@@ -327,17 +328,17 @@ export default function LoginPage() {
                   autoComplete="username"
                   name="email"
                   className="input-dark"
-                  placeholder="you@example.com"
+                  placeholder="you@company.com"
                 />
               </div>
               <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="block text-sm font-medium text-slate-300">Password</label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-[13px] font-medium text-[#334155]">Password</label>
                   <button
                     type="button"
                     onClick={() => setShowReset(true)}
                     suppressHydrationWarning
-                    className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                    className="text-xs text-[#2563eb] hover:text-[#1d4ed8] font-medium transition-colors"
                   >
                     Forgot password?
                   </button>
@@ -353,12 +354,12 @@ export default function LoginPage() {
                   className="input-dark"
                 />
               </div>
-              {error && <p className="text-red-400 text-sm">{error}</p>}
+              {error && <p className="text-red-600 text-sm">{error}</p>}
               <button
                 type="submit"
                 disabled={loading}
                 suppressHydrationWarning
-                className="btn-primary w-full py-2.5"
+                className="btn-primary w-full py-3 text-[15px]"
               >
                 {loading ? "Signing in…" : "Sign in"}
               </button>
@@ -369,21 +370,21 @@ export default function LoginPage() {
                 onClick={handleDevSignIn}
                 disabled={loading}
                 suppressHydrationWarning
-                className="mt-3 w-full text-sm text-slate-400 hover:text-slate-200 transition-colors"
+                className="mt-3 w-full text-sm text-[#64748b] hover:text-[#334155] transition-colors"
               >
                 Use local dev account
               </button>
             )}
-            <p className="mt-6 text-center text-sm text-slate-500">
+            <p className="mt-6 text-center text-sm text-[#64748b]">
               Don&apos;t have an account?{" "}
-              <Link href="/register" className="text-blue-400 hover:text-blue-300 font-medium transition-colors">
+              <Link href="/register" className="text-[#2563eb] hover:text-[#1d4ed8] font-medium transition-colors">
                 Create account
               </Link>
             </p>
           </>
         )}
-        <HealthPanel />
       </div>
+      <HealthPanel />
     </div>
   );
 }

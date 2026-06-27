@@ -763,29 +763,29 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
   // Pre-checks screen
   if (phase === "prechecks") {
     return (
-      <div className="min-h-screen flex items-center justify-center p-6" style={{ background: "linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)" }}>
-        <div className="glass-card max-w-2xl w-full p-8 animate-fade-in-up">
+      <div className="min-h-screen flex items-center justify-center p-6" style={{ background: "linear-gradient(180deg, #f7f9fc 0%, #eaeff6 100%)" }}>
+        <div className="max-w-2xl w-full rounded-[18px] border border-[#e3e8ef] bg-white p-8 shadow-[0_20px_60px_-18px_rgba(15,23,42,0.22)] animate-fade-in-up">
           {/* Branding */}
           <div className="flex items-center gap-3 mb-6">
             <BrandLogo size="sm" />
             <div>
-              <h1 className="text-2xl font-bold text-white">Technical Interview Portal</h1>
-              <p className="text-slate-400 text-sm">{candidateName} — {jobTitle} ({level})</p>
+              <h1 className="text-2xl font-semibold tracking-tight text-[#0f172a]">Technical Interview Portal</h1>
+              <p className="text-[#64748b] text-sm">{candidateName} — {jobTitle} <span className="font-semibold text-[#4f46e5]">({level})</span></p>
             </div>
           </div>
 
           {initialStatus === "IN_PROGRESS" && (
-            <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4 mb-4">
-              <p className="text-blue-300 text-sm font-medium">Your previous session was interrupted. Reconnect your camera below to resume — your progress so far has been saved.</p>
+            <div className="bg-[#eff4ff] border border-[#dbe6ff] rounded-xl p-4 mb-4">
+              <p className="text-[#3b5bbf] text-sm font-medium">Your previous session was interrupted. Reconnect your camera below to resume — your progress so far has been saved.</p>
             </div>
           )}
 
-          <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-5 mb-6">
-            <h2 className="font-semibold text-amber-300 mb-3">Interview Rules</h2>
+          <div className="bg-[#fffbeb] border border-[#fde68a] rounded-xl p-5 mb-6">
+            <h2 className="font-semibold text-[#b45309] mb-3">Interview Rules</h2>
             <ul className="space-y-2">
               {interviewRules.map((r) => (
-                <li key={r} className="flex items-start gap-2 text-sm text-amber-200/80">
-                  <span className="mt-0.5 text-amber-400">•</span><span>{r}</span>
+                <li key={r} className="flex items-start gap-2 text-sm text-[#92590f]">
+                  <span className="mt-0.5 text-[#d97706]">•</span><span>{r}</span>
                 </li>
               ))}
             </ul>
@@ -793,9 +793,9 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
 
           <div className="mb-6">
             <div className="flex items-center gap-3 mb-3">
-              <h2 className="font-semibold text-white">Camera Setup</h2>
+              <h2 className="font-semibold text-[#0f172a]">Camera Setup</h2>
               {cameraReady && (
-                <span className="badge bg-emerald-500/15 text-emerald-300 border border-emerald-500/20">Ready</span>
+                <span className="badge bg-[#dcfce7] text-[#15803d]">Ready</span>
               )}
             </div>
             {!cameraReady && (
@@ -803,8 +803,8 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
                 {cameraLoading ? "Opening Camera..." : visibleCameraError ? "Try Camera Again" : "Allow Camera & Microphone"}
               </button>
             )}
-            {visibleCameraError && <p className="mt-3 text-red-400 text-sm">{visibleCameraError}</p>}
-            <video ref={videoRef} autoPlay muted playsInline className={`mt-3 rounded-xl w-64 border border-white/10 ${cameraReady ? "" : "hidden"}`} />
+            {visibleCameraError && <p className="mt-3 text-red-600 text-sm">{visibleCameraError}</p>}
+            <video ref={videoRef} autoPlay muted playsInline className={`mt-3 rounded-xl w-64 border border-[#e7ebf0] bg-black ${cameraReady ? "" : "hidden"}`} />
           </div>
 
           <div className="flex items-center gap-3 mb-6">
@@ -813,14 +813,14 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
               id="agree"
               checked={agreed}
               onChange={(e) => setAgreed(e.target.checked)}
-              className="w-4 h-4 accent-blue-500 rounded"
+              className="w-4 h-4 accent-[#2563eb] rounded"
             />
-            <label htmlFor="agree" className="text-sm text-slate-300">
+            <label htmlFor="agree" className="text-sm text-[#334155]">
               I understand and agree to all interview conditions above
             </label>
           </div>
 
-          <div className="text-sm text-slate-500 mb-4">
+          <div className="font-mono text-xs text-[#94a3b8] mb-4">
             {questions.length} questions • 3 min per question • 30-minute total limit • Chrome or Edge required
           </div>
 
@@ -832,7 +832,7 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
             Begin Interview
           </button>
           {!cameraReady && (
-            <p className="mt-3 text-center text-sm text-red-400">
+            <p className="mt-3 text-center text-sm text-red-600">
               Camera and microphone access must be granted before you can begin the interview.
             </p>
           )}
@@ -843,11 +843,11 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
 
   // Interview screen
   return (
-    <div className="min-h-screen bg-[#0a0e1a] flex flex-col">
+    <div className="min-h-screen bg-[#0f172a] flex flex-col">
       {/* Candidate proctoring notice */}
       {showStartWarning && (
         <div className="fixed inset-0 z-[55] bg-black/80 backdrop-blur-sm flex items-center justify-center px-6">
-          <div className="glass-card max-w-md w-full p-8 text-center border border-amber-500/30 shadow-2xl shadow-amber-950/20 animate-fade-in-up">
+          <div className="bg-[#1a2740] rounded-2xl max-w-md w-full p-8 text-center border border-amber-500/30 shadow-2xl animate-fade-in-up">
             <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-amber-500/15 text-2xl font-black text-amber-300">
               !
             </div>
@@ -874,7 +874,7 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
 
       {proctoringNotice && (
         <div className="fixed inset-0 z-[60] bg-black/90 backdrop-blur-sm flex items-center justify-center px-6">
-          <div className="glass-card max-w-md w-full p-8 text-center border border-red-500/30 shadow-2xl shadow-red-950/30 animate-fade-in-up">
+          <div className="bg-[#1a2740] rounded-2xl max-w-md w-full p-8 text-center border border-red-500/30 shadow-2xl animate-fade-in-up">
             <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-500/15 text-2xl font-black text-red-300">
               !
             </div>
@@ -902,7 +902,7 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
       {/* Fullscreen overlay */}
       {showFullscreenOverlay && !proctoringNotice && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center">
-          <div className="glass-card p-8 max-w-sm text-center animate-fade-in-up">
+          <div className="bg-[#1a2740] border border-[#243352] rounded-2xl p-8 max-w-sm text-center animate-fade-in-up">
             <h2 className="text-xl font-bold text-red-400 mb-2">Fullscreen Violation</h2>
             <p className="text-slate-300 mb-4">You have left fullscreen mode. This has been recorded. Please return to fullscreen to continue your interview.</p>
             <button
@@ -916,7 +916,7 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
       )}
 
       {/* Top bar */}
-      <div className="bg-[#0f1629] border-b border-white/5 text-white px-6 py-3 flex justify-between items-center">
+      <div className="bg-[#111c30] border-b border-[#1e293b] text-white px-6 py-3 flex justify-between items-center">
         <div className="flex items-center gap-3">
           <BrandLogo size="sm" className="scale-75 origin-left" />
           <span className="text-sm font-medium">Question {currentIdx + 1} of {questions.length}</span>
@@ -960,10 +960,10 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
             />
           </div>
           {/* Right: Camera + question */}
-          <div className="flex-[2] flex flex-col bg-[#0f1629] border-l border-white/5 p-4">
-            <video ref={videoRef} autoPlay muted playsInline className="w-full rounded-xl bg-black mb-4 border border-white/5" style={{ maxHeight: "200px", objectFit: "cover" }} />
+          <div className="flex-[2] flex flex-col bg-[#111c30] border-l border-[#1e293b] p-4">
+            <video ref={videoRef} autoPlay muted playsInline className="w-full rounded-xl bg-black mb-4 border border-[#243352]" style={{ maxHeight: "200px", objectFit: "cover" }} />
             <div className="flex-1 overflow-auto">
-              <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">{q.category}</p>
+              <p className="font-mono text-[11px] text-[#60a5fa] uppercase tracking-wider mb-1.5">{q.category}</p>
               <p className="text-white text-sm leading-relaxed">{q.questionText}</p>
             </div>
             {/* Per-question progress bar */}
@@ -995,8 +995,8 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
         </div>
       ) : (
         <div className="flex flex-col flex-1 p-8 max-w-3xl mx-auto w-full">
-          <div className="glass-card p-6 mb-6 flex-1">
-            <p className="text-xs text-slate-500 uppercase tracking-wider mb-2">{q.category}</p>
+          <div className="bg-[#1a2740] border border-[#243352] rounded-2xl p-6 mb-6 flex-1">
+            <p className="font-mono text-[11px] text-[#60a5fa] uppercase tracking-wider mb-2">{q.category}</p>
             <p className="text-white text-xl leading-relaxed">{q.questionText}</p>
           </div>
           <div className="flex items-center gap-4 text-sm text-slate-400 mb-6">

@@ -118,19 +118,19 @@ export default function NewCandidatePage() {
   }
 
   return (
-    <div className="min-h-screen p-8" style={{ background: "linear-gradient(180deg, #0f172a 0%, #1a2332 100%)" }}>
+    <div className="min-h-screen p-8" style={{ background: "#f4f6f9" }}>
       <div className="mx-auto max-w-xl">
         <div className="mb-6 animate-fade-in">
-          <Link href="/dashboard" className="text-sm text-blue-400 hover:text-blue-300 font-medium transition-colors flex items-center gap-1">
+          <Link href="/dashboard" className="text-sm text-[#2563eb] hover:text-[#1d4ed8] font-medium transition-colors flex items-center gap-1">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
             Back to Dashboard
           </Link>
         </div>
         <div className="glass-card p-8 animate-fade-in-up">
-          <h1 className="mb-6 text-xl font-bold text-white">Add Candidate</h1>
+          <h1 className="mb-6 text-xl font-semibold tracking-tight text-[#0f172a]">Add Candidate</h1>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-300">Full Name *</label>
+              <label className="mb-1.5 block text-[13px] font-medium text-[#334155]">Full Name *</label>
               <input
                 type="text"
                 value={form.name}
@@ -140,7 +140,7 @@ export default function NewCandidatePage() {
               />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-300">Email *</label>
+              <label className="mb-1.5 block text-[13px] font-medium text-[#334155]">Email *</label>
               <input
                 type="email"
                 value={form.email}
@@ -150,7 +150,7 @@ export default function NewCandidatePage() {
               />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-300">Phone *</label>
+              <label className="mb-1.5 block text-[13px] font-medium text-[#334155]">Phone *</label>
               <CountryPhoneInput
                 value={form.phone}
                 onChange={(phone) => setForm((f) => ({ ...f, phone }))}
@@ -158,7 +158,7 @@ export default function NewCandidatePage() {
               />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-300">Resume (paste text or URL)</label>
+              <label className="mb-1.5 block text-[13px] font-medium text-[#334155]">Resume (paste text or URL)</label>
               <textarea
                 value={form.resume}
                 onChange={(e) => setForm((f) => ({ ...f, resume: e.target.value }))}
@@ -168,25 +168,25 @@ export default function NewCandidatePage() {
               />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-300">
+              <label className="mb-1.5 block text-[13px] font-medium text-[#334155]">
                 Resume Attachment (PDF, DOC, DOCX, PPT, PPTX, TXT, RTF, ODT)
               </label>
               <input
                 type="file"
                 accept=".pdf,.doc,.docx,.ppt,.pptx,.txt,.rtf,.odt,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,text/plain,application/rtf,application/vnd.oasis.opendocument.text"
                 onChange={(e) => handleResumeFileChange(e.target.files?.[0] ?? null)}
-                className="w-full rounded-xl border border-slate-700/50 bg-slate-800/40 px-3 py-2 text-sm text-slate-300 file:mr-3 file:rounded-lg file:border-0 file:bg-blue-600/20 file:px-3 file:py-1 file:text-sm file:font-medium file:text-blue-400 hover:file:bg-blue-600/30 transition-colors"
+                className="w-full rounded-xl border border-[#dce2ea] bg-[#f8fafc] px-3 py-2 text-sm text-[#475569] file:mr-3 file:rounded-lg file:border-0 file:bg-[#eff4ff] file:px-3 file:py-1 file:text-sm file:font-medium file:text-[#2563eb] hover:file:bg-[#dbe6ff] transition-colors"
               />
-              <p className="mt-1 text-xs text-slate-500">Max size: 10MB</p>
+              <p className="mt-1 font-mono text-xs text-[#94a3b8]">Max size: 10MB</p>
               {resumeFile && (
                 <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
-                  <span className="text-blue-400">Selected: {resumeFile.name}</span>
+                  <span className="text-[#2563eb]">Selected: {resumeFile.name}</span>
                   {resumePreviewUrl && (
                     <a
                       href={resumePreviewUrl}
                       target="_blank"
                       rel="noreferrer"
-                      className="text-blue-400 hover:text-blue-300 underline transition-colors"
+                      className="text-[#2563eb] hover:text-[#1d4ed8] underline transition-colors"
                     >
                       Open selected resume
                     </a>
@@ -194,7 +194,7 @@ export default function NewCandidatePage() {
                 </div>
               )}
             </div>
-            {error && <p className="text-sm text-red-400">{error}</p>}
+            {error && <p className="text-sm text-red-600">{error}</p>}
             <div className="flex gap-3 pt-2">
               <button
                 type="submit"

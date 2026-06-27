@@ -122,24 +122,24 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-grid-pattern" style={{ background: "linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)" }}>
+    <div className="min-h-screen flex items-center justify-center p-6 bg-grid-pattern" style={{ background: "linear-gradient(180deg, #f7f9fc 0%, #eaeff6 100%)" }}>
       {/* Decorative blobs */}
       <div className="fixed top-0 left-0 w-full h-full pointer-events-none overflow-hidden">
         <div className="absolute -top-32 -right-32 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl" />
         <div className="absolute -bottom-32 -left-32 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl" />
       </div>
 
-      <div className="w-full max-w-md glass-card p-8 relative z-10 animate-fade-in-up">
+      <div className="w-full max-w-md relative z-10 rounded-[18px] border border-[#e3e8ef] bg-white p-9 shadow-[0_20px_60px_-18px_rgba(15,23,42,0.22)] animate-fade-in-up">
         {/* Branding */}
-        <div className="text-center mb-8">
+        <div className="flex flex-col items-center text-center mb-7">
           <BrandLogo size="lg" className="mb-4" />
-          <h1 className="text-2xl font-bold text-white">Create account</h1>
-          <p className="text-slate-400 text-sm mt-1">Join Technical Interview Portal</p>
+          <h1 className="text-xl font-semibold text-[#0f172a] tracking-tight">Create your account</h1>
+          <p className="text-[#64748b] text-sm mt-1.5">Set up your recruiter workspace</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-1">Full name</label>
+            <label className="block text-[13px] font-medium text-[#334155] mb-1.5">Full name</label>
             <input
               type="text"
               value={name}
@@ -150,18 +150,18 @@ export default function RegisterPage() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-1">Email</label>
+            <label className="block text-[13px] font-medium text-[#334155] mb-1.5">Email</label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
               className="input-dark"
-              placeholder="you@example.com"
+              placeholder="you@company.com"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-1">Password</label>
+            <label className="block text-[13px] font-medium text-[#334155] mb-1.5">Password</label>
             <input
               type="password"
               value={password}
@@ -172,7 +172,7 @@ export default function RegisterPage() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-1">Confirm password</label>
+            <label className="block text-[13px] font-medium text-[#334155] mb-1.5">Confirm password</label>
             <input
               type="password"
               value={confirm}
@@ -181,18 +181,18 @@ export default function RegisterPage() {
               className="input-dark"
             />
           </div>
-          {error && <p className="text-red-400 text-sm">{error}</p>}
+          {error && <p className="text-red-600 text-sm">{error}</p>}
           <button
             type="submit"
             disabled={loading}
-            className="btn-primary w-full py-2.5"
+            className="btn-primary w-full py-3 text-[15px]"
           >
             {loading ? "Creating account…" : "Create account"}
           </button>
         </form>
-        <p className="mt-6 text-center text-sm text-slate-500">
+        <p className="mt-6 text-center text-sm text-[#64748b]">
           Already have an account?{" "}
-          <Link href="/login" className="text-blue-400 hover:text-blue-300 font-medium transition-colors">
+          <Link href="/login" className="text-[#2563eb] hover:text-[#1d4ed8] font-medium transition-colors">
             Sign in
           </Link>
         </p>

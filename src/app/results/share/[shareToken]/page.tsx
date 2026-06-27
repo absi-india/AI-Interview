@@ -29,13 +29,13 @@ export default async function ShareResultsPage({
   };
 
   return (
-    <div className="min-h-screen" style={{ background: "linear-gradient(180deg, #0f172a 0%, #1a2332 100%)" }}>
+    <div className="min-h-screen" style={{ background: "#f4f6f9" }}>
       <nav className="nav-absi px-6 py-4 flex items-center gap-3">
         <BrandLogo size="sm" />
-        <h1 className="text-base font-bold text-white">Technical Interview Results</h1>
+        <h1 className="text-base font-semibold text-[#0f172a]">Technical Interview Results</h1>
       </nav>
       <TestResultsClient test={JSON.parse(JSON.stringify(testForClient))} />
-      <div className="text-center py-8 text-xs text-slate-600">
+      <div className="text-center py-8 font-mono text-xs text-[#94a3b8]">
         Powered by Technical Interview Portal
       </div>
     </div>

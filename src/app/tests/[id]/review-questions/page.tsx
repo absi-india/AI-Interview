@@ -36,43 +36,31 @@ function AiConversationPanel({ debug, label }: { debug: AiDebugInfo; label?: str
     <div className="overflow-hidden glass-card">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between bg-violet-500/5 px-4 py-3 text-sm font-medium text-violet-300 hover:bg-violet-500/10 transition-colors"
+        className="flex w-full items-center justify-between bg-[#f8fafc] px-4 py-3 text-sm font-semibold text-[#475569] hover:bg-[#f1f5f9] transition-colors border-b border-[#f0f2f6]"
       >
-        <span className="flex items-center gap-2">
-          <span className="text-base">🤖</span>
-          {label ?? "AI Conversation Log"}
-        </span>
-        <span className="text-xs text-violet-400">{open ? "hide" : "show"}</span>
+        <span>{label ?? "AI Conversation Log"}</span>
+        <span className="font-mono text-xs text-[#94a3b8]">{open ? "hide" : "show"}</span>
       </button>
 
       {open && (
-        <div className="divide-y divide-white/5">
-          <div className="bg-slate-800/30 p-4">
-            <div className="mb-2 flex items-center gap-2">
-              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">System Prompt</span>
-              <span className="rounded bg-slate-700/50 px-1.5 py-0.5 text-xs text-slate-400">instructions sent to AI</span>
-            </div>
-            <pre className="max-h-48 overflow-y-auto whitespace-pre-wrap rounded-lg border border-white/5 bg-slate-900/50 p-3 font-mono text-xs text-slate-300">
+        <div className="p-4 flex flex-col gap-3">
+          <div className="bg-[#f1f5f9] border-l-[3px] border-[#64748b] rounded-md p-3">
+            <div className="mono-eyebrow text-[10.5px] !text-[#64748b] font-semibold mb-1.5">System Prompt</div>
+            <pre className="max-h-48 overflow-y-auto whitespace-pre-wrap font-mono text-[11.5px] leading-relaxed text-[#475569]">
               {debug.systemPrompt}
             </pre>
           </div>
 
-          <div className="bg-blue-500/5 p-4">
-            <div className="mb-2 flex items-center gap-2">
-              <span className="text-xs font-semibold uppercase tracking-wide text-blue-400">User Prompt</span>
-              <span className="rounded bg-blue-500/15 px-1.5 py-0.5 text-xs text-blue-300">job details</span>
-            </div>
-            <pre className="max-h-48 overflow-y-auto whitespace-pre-wrap rounded-lg border border-blue-500/10 bg-slate-900/50 p-3 font-mono text-xs text-blue-200">
+          <div className="bg-[#eff4ff] border-l-[3px] border-[#2563eb] rounded-md p-3">
+            <div className="mono-eyebrow text-[10.5px] !text-[#2563eb] font-semibold mb-1.5">User Prompt</div>
+            <pre className="max-h-48 overflow-y-auto whitespace-pre-wrap font-mono text-[11.5px] leading-relaxed text-[#3b5bbf]">
               {debug.userPrompt}
             </pre>
           </div>
 
-          <div className="bg-emerald-500/5 p-4">
-            <div className="mb-2 flex items-center gap-2">
-              <span className="text-xs font-semibold uppercase tracking-wide text-emerald-400">AI Response</span>
-              <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 text-xs text-emerald-300">raw output</span>
-            </div>
-            <pre className="max-h-64 overflow-y-auto whitespace-pre-wrap rounded-lg border border-emerald-500/10 bg-slate-900/50 p-3 font-mono text-xs text-emerald-200">
+          <div className="bg-[#f0fdf4] border-l-[3px] border-[#16a34a] rounded-md p-3">
+            <div className="mono-eyebrow text-[10.5px] !text-[#16a34a] font-semibold mb-1.5">AI Response</div>
+            <pre className="max-h-64 overflow-y-auto whitespace-pre-wrap font-mono text-[11.5px] leading-relaxed text-[#15803d]">
               {debug.rawResponse}
             </pre>
           </div>
@@ -178,7 +166,7 @@ export default function ReviewQuestionsPage({
       });
   }
 
-  if (!test) return <div className="p-8 text-slate-500">Loading...</div>;
+  if (!test) return <div className="p-8 text-[#64748b]">Loading...</div>;
 
   const isResendMode = test.status === "INVITED";
   const currentExpiry = test.inviteExpiresAt
@@ -186,32 +174,32 @@ export default function ReviewQuestionsPage({
     : null;
 
   const levelColors: Record<string, string> = {
-    BASIC: "bg-emerald-500/15 text-emerald-300 border border-emerald-500/20",
-    INTERMEDIATE: "bg-amber-500/15 text-amber-300 border border-amber-500/20",
-    ADVANCED: "bg-orange-500/15 text-orange-300 border border-orange-500/20",
-    PRACTICAL: "bg-violet-500/15 text-violet-300 border border-violet-500/20",
+    BASIC: "bg-[#fef3c7] text-[#b45309]",
+    INTERMEDIATE: "bg-[#dbeafe] text-[#2563eb]",
+    ADVANCED: "bg-[#e0e7ff] text-[#4f46e5]",
+    PRACTICAL: "bg-[#dcfce7] text-[#15803d]",
   };
 
   return (
-    <div className="min-h-screen p-8" style={{ background: "linear-gradient(180deg, #0f172a 0%, #1a2332 100%)" }}>
+    <div className="min-h-screen p-8" style={{ background: "#f4f6f9" }}>
       <div className="mx-auto max-w-4xl">
         <div className="mb-4 animate-fade-in">
-          <Link href="/dashboard" className="text-sm text-blue-400 hover:text-blue-300 font-medium transition-colors flex items-center gap-1">
+          <Link href="/dashboard" className="text-sm text-[#2563eb] hover:text-[#1d4ed8] font-medium transition-colors flex items-center gap-1">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
             Back to Dashboard
           </Link>
         </div>
 
-        <div className="mb-6 glass-card p-4 bg-blue-500/5 border-blue-500/15 animate-fade-in-up">
+        <div className="mb-6 rounded-2xl border border-[#dbe6ff] bg-[#eff4ff] p-4 animate-fade-in-up">
           <div className="mb-1 flex items-center gap-3">
-            <h1 className="text-xl font-bold text-white">
+            <h1 className="text-xl font-semibold tracking-tight text-[#0f172a]">
               {test.candidate.name} — {test.jobTitle}
             </h1>
-            <span className={`badge ${levelColors[test.level] ?? "bg-slate-500/15 text-slate-400"}`}>
+            <span className={`badge ${levelColors[test.level] ?? "bg-[#f1f5f9] text-[#64748b]"}`}>
               {test.level}
             </span>
           </div>
-          <p className="text-sm text-blue-300/70">
+          <p className="text-sm text-[#3b5bbf]">
             {isResendMode
               ? "This test is already invited. You can edit questions if needed and resend the invite email."
               : "Review the AI-generated questions below. You can edit any question before sending the invite email."}
@@ -231,13 +219,13 @@ export default function ReviewQuestionsPage({
             return (
               <div key={q.id} className="glass-card p-5 animate-fade-in-up">
                 <div className="mb-3 flex items-center gap-2">
-                  <span className="text-sm font-bold text-slate-500">Q{q.order}</span>
-                  <span className="badge bg-slate-700/50 text-slate-400 border border-white/5">{q.category}</span>
+                  <span className="font-mono text-sm font-semibold text-[#2563eb]">Q{q.order}</span>
+                  <span className="badge bg-[#f1f5f9] text-[#475569]">{q.category}</span>
                   {q.codeLanguageHint && (
-                    <span className="badge bg-violet-500/15 text-violet-300 border border-violet-500/20">Code: {q.codeLanguageHint}</span>
+                    <span className="badge bg-[#ede9fe] text-[#7c3aed]">Code: {q.codeLanguageHint}</span>
                   )}
                   {isEdited && (
-                    <span className="badge bg-amber-500/15 text-amber-300 border border-amber-500/20">Edited</span>
+                    <span className="badge bg-[#fef3c7] text-[#b45309]">Edited</span>
                   )}
                 </div>
                 <textarea
@@ -249,12 +237,12 @@ export default function ReviewQuestionsPage({
                 <div className="mt-2">
                   <button
                     onClick={() => setExpandedSummaries((p) => ({ ...p, [q.id]: !p[q.id] }))}
-                    className="text-xs text-slate-500 hover:text-slate-400 transition-colors"
+                    className="text-xs text-[#2563eb] hover:text-[#1d4ed8] font-medium transition-colors"
                   >
                     {expandedSummaries[q.id] ? "Hide" : "Show"} expected answer summary
                   </button>
                   {expandedSummaries[q.id] && (
-                    <p className="mt-2 rounded-lg bg-slate-800/50 border border-white/5 p-3 text-xs text-slate-400">
+                    <p className="mt-2 rounded-lg bg-[#f0fdf4] border border-[#dcfce7] p-3 text-xs text-[#15803d]">
                       {q.expectedSummary}
                     </p>
                   )}
@@ -264,27 +252,27 @@ export default function ReviewQuestionsPage({
           })}
         </div>
 
-        {error && <p className="mb-4 text-sm text-red-400">{error}</p>}
+        {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
         {inviteLink && (
-          <p className="mb-4 text-sm text-amber-300">
+          <p className="mb-4 text-sm text-[#b45309]">
             Manual invite link:{" "}
-            <a href={inviteLink} className="break-all underline text-blue-400 hover:text-blue-300 transition-colors" target="_blank" rel="noreferrer">
+            <a href={inviteLink} className="break-all underline text-[#2563eb] hover:text-[#1d4ed8] transition-colors" target="_blank" rel="noreferrer">
               {inviteLink}
             </a>
           </p>
         )}
 
-        <div className="mb-4 rounded-xl border border-white/10 bg-slate-900/40 p-4">
+        <div className="mb-4 rounded-xl border border-[#e7ebf0] bg-white p-4">
           <div className="mb-3">
-            <h2 className="text-sm font-semibold text-white">Invite Link Validity</h2>
-            <p className="mt-1 text-xs text-slate-400">
+            <h2 className="text-sm font-semibold text-[#0f172a]">Invite Link Validity</h2>
+            <p className="mt-1 text-xs text-[#64748b]">
               Choose how long the candidate link should work after the invite is sent.
               {currentExpiry ? ` Current invite expires: ${currentExpiry}.` : ""}
             </p>
           </div>
           <div className="grid gap-3 sm:grid-cols-[120px_1fr]">
             <label className="block">
-              <span className="mb-1 block text-xs font-medium text-slate-400">Duration</span>
+              <span className="mb-1 block text-xs font-medium text-[#475569]">Duration</span>
               <input
                 type="number"
                 min={1}
@@ -300,7 +288,7 @@ export default function ReviewQuestionsPage({
               />
             </label>
             <label className="block">
-              <span className="mb-1 block text-xs font-medium text-slate-400">Unit</span>
+              <span className="mb-1 block text-xs font-medium text-[#475569]">Unit</span>
               <select
                 value={inviteValidityUnit}
                 onChange={(e) => setInviteValidityUnit(e.target.value as "minutes" | "hours" | "days")}
