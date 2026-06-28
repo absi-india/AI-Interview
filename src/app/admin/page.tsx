@@ -23,7 +23,7 @@ export default function AdminPage() {
   const [tests, setTests] = useState<Test[]>([]);
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [showCreateUser, setShowCreateUser] = useState(false);
-  const [newUser, setNewUser] = useState({ name: "", email: "", password: "" });
+  const [newUser, setNewUser] = useState({ name: "", email: "", password: "", role: "RECRUITER" });
   const [createError, setCreateError] = useState("");
 
   useEffect(() => {
@@ -53,7 +53,7 @@ export default function AdminPage() {
     if (!res.ok) { setCreateError(data.error); return; }
     setUsers((u) => [{ ...data.user, testCount: 0 }, ...u]);
     setShowCreateUser(false);
-    setNewUser({ name: "", email: "", password: "" });
+    setNewUser({ name: "", email: "", password: "", role: "RECRUITER" });
   }
 
   const STATUS_COLOR: Record<string, string> = {
@@ -107,24 +107,28 @@ export default function AdminPage() {
         {tab === "users" && (
           <div className="animate-fade-in">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold text-[#0f172a]">Recruiters</h2>
+              <h2 className="text-lg font-semibold text-[#0f172a]">Users</h2>
               <button
                 onClick={() => setShowCreateUser(true)}
                 className="btn-primary flex items-center gap-2"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
-                Create Recruiter
+                Create User
               </button>
             </div>
             {showCreateUser && (
               <div className="glass-card p-6 mb-4 animate-fade-in-up">
-                <h3 className="font-semibold text-[#0f172a] mb-4">New Recruiter</h3>
-                <form onSubmit={createUser} className="grid grid-cols-3 gap-4">
+                <h3 className="font-semibold text-[#0f172a] mb-4">New User</h3>
+                <form onSubmit={createUser} className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                   <input placeholder="Name" required value={newUser.name} onChange={(e) => setNewUser((n) => ({ ...n, name: e.target.value }))} className="input-dark" />
                   <input placeholder="Email" type="email" required value={newUser.email} onChange={(e) => setNewUser((n) => ({ ...n, email: e.target.value }))} className="input-dark" />
                   <input placeholder="Password" type="password" required value={newUser.password} onChange={(e) => setNewUser((n) => ({ ...n, password: e.target.value }))} className="input-dark" />
-                  {createError && <p className="col-span-3 text-red-600 text-sm">{createError}</p>}
-                  <div className="col-span-3 flex gap-2">
+                  <select value={newUser.role} onChange={(e) => setNewUser((n) => ({ ...n, role: e.target.value }))} className="input-dark">
+                    <option value="RECRUITER">Recruiter</option>
+                    <option value="ADMIN">Admin</option>
+                  </select>
+                  {createError && <p className="col-span-2 sm:col-span-4 text-red-600 text-sm">{createError}</p>}
+                  <div className="col-span-2 sm:col-span-4 flex gap-2">
                     <button type="submit" className="btn-primary">Create</button>
                     <button type="button" onClick={() => setShowCreateUser(false)} className="btn-secondary">Cancel</button>
                   </div>
@@ -137,6 +141,7 @@ export default function AdminPage() {
                   <tr>
                     <th>Name</th>
                     <th>Email</th>
+                    <th>Role</th>
                     <th>Tests</th>
                     <th>Status</th>
                     <th>Actions</th>
@@ -147,6 +152,9 @@ export default function AdminPage() {
                     <tr key={u.id}>
                       <td className="font-medium text-[#0f172a]">{u.name}</td>
                       <td className="font-mono text-[12.5px] text-[#64748b]">{u.email}</td>
+                      <td>
+                        <span className={`badge ${u.role === "ADMIN" ? "bg-[#e0e7ff] text-[#4f46e5]" : "bg-[#f1f5f9] text-[#475569]"}`}>{u.role}</span>
+                      </td>
                       <td className="font-mono font-semibold text-[#334155]">{u.testCount}</td>
                       <td>
                         <span className={`badge ${u.isActive ? "bg-[#dcfce7] text-[#15803d]" : "bg-[#f1f5f9] text-[#64748b]"}`}>

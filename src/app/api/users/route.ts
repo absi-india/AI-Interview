@@ -13,7 +13,6 @@ export async function GET() {
     const users = await prisma.user.findMany({
       orderBy: { createdAt: "desc" },
       select: { id: true, name: true, email: true, role: true, isActive: true, createdAt: true },
-      where: { role: "RECRUITER" },
     });
 
     const withCounts = await Promise.all(
@@ -38,18 +37,20 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { name, email, password } = body;
+    const { name, email, password, role } = body;
 
     if (!name || !email || !password) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
+
+    const normalizedRole = role === "ADMIN" ? "ADMIN" : "RECRUITER";
 
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) return NextResponse.json({ error: "Email already in use" }, { status: 409 });
 
     const passwordHash = await bcrypt.hash(password, 12);
     const user = await prisma.user.create({
-      data: { name, email, passwordHash, role: "RECRUITER", isActive: true },
+      data: { name, email, passwordHash, role: normalizedRole, isActive: true },
       select: { id: true, name: true, email: true, role: true, isActive: true },
     });
 
