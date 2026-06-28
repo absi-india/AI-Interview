@@ -141,11 +141,8 @@ export default async function DashboardPage({
 
   const navItems: { label: string; href: string | null; active?: boolean }[] = [
     { label: "Overview", href: "/dashboard", active: true },
-    { label: "Candidates", href: "/dashboard" },
     { label: "Activity", href: "/activity" },
-    { label: "Positions", href: null },
     ...(role === "ADMIN" ? [{ label: "Admin Panel", href: "/admin" }] : []),
-    { label: "Settings", href: null },
   ];
 
   return (
