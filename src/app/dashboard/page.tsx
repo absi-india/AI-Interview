@@ -148,7 +148,7 @@ export default async function DashboardPage({
   return (
     <div className="min-h-screen flex" style={{ background: "#e9edf3" }}>
       {/* Sidebar */}
-      <aside className="hidden lg:flex w-60 flex-none flex-col bg-white border-r border-[#e1e7f0] px-3.5 py-5">
+      <aside className="hidden lg:flex w-60 flex-none flex-col bg-[#0f172a] border-r border-[#1e293b] px-3.5 py-5">
         <div className="flex items-center gap-2 px-2.5 pb-5">
           <BrandLogo size="sm" />
         </div>
@@ -160,31 +160,31 @@ export default async function DashboardPage({
                 href={item.href}
                 className={`h-10 flex items-center gap-3 px-3 rounded-[9px] text-[13.5px] transition-colors ${
                   item.active
-                    ? "bg-[#eff4ff] text-[#2563eb] font-semibold"
-                    : "text-[#475569] font-medium hover:bg-[#f8fafc]"
+                    ? "bg-[#0d9488]/15 text-[#2dd4bf] font-semibold"
+                    : "text-[#94a3b8] font-medium hover:bg-white/5 hover:text-[#e2e8f0]"
                 }`}
               >
-                <span className={`w-[7px] h-[7px] rounded-[2px] ${item.active ? "bg-[#2563eb]" : "bg-[#cbd5e1]"}`} />
+                <span className={`w-[7px] h-[7px] rounded-[2px] ${item.active ? "bg-[#2dd4bf]" : "bg-[#475569]"}`} />
                 {item.label}
               </Link>
             ) : (
               <span
                 key={item.label}
-                className="h-10 flex items-center gap-3 px-3 rounded-[9px] text-[13.5px] text-[#94a3b8] font-medium cursor-default"
+                className="h-10 flex items-center gap-3 px-3 rounded-[9px] text-[13.5px] text-[#64748b] font-medium cursor-default"
               >
-                <span className="w-[7px] h-[7px] rounded-[2px] bg-[#cbd5e1]" />
+                <span className="w-[7px] h-[7px] rounded-[2px] bg-[#475569]" />
                 {item.label}
               </span>
             ),
           )}
         </nav>
-        <div className="mt-auto pt-3 border-t border-[#f0f2f6] flex items-center gap-2.5 px-1.5">
-          <div className="w-9 h-9 rounded-full bg-[#dbeafe] text-[#2563eb] flex items-center justify-center font-semibold text-xs">{initials}</div>
+        <div className="mt-auto pt-3 border-t border-[#1e293b] flex items-center gap-2.5 px-1.5">
+          <div className="w-9 h-9 rounded-full bg-[#0d9488]/20 text-[#5eead4] flex items-center justify-center font-semibold text-xs">{initials}</div>
           <div className="flex-1 min-w-0">
-            <div className="text-[13px] font-semibold text-[#0f172a] truncate">{displayName}</div>
-            <div className="font-mono text-[10px] text-[#94a3b8] tracking-wide">{role}</div>
+            <div className="text-[13px] font-semibold text-white truncate">{displayName}</div>
+            <div className="font-mono text-[10px] text-[#64748b] tracking-wide">{role}</div>
           </div>
-          <SignOutButton />
+          <SignOutButton className="text-xs text-[#94a3b8] hover:text-[#f87171] transition-colors font-medium" />
         </div>
       </aside>
 
@@ -234,10 +234,10 @@ export default async function DashboardPage({
                   const isLast = i === 7;
                   return (
                     <div key={i} className="flex-1 flex flex-col items-center gap-2 justify-end">
-                      <span className={`font-mono text-[10px] font-semibold ${isLast ? "text-[#2563eb]" : "text-[#cbd5e1]"}`}>{count}</span>
+                      <span className={`font-mono text-[10px] font-semibold ${isLast ? "text-[#0891b2]" : "text-[#cbd5e1]"}`}>{count}</span>
                       <div
                         className="w-full rounded-t-md animate-grow-bar"
-                        style={{ height: `${h}px`, background: isLast ? "#2563eb" : "#bcd0f7", animationDelay: `${i * 55}ms` }}
+                        style={{ height: `${h}px`, background: isLast ? "linear-gradient(180deg,#22d3ee,#0891b2)" : "#bcd0f7", animationDelay: `${i * 55}ms` }}
                       />
                       <span className="font-mono text-[10px] text-[#94a3b8]">W{i + 1}</span>
                     </div>
@@ -250,14 +250,14 @@ export default async function DashboardPage({
                 <div className="mono-eyebrow text-[11px] mb-3">Completed · This month</div>
                 <div className="text-[30px] font-bold tracking-tight text-[#0f172a] leading-none">{completedThisMonth}</div>
               </div>
-              <div className="glass-card p-5">
+              <div className="glass-card p-5" style={{ background: "linear-gradient(135deg,#ffffff,#ecfeff)", borderColor: "#cffafe" }}>
                 <div className="mono-eyebrow text-[11px] mb-3">Avg AI Score</div>
                 <div className="flex items-end gap-2 mb-2.5">
                   <span className="text-[30px] font-bold tracking-tight text-[#0f172a] leading-none">{avgScoreFive.toFixed(1)}</span>
                   <span className="text-[13px] text-[#94a3b8] font-semibold mb-0.5">/5</span>
                 </div>
-                <div className="h-[7px] bg-[#eef1f5] rounded overflow-hidden">
-                  <div className="h-full bg-[#2563eb] rounded" style={{ width: `${(avgScoreFive / 5) * 100}%` }} />
+                <div className="h-[7px] bg-[#e2eef0] rounded overflow-hidden">
+                  <div className="h-full rounded" style={{ width: `${(avgScoreFive / 5) * 100}%`, background: "linear-gradient(90deg,#0d9488,#06b6d4)" }} />
                 </div>
               </div>
             </div>

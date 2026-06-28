@@ -238,7 +238,7 @@ export default function AdminPage() {
                         className="h-full rounded-full transition-all duration-700 ease-out"
                         style={{
                           width: `${(five / 5) * 100}%`,
-                          background: five > 0 && five < 3.5 ? "#d97706" : "#2563eb",
+                          background: five > 0 && five < 3.5 ? "#d97706" : "linear-gradient(90deg,#0d9488,#06b6d4)",
                         }}
                       />
                     </div>
