@@ -234,12 +234,12 @@ export default async function DashboardPage({
                   const isLast = i === 7;
                   return (
                     <div key={i} className="flex-1 flex flex-col items-center gap-2 justify-end">
-                      <span className={`font-mono text-[10px] font-semibold ${isLast ? "text-[#0891b2]" : "text-[#cbd5e1]"}`}>{count}</span>
+                      <span className="font-mono text-[10px] font-bold text-[#0f172a]">{count}</span>
                       <div
                         className="w-full rounded-t-md animate-grow-bar"
                         style={{ height: `${h}px`, background: isLast ? "linear-gradient(180deg,#22d3ee,#0891b2)" : "#bcd0f7", animationDelay: `${i * 55}ms` }}
                       />
-                      <span className="font-mono text-[10px] text-[#94a3b8]">W{i + 1}</span>
+                      <span className="font-mono text-[10px] font-semibold text-[#1e293b]">W{i + 1}</span>
                     </div>
                   );
                 })}
@@ -296,8 +296,8 @@ export default async function DashboardPage({
                       <tr key={c.id}>
                         <td>
                           <Link href={`/candidates/${c.id}`} className="font-semibold text-[#2563eb] hover:text-[#1d4ed8] transition-colors">{c.name}</Link>
-                          <div className="text-[#64748b] text-xs mt-0.5">{c.email}</div>
-                          <div className="font-mono text-[#94a3b8] text-[11px] mt-0.5">{c.phone}</div>
+                          <div className="text-[#1e293b] text-xs mt-0.5">{c.email}</div>
+                          <div className="font-mono text-[#334155] text-[11px] mt-0.5">{c.phone}</div>
                         </td>
                         <td className="text-[#334155]">{latest?.jobTitle ?? "—"}</td>
                         <td>
