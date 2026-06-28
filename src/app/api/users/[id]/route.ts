@@ -14,11 +14,24 @@ export async function PATCH(
   try {
     const { id } = await params;
     const body = await req.json();
-    const { isActive } = body;
+    const { isActive, role } = body;
+
+    const data: { isActive?: boolean; role?: string } = {};
+    if (typeof isActive === "boolean") data.isActive = isActive;
+    if (role === "ADMIN" || role === "RECRUITER") {
+      if (id === session.user.id) {
+        return NextResponse.json({ error: "You cannot change your own role." }, { status: 400 });
+      }
+      data.role = role;
+    }
+
+    if (Object.keys(data).length === 0) {
+      return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
+    }
 
     const user = await prisma.user.update({
       where: { id },
-      data: { isActive },
+      data,
       select: { id: true, name: true, email: true, role: true, isActive: true },
     });
 

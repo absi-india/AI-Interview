@@ -41,6 +41,20 @@ export default function AdminPage() {
     setUsers((u) => u.map((x) => x.id === userId ? { ...x, isActive } : x));
   }
 
+  async function changeRole(userId: string, role: string) {
+    const res = await fetch(`/api/users/${userId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ role }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      window.alert(typeof data.error === "string" ? data.error : "Failed to change role");
+      return;
+    }
+    setUsers((u) => u.map((x) => x.id === userId ? { ...x, role } : x));
+  }
+
   async function createUser(e: React.FormEvent) {
     e.preventDefault();
     setCreateError("");
@@ -162,12 +176,20 @@ export default function AdminPage() {
                         </span>
                       </td>
                       <td>
-                        <button
-                          onClick={() => toggleUser(u.id, !u.isActive)}
-                          className={`text-sm font-medium transition-colors ${u.isActive ? "text-[#dc2626] hover:text-[#b91c1c]" : "text-[#15803d] hover:text-[#166534]"}`}
-                        >
-                          {u.isActive ? "Deactivate" : "Reactivate"}
-                        </button>
+                        <div className="flex gap-3.5">
+                          <button
+                            onClick={() => changeRole(u.id, u.role === "ADMIN" ? "RECRUITER" : "ADMIN")}
+                            className="text-sm font-medium text-[#4f46e5] hover:text-[#4338ca] transition-colors"
+                          >
+                            {u.role === "ADMIN" ? "Make Recruiter" : "Make Admin"}
+                          </button>
+                          <button
+                            onClick={() => toggleUser(u.id, !u.isActive)}
+                            className={`text-sm font-medium transition-colors ${u.isActive ? "text-[#dc2626] hover:text-[#b91c1c]" : "text-[#15803d] hover:text-[#166534]"}`}
+                          >
+                            {u.isActive ? "Deactivate" : "Reactivate"}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
