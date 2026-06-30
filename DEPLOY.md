@@ -54,9 +54,9 @@ Required:
 | `DATABASE_URL` | Turso URL, e.g. `libsql://...turso.io` |
 | `DATABASE_AUTH_TOKEN` | Turso token |
 | `AUTH_SECRET` | Strong random string |
-| `NEXTAUTH_URL` | Your Vercel URL, e.g. `https://your-app.vercel.app` |
+| `NEXTAUTH_URL` | Canonical app URL: `https://tip.absi-usa.net` |
 | `AUTH_TRUST_HOST` | `true` |
-| `APP_DOMAIN` | Same public app URL |
+| `APP_DOMAIN` | Canonical app URL: `https://tip.absi-usa.net` (used for invite/result links in emails, incl. cron-sent ones) |
 | `GEMINI_API_KEY` | Gemini API key |
 | `CRON_SECRET` | Strong random string |
 | `COMPANY_NAME` | Your company name |
@@ -119,7 +119,7 @@ npm run db:seed
 1. Open:
 
 ```text
-https://your-app.vercel.app/api/health
+https://tip.absi-usa.net/api/health
 ```
 
 It should return `"ok": true`.
@@ -127,7 +127,7 @@ It should return `"ok": true`.
 2. Open:
 
 ```text
-https://your-app.vercel.app/login
+https://tip.absi-usa.net/login
 ```
 
 3. Log in with the admin account you seeded.
