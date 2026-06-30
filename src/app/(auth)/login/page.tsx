@@ -1,27 +1,11 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { BrandLogo } from "@/components/BrandLogo";
 import { getFirebaseAuth } from "@/lib/firebase";
-
-interface ServiceCheck {
-  ok: boolean;
-  message: string;
-}
-
-interface HealthData {
-  ok: boolean;
-  checks: {
-    db: ServiceCheck;
-    firebase: ServiceCheck;
-    ai: ServiceCheck;
-    auth: ServiceCheck;
-  };
-  node: string;
-}
 
 function isFirebaseHostAuthError(code: string | undefined) {
   return code === "auth/app-not-authorized" || code === "auth/unauthorized-domain";
@@ -38,87 +22,6 @@ function hasFirebaseClientConfig() {
 const isLocalDev = process.env.NODE_ENV !== "production";
 const localDevEmail = "devansh04356@gmail.com";
 const localDevPassword = "admin123";
-
-function StatusDot({ ok }: { ok: boolean }) {
-  return (
-    <span
-      className={`inline-block w-2 h-2 rounded-full flex-shrink-0 ${ok ? "bg-emerald-500" : "bg-red-500"}`}
-    />
-  );
-}
-
-function HealthPanel() {
-  const [health, setHealth] = useState<HealthData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [expanded, setExpanded] = useState(false);
-
-  useEffect(() => {
-    fetch("/api/health")
-      .then((r) => r.json())
-      .then((data: HealthData) => {
-        setHealth(data);
-        if (!data.ok) setExpanded(true);
-      })
-      .catch(() => setHealth(null))
-      .finally(() => setLoading(false));
-  }, []);
-
-  if (loading) {
-    return (
-      <div className="mt-6 flex items-center gap-2 text-xs text-slate-400">
-        <span className="inline-block w-2 h-2 rounded-full bg-slate-300 animate-pulse" />
-        Checking system status…
-      </div>
-    );
-  }
-
-  if (!health) {
-    return (
-      <div className="mt-6 text-xs text-slate-400">
-        System status unavailable
-      </div>
-    );
-  }
-
-  const labels: Record<keyof HealthData["checks"], string> = {
-    db: "Database",
-    firebase: "Firebase",
-    ai: "AI Service",
-    auth: "Auth Secret",
-  };
-
-  return (
-    <div className="w-full max-w-md mt-4 rounded-2xl border border-[#e3e8ef] bg-white shadow-[0_8px_24px_-14px_rgba(15,23,42,0.18)] overflow-hidden">
-      <button
-        onClick={() => setExpanded((v) => !v)}
-        className="flex items-center gap-2.5 w-full text-left px-[18px] py-[13px]"
-      >
-        <StatusDot ok={health.ok} />
-        <span className="flex-1 text-[13px] font-medium text-[#334155]">
-          {health.ok ? "All systems operational" : "System issues detected"}
-        </span>
-        <span className="font-mono text-[11px] text-[#94a3b8]">{expanded ? "▲" : "▼"}</span>
-      </button>
-
-      {expanded && (
-        <div className="px-[18px] pb-3.5 pt-1 border-t border-[#f0f2f6] animate-fade-in">
-          {(Object.entries(health.checks) as [keyof HealthData["checks"], ServiceCheck][]).map(
-            ([key, check]) => (
-              <div key={key} className="flex items-center justify-between py-2 text-xs border-b border-[#f6f8fb] last:border-0">
-                <span className="flex items-center gap-2 text-[#475569]">
-                  <StatusDot ok={check.ok} />
-                  <span className="font-medium">{labels[key]}</span>
-                </span>
-                <span className={`font-mono text-[11px] ${check.ok ? "text-[#94a3b8]" : "text-red-500"}`}>{check.message}</span>
-              </div>
-            ),
-          )}
-          <p className="font-mono text-[10.5px] text-[#cbd5e1] pt-1.5">Node {health.node}</p>
-        </div>
-      )}
-    </div>
-  );
-}
 
 function ForgotPasswordForm({ onBack }: { onBack: () => void }) {
   const [email, setEmail] = useState("");
@@ -384,7 +287,6 @@ export default function LoginPage() {
           </>
         )}
       </div>
-      <HealthPanel />
     </div>
   );
 }
