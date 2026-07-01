@@ -88,4 +88,13 @@ export async function getRecordingUrl(testId: string, questionId: string): Promi
   return getPresignedUrl(BUCKET_RECORDINGS, `${testId}/${questionId}.webm`);
 }
 
+export async function getRecordingBuffer(objectName: string): Promise<Buffer> {
+  const stream = await getClient().getObject(BUCKET_RECORDINGS, objectName);
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream as AsyncIterable<Buffer>) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
+  return Buffer.concat(chunks);
+}
+
 export { BUCKET_RECORDINGS, BUCKET_RESUMES };

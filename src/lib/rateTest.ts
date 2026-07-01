@@ -1,6 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import { rateAnswersBatch } from "@/lib/claude";
+import { transcribeRecording } from "@/lib/transcribe";
 import { sendRatingCompleteEmail } from "@/lib/mailer";
 
 const RATING_LABELS: Array<[number, string]> = [
@@ -38,6 +39,29 @@ export async function rateTest(
   const pool = options.force
     ? test.questions
     : test.questions.filter((q) => q.aiScore === null);
+
+  // Fallback: some answers recorded a video but the browser's live speech-to-text
+  // produced no transcript (it silently stops on tab changes / network blips).
+  // Transcribe the recording server-side so the spoken answer isn't lost.
+  const needsTranscription = pool.filter(
+    (q) =>
+      (q.transcript?.trim() ?? "") === "" &&
+      (q.codeResponse?.trim() ?? "") === "" &&
+      Boolean(q.videoUrl)
+  );
+  if (needsTranscription.length > 0) {
+    await Promise.all(
+      needsTranscription.map(async (q) => {
+        const text = await transcribeRecording(q.videoUrl);
+        const clean = text?.trim();
+        if (clean) {
+          // Persist immediately so partial progress survives a function timeout.
+          await prisma.question.update({ where: { id: q.id }, data: { transcript: clean } });
+          q.transcript = clean; // reflect locally so the answered/blank split below sees it
+        }
+      })
+    );
+  }
 
   const answeredQuestions = pool.filter(
     (q) => (q.transcript?.trim() ?? "") !== "" || (q.codeResponse?.trim() ?? "") !== ""
