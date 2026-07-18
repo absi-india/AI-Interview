@@ -103,6 +103,12 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
   const [cameraReady, setCameraReady] = useState(false);
   const [cameraError, setCameraError] = useState("");
   const [cameraLoading, setCameraLoading] = useState(false);
+  // Mic sound check: an audio TRACK can exist yet carry pure silence (muted
+  // headset, Bluetooth mic issue). Require actually hearing the candidate
+  // before the interview can start.
+  const [micVerified, setMicVerified] = useState(false);
+  const [micLevel, setMicLevel] = useState(0);
+  const [showMicHint, setShowMicHint] = useState(false);
   const [currentIdx, setCurrentIdx] = useState(0);
   const [timeLeft, setTimeLeft] = useState(TOTAL_SECONDS);
   const [fraudCount, setFraudCount] = useState(0);
@@ -124,6 +130,10 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const micRafRef = useRef<number | null>(null);
+  const micHintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const micVerifiedRef = useRef(false);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   // First chunk from the recorder contains the WebM/MP4 container header (init segment).
@@ -270,6 +280,97 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
     }
   }
 
+  function stopMicCheck() {
+    if (micRafRef.current !== null) {
+      cancelAnimationFrame(micRafRef.current);
+      micRafRef.current = null;
+    }
+    if (micHintTimerRef.current) {
+      clearTimeout(micHintTimerRef.current);
+      micHintTimerRef.current = null;
+    }
+    if (audioCtxRef.current) {
+      // Closing the AudioContext does NOT stop the MediaStream tracks,
+      // so the interview recording is unaffected.
+      void audioCtxRef.current.close().catch(() => undefined);
+      audioCtxRef.current = null;
+    }
+  }
+
+  function startMicCheck(stream: MediaStream) {
+    stopMicCheck();
+    micVerifiedRef.current = false;
+    setMicVerified(false);
+    setShowMicHint(false);
+    setMicLevel(0);
+
+    let Ctor: typeof AudioContext | undefined;
+    try {
+      Ctor =
+        window.AudioContext ??
+        (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    } catch {
+      Ctor = undefined;
+    }
+    // If audio analysis isn't available in this browser, don't block the candidate.
+    if (!Ctor) {
+      micVerifiedRef.current = true;
+      setMicVerified(true);
+      return;
+    }
+
+    try {
+      const ctx = new Ctor();
+      audioCtxRef.current = ctx;
+      void ctx.resume().catch(() => undefined);
+      const source = ctx.createMediaStreamSource(stream);
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 1024;
+      source.connect(analyser);
+      const data = new Uint8Array(analyser.fftSize);
+      let voicedFrames = 0;
+
+      // If we hear nothing for 8s, surface the muted-headset hint.
+      micHintTimerRef.current = setTimeout(() => {
+        if (!micVerifiedRef.current) setShowMicHint(true);
+      }, 8000);
+
+      const tick = () => {
+        analyser.getByteTimeDomainData(data);
+        let sum = 0;
+        for (let i = 0; i < data.length; i++) {
+          const v = (data[i] - 128) / 128;
+          sum += v * v;
+        }
+        const rms = Math.sqrt(sum / data.length);
+        setMicLevel((prev) => Math.max(rms, prev * 0.82));
+        if (rms > 0.04) {
+          voicedFrames += 1;
+          // ~12 voiced animation frames ≈ a short spoken phrase — enough to
+          // prove the mic carries real audio, not just a silent track.
+          if (voicedFrames >= 12 && !micVerifiedRef.current) {
+            micVerifiedRef.current = true;
+            setMicVerified(true);
+            setShowMicHint(false);
+            stopMicCheck();
+            return;
+          }
+        }
+        micRafRef.current = requestAnimationFrame(tick);
+      };
+      micRafRef.current = requestAnimationFrame(tick);
+    } catch {
+      // Analysis failed (rare) — fail open rather than lock the candidate out.
+      micVerifiedRef.current = true;
+      setMicVerified(true);
+    }
+  }
+
+  useEffect(() => {
+    return () => stopMicCheck();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   async function requestCamera() {
     if (!window.isSecureContext) {
       setCameraReady(false);
@@ -312,6 +413,7 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
       setCameraError("");
       attachPreviewStream();
       setCameraReady(true);
+      startMicCheck(stream);
     } catch (err: unknown) {
       setCameraReady(false);
       const errorName = err instanceof DOMException ? err.name : "";
@@ -330,7 +432,8 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
   }
 
   async function beginInterview() {
-    if (!cameraReady) return;
+    if (!cameraReady || !micVerified) return;
+    stopMicCheck();
     const startRes = await fetch(`/api/interview/${inviteToken}/start`, { method: "POST" });
     if (!startRes.ok) {
       const body = await startRes.json().catch(() => ({}));
@@ -805,6 +908,39 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
             )}
             {visibleCameraError && <p className="mt-3 text-red-600 text-sm">{visibleCameraError}</p>}
             <video ref={videoRef} autoPlay muted playsInline className={`mt-3 rounded-xl w-64 border border-[#e7ebf0] bg-black ${cameraReady ? "" : "hidden"}`} />
+
+            {/* Mic sound check — a track can exist yet be silent (muted headset) */}
+            {cameraReady && (
+              micVerified ? (
+                <div className="mt-4 flex items-center gap-2.5 rounded-xl border border-[#bbf7d0] bg-[#f0fdf4] px-4 py-3">
+                  <span className="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-[#dcfce7] text-[13px] font-bold text-[#15803d]">✓</span>
+                  <span className="text-sm font-medium text-[#15803d]">Microphone working — we can hear you.</span>
+                </div>
+              ) : (
+                <div className="mt-4 rounded-xl border border-[#dbe6ff] bg-[#eff4ff] px-4 py-3.5">
+                  <p className="mb-1 text-sm font-semibold text-[#1d4ed8]">Mic check — say something out loud</p>
+                  <p className="mb-3 text-xs text-[#3b5bbf]">
+                    Say <span className="font-semibold">&ldquo;I&rsquo;m ready for my interview&rdquo;</span> so we can confirm your microphone picks up your voice.
+                  </p>
+                  <div className="flex items-center gap-2.5">
+                    <svg className="h-4 w-4 flex-none text-[#2563eb]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z" />
+                    </svg>
+                    <div className="h-2 flex-1 overflow-hidden rounded-full bg-white">
+                      <div
+                        className="h-full rounded-full bg-[#2563eb] transition-[width] duration-100"
+                        style={{ width: `${Math.min(100, Math.round(micLevel * 260))}%` }}
+                      />
+                    </div>
+                  </div>
+                  {showMicHint && (
+                    <p className="mt-3 rounded-lg border border-[#fde68a] bg-[#fffbeb] px-3 py-2 text-xs font-medium text-[#b45309]">
+                      We can&rsquo;t hear you yet. If you&rsquo;re using a headset, check its mute switch — or unplug it and use your device&rsquo;s built-in microphone, then speak again.
+                    </p>
+                  )}
+                </div>
+              )
+            )}
           </div>
 
           <div className="flex items-center gap-3 mb-6">
@@ -826,16 +962,20 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
 
           <button
             onClick={beginInterview}
-            disabled={!agreed || !cameraReady}
+            disabled={!agreed || !cameraReady || !micVerified}
             className="btn-primary w-full py-3 text-base"
           >
             Begin Interview
           </button>
-          {!cameraReady && (
+          {!cameraReady ? (
             <p className="mt-3 text-center text-sm text-red-600">
               Camera and microphone access must be granted before you can begin the interview.
             </p>
-          )}
+          ) : !micVerified ? (
+            <p className="mt-3 text-center text-sm text-[#b45309]">
+              Complete the mic check above — speak out loud so we can confirm your voice is being captured.
+            </p>
+          ) : null}
         </div>
       </div>
     );
