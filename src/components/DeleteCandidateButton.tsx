@@ -2,6 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { showToast } from "@/components/ui/Toaster";
 
 type DeleteCandidateButtonProps = {
   candidateId: string;
@@ -17,15 +19,10 @@ export function DeleteCandidateButton({
   redirectTo,
 }: DeleteCandidateButtonProps) {
   const router = useRouter();
+  const [confirming, setConfirming] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
   async function handleDelete() {
-    const confirmed = window.confirm(
-      `Delete ${candidateName}? This will also remove their tests and results.`
-    );
-
-    if (!confirmed) return;
-
     setIsDeleting(true);
     try {
       const response = await fetch(`/api/candidates/${candidateId}`, {
@@ -36,10 +33,12 @@ export function DeleteCandidateButton({
         const data = await response.json().catch(() => ({}));
         const message =
           typeof data.error === "string" ? data.error : "Failed to delete candidate";
-        window.alert(message);
+        showToast(message, "error");
         return;
       }
 
+      showToast(`${candidateName} deleted`);
+      setConfirming(false);
       if (redirectTo) {
         router.push(redirectTo);
       } else {
@@ -51,14 +50,31 @@ export function DeleteCandidateButton({
   }
 
   return (
-    <button
-      type="button"
-      onClick={handleDelete}
-      disabled={isDeleting}
-      className={className}
-      aria-label={`Delete ${candidateName}`}
-    >
-      {isDeleting ? "Deleting..." : "Delete"}
-    </button>
+    <>
+      <button
+        type="button"
+        onClick={() => setConfirming(true)}
+        disabled={isDeleting}
+        className={className}
+        aria-label={`Delete ${candidateName}`}
+      >
+        Delete
+      </button>
+      <ConfirmDialog
+        open={confirming}
+        danger
+        title="Delete Candidate"
+        message={
+          <>
+            Delete <span className="font-medium text-[#0f172a]">{candidateName}</span>? All their
+            tests and results will be permanently removed.
+          </>
+        }
+        confirmLabel={isDeleting ? "Deleting…" : "Delete"}
+        loading={isDeleting}
+        onConfirm={handleDelete}
+        onCancel={() => setConfirming(false)}
+      />
+    </>
   );
 }

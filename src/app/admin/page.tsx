@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { BrandLogo } from "@/components/BrandLogo";
+import { showToast } from "@/components/ui/Toaster";
 
 type User = { id: string; name: string; email: string; role: string; isActive: boolean; testCount: number };
 type Test = { id: string; jobTitle: string; level: string; status: string; createdAt: string; candidate: { name: string }; recruiter: { name: string }; overallScore: number | null };
@@ -26,10 +27,14 @@ export default function AdminPage() {
   const [newUser, setNewUser] = useState({ name: "", email: "", password: "", role: "RECRUITER" });
   const [createError, setCreateError] = useState("");
 
+  const [fetching, setFetching] = useState(true);
+
   useEffect(() => {
-    if (tab === "users") fetch("/api/users").then((r) => r.json()).then((d) => setUsers(d.users ?? []));
-    if (tab === "tests") fetch("/api/tests").then((r) => r.json()).then((d) => setTests(d.tests ?? []));
-    if (tab === "analytics") fetch("/api/admin/analytics").then((r) => r.json()).then(setAnalytics);
+    setFetching(true);
+    const done = () => setFetching(false);
+    if (tab === "users") fetch("/api/users").then((r) => r.json()).then((d) => setUsers(d.users ?? [])).finally(done);
+    if (tab === "tests") fetch("/api/tests").then((r) => r.json()).then((d) => setTests(d.tests ?? [])).finally(done);
+    if (tab === "analytics") fetch("/api/admin/analytics").then((r) => r.json()).then(setAnalytics).finally(done);
   }, [tab]);
 
   async function toggleUser(userId: string, isActive: boolean) {
@@ -39,6 +44,7 @@ export default function AdminPage() {
       body: JSON.stringify({ isActive }),
     });
     setUsers((u) => u.map((x) => x.id === userId ? { ...x, isActive } : x));
+    showToast(isActive ? "User reactivated" : "User deactivated");
   }
 
   async function changeRole(userId: string, role: string) {
@@ -49,10 +55,11 @@ export default function AdminPage() {
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      window.alert(typeof data.error === "string" ? data.error : "Failed to change role");
+      showToast(typeof data.error === "string" ? data.error : "Failed to change role", "error");
       return;
     }
     setUsers((u) => u.map((x) => x.id === userId ? { ...x, role } : x));
+    showToast(role === "ADMIN" ? "User promoted to Admin" : "User changed to Recruiter");
   }
 
   async function createUser(e: React.FormEvent) {
@@ -68,6 +75,7 @@ export default function AdminPage() {
     setUsers((u) => [{ ...data.user, testCount: 0 }, ...u]);
     setShowCreateUser(false);
     setNewUser({ name: "", email: "", password: "", role: "RECRUITER" });
+    showToast(`${data.user.role === "ADMIN" ? "Admin" : "Recruiter"} account created`);
   }
 
   const STATUS_COLOR: Record<string, string> = {
@@ -162,7 +170,28 @@ export default function AdminPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {users.map((u) => (
+                  {fetching ? (
+                    [...Array(4)].map((_, i) => (
+                      <tr key={`skel-${i}`}>
+                        <td><div className="skel h-4 w-28" /></td>
+                        <td><div className="skel h-4 w-44" /></td>
+                        <td><div className="skel h-5 w-20 rounded-md" /></td>
+                        <td><div className="skel h-4 w-8" /></td>
+                        <td><div className="skel h-5 w-16 rounded-md" /></td>
+                        <td><div className="skel h-4 w-32" /></td>
+                      </tr>
+                    ))
+                  ) : users.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="py-14 text-center">
+                        <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-[#eff4ff]">
+                          <svg className="h-5 w-5 text-[#2563eb]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                        </div>
+                        <p className="font-medium text-[#0f172a]">No users yet</p>
+                        <p className="mt-1 text-sm text-[#64748b]">Create your first recruiter or admin with the button above.</p>
+                      </td>
+                    </tr>
+                  ) : users.map((u) => (
                     <tr key={u.id}>
                       <td className="font-medium text-[#0f172a]">{u.name}</td>
                       <td className="font-mono text-[12.5px] text-[#64748b]">{u.email}</td>
@@ -216,7 +245,25 @@ export default function AdminPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {tests.map((t) => (
+                  {fetching ? (
+                    [...Array(5)].map((_, i) => (
+                      <tr key={`skel-${i}`}>
+                        <td><div className="skel h-4 w-32" /></td>
+                        <td><div className="skel h-4 w-40" /></td>
+                        <td><div className="skel h-4 w-20" /></td>
+                        <td><div className="skel h-5 w-24 rounded-md" /></td>
+                        <td><div className="skel h-4 w-12" /></td>
+                        <td><div className="skel h-4 w-28" /></td>
+                      </tr>
+                    ))
+                  ) : tests.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="py-14 text-center">
+                        <p className="font-medium text-[#0f172a]">No tests yet</p>
+                        <p className="mt-1 text-sm text-[#64748b]">Tests appear here once recruiters schedule interviews.</p>
+                      </td>
+                    </tr>
+                  ) : tests.map((t) => (
                     <tr key={t.id}>
                       <td>
                         <Link href={`/tests/${t.id}`} className="font-medium text-[#2563eb] hover:text-[#1d4ed8] transition-colors">{t.candidate?.name}</Link>
@@ -239,6 +286,18 @@ export default function AdminPage() {
         )}
 
         {/* Analytics Tab */}
+        {tab === "analytics" && !analytics && (
+          <div className="animate-fade-in">
+            <div className="skel mb-4 h-7 w-32" />
+            <div className="mb-8 grid grid-cols-4 gap-4">
+              <div className="skel h-[104px] rounded-2xl" />
+              <div className="skel h-[104px] rounded-2xl" />
+              <div className="skel h-[104px] rounded-2xl" />
+              <div className="skel h-[104px] rounded-2xl" />
+            </div>
+            <div className="skel h-[240px] rounded-2xl" />
+          </div>
+        )}
         {tab === "analytics" && analytics && (
           <div className="animate-fade-in">
             <h2 className="text-lg font-semibold text-[#0f172a] mb-4">Analytics</h2>

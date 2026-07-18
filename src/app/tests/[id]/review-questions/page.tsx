@@ -166,7 +166,19 @@ export default function ReviewQuestionsPage({
       });
   }
 
-  if (!test) return <div className="p-8 text-[#64748b]">Loading...</div>;
+  if (!test) {
+    return (
+      <div className="min-h-screen p-8" style={{ background: "#f4f6f9" }}>
+        <div className="mx-auto max-w-4xl space-y-4">
+          <div className="skel h-5 w-44" />
+          <div className="skel h-[92px] rounded-2xl" />
+          <div className="skel h-[150px] rounded-2xl" />
+          <div className="skel h-[150px] rounded-2xl" />
+          <div className="skel h-[150px] rounded-2xl" />
+        </div>
+      </div>
+    );
+  }
 
   const isResendMode = test.status === "INVITED";
   const currentExpiry = test.inviteExpiresAt

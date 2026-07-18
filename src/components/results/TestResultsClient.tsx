@@ -1,5 +1,6 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { showToast } from "@/components/ui/Toaster";
 
 type Question = {
   id: string;
@@ -88,38 +89,95 @@ function happenedDuringInterview(event: FraudEvent, completedAt: string | null) 
   return new Date(event.occurredAt).getTime() <= new Date(completedAt).getTime();
 }
 
+function ringStroke(scoreFive: number) {
+  if (scoreFive >= 4) return "#15803d";
+  if (scoreFive >= 3) return "#b45309";
+  return "#dc2626";
+}
+
+/** Animated donut showing the overall score out of 5. */
+function ScoreRing({ scoreFive, rating, ratingClass }: { scoreFive: number; rating: string | null; ratingClass: string }) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    const t = window.setTimeout(() => setMounted(true), 80);
+    return () => window.clearTimeout(t);
+  }, []);
+
+  const r = 46;
+  const c = 2 * Math.PI * r;
+  const frac = Math.max(0, Math.min(1, scoreFive / 5));
+  const stroke = ringStroke(scoreFive);
+
+  return (
+    <div className="flex flex-col items-center gap-2">
+      <div className="relative h-[118px] w-[118px]">
+        <svg viewBox="0 0 118 118" className="h-full w-full -rotate-90">
+          <circle cx="59" cy="59" r={r} fill="none" stroke="#e8edf3" strokeWidth="9" />
+          <circle
+            cx="59"
+            cy="59"
+            r={r}
+            fill="none"
+            stroke={stroke}
+            strokeWidth="9"
+            strokeLinecap="round"
+            strokeDasharray={c}
+            strokeDashoffset={mounted ? c * (1 - frac) : c}
+            style={{ transition: "stroke-dashoffset 1.3s cubic-bezier(0.2, 0.7, 0.3, 1)" }}
+          />
+        </svg>
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <span className="text-[27px] font-bold leading-none tracking-tight" style={{ color: stroke }}>
+            {scoreFive.toFixed(1)}
+          </span>
+          <span className="font-mono text-[10px] text-[#94a3b8]">out of 5</span>
+        </div>
+      </div>
+      {rating && (
+        <span className={`badge ${ratingClass}`} style={{ background: "#f1f5f9" }}>
+          {rating}
+        </span>
+      )}
+    </div>
+  );
+}
+
 export function TestResultsClient({ test, shareUrl }: { test: Test; shareUrl?: string }) {
   const [openQuestion, setOpenQuestion] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [sendingPerformance, setSendingPerformance] = useState(false);
-  const [performanceMessage, setPerformanceMessage] = useState("");
   const [rerating, setRerating] = useState(false);
-  const [rerateMessage, setRerateMessage] = useState("");
   const [fraudOpen, setFraudOpen] = useState(false);
   const [selectedVideoId, setSelectedVideoId] = useState<string | null>(null);
+  const [barsMounted, setBarsMounted] = useState(false);
+
+  useEffect(() => {
+    const t = window.setTimeout(() => setBarsMounted(true), 120);
+    return () => window.clearTimeout(t);
+  }, []);
 
   function copyShare() {
     if (shareUrl) navigator.clipboard.writeText(shareUrl);
+    showToast("Share link copied to clipboard");
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
 
   async function sendPerformanceEmail() {
     setSendingPerformance(true);
-    setPerformanceMessage("");
 
     try {
       const response = await fetch(`/api/tests/${test.id}/send-performance`, { method: "POST" });
       const body = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        setPerformanceMessage(typeof body?.error === "string" ? body.error : "Failed to send performance email.");
+        showToast(typeof body?.error === "string" ? body.error : "Failed to send performance email", "error");
         return;
       }
 
-      setPerformanceMessage(`Performance email sent to ${test.candidate.email}.`);
+      showToast(`Performance email sent to ${test.candidate.email}`);
     } catch {
-      setPerformanceMessage("Failed to send performance email. Please try again.");
+      showToast("Failed to send performance email. Please try again.", "error");
     } finally {
       setSendingPerformance(false);
     }
@@ -127,25 +185,44 @@ export function TestResultsClient({ test, shareUrl }: { test: Test; shareUrl?: s
 
   async function rerateWithAI() {
     setRerating(true);
-    setRerateMessage("");
 
     try {
       const response = await fetch(`/api/tests/${test.id}/rerate`, { method: "POST" });
       const body = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        setRerateMessage(typeof body?.error === "string" ? body.error : "Failed to re-run AI scoring.");
+        showToast(typeof body?.error === "string" ? body.error : "Failed to re-run AI scoring", "error");
         return;
       }
 
-      setRerateMessage("AI scoring updated. Refreshing results...");
+      showToast("AI scoring updated — refreshing results");
       window.location.reload();
     } catch {
-      setRerateMessage("Failed to re-run AI scoring. Please try again.");
+      showToast("Failed to re-run AI scoring. Please try again.", "error");
     } finally {
       setRerating(false);
     }
   }
+
+  // Average score per question category (answered questions only) — "skill breakdown"
+  const categoryStats = useMemo(() => {
+    const map = new Map<string, { total: number; count: number }>();
+    for (const q of test.questions) {
+      if (q.aiScore === null) continue;
+      const key = q.category?.trim() || "General";
+      const cur = map.get(key) ?? { total: 0, count: 0 };
+      cur.total += q.aiScore;
+      cur.count += 1;
+      map.set(key, cur);
+    }
+    return [...map.entries()]
+      .map(([category, { total, count }]) => ({
+        category,
+        avgFive: Math.round((total / count / 2) * 10) / 10,
+        count,
+      }))
+      .sort((a, b) => b.avgFive - a.avgFive);
+  }, [test.questions]);
 
   const fraudEvents = test.fraudEvents.filter((event) => happenedDuringInterview(event, test.completedAt));
   const highCount = fraudEvents.filter((e) => e.severity === "HIGH").length;
@@ -177,11 +254,8 @@ export function TestResultsClient({ test, shareUrl }: { test: Test; shareUrl?: s
                 <div className="text-lg font-semibold text-[#64748b]">Not Scored</div>
                 <div className="text-xs text-[#94a3b8] mt-1">No answers captured</div>
               </div>
-            ) : test.overallScore !== null ? (
-              <>
-                <div className={`text-5xl font-bold tracking-tight animate-pulse-glow-text ${scoreColor}`}>{overallScore?.toFixed(1)}<span className="text-2xl text-[#94a3b8] font-semibold">/5</span></div>
-                <div className={`mt-2 inline-flex items-center badge ${scoreColor}`} style={{ background: "#f1f5f9" }}>{test.overallRating}</div>
-              </>
+            ) : test.overallScore !== null && overallScore !== null ? (
+              <ScoreRing scoreFive={overallScore} rating={test.overallRating} ratingClass={scoreColor} />
             ) : (
               <div className="text-[#64748b] text-sm">
                 {test.status === "COMPLETED" ? "Scoring in progress…" : test.status.replace(/_/g, " ")}
@@ -215,8 +289,6 @@ export function TestResultsClient({ test, shareUrl }: { test: Test; shareUrl?: s
                 {rerating ? "Re-scoring..." : "Re-run AI Scoring"}
               </button>
             )}
-            {performanceMessage && <p className="text-sm text-[#64748b]">{performanceMessage}</p>}
-            {rerateMessage && <p className="text-sm text-[#64748b]">{rerateMessage}</p>}
           </div>
         )}
         {test.overallRating === "No Answers" && (
@@ -231,6 +303,43 @@ export function TestResultsClient({ test, shareUrl }: { test: Test; shareUrl?: s
           </div>
         )}
       </div>
+
+      {/* Skill breakdown by question category */}
+      {categoryStats.length > 0 && (
+        <div className="glass-card p-6 mb-6 animate-fade-in-up">
+          <div className="flex items-baseline justify-between gap-4 mb-5">
+            <h2 className="text-lg font-semibold text-[#0f172a]">Skill Breakdown</h2>
+            <span className="font-mono text-xs text-[#94a3b8]">avg score per category · out of 5</span>
+          </div>
+          <div className="space-y-4">
+            {categoryStats.map((s) => (
+              <div key={s.category}>
+                <div className="flex items-baseline justify-between gap-3 mb-1.5">
+                  <span className="text-sm font-medium text-[#334155] capitalize">
+                    {s.category}
+                    <span className="ml-2 font-mono text-[11px] font-normal text-[#94a3b8]">
+                      {s.count} question{s.count === 1 ? "" : "s"}
+                    </span>
+                  </span>
+                  <span className={`font-mono text-sm font-bold ${scoreColorClass(s.avgFive * 2)}`}>
+                    {s.avgFive.toFixed(1)}/5
+                  </span>
+                </div>
+                <div className="h-2 w-full overflow-hidden rounded-full bg-[#eef1f5]">
+                  <div
+                    className="h-full rounded-full"
+                    style={{
+                      width: barsMounted ? `${(s.avgFive / 5) * 100}%` : "0%",
+                      background: ringStroke(s.avgFive),
+                      transition: "width 1s cubic-bezier(0.2, 0.7, 0.3, 1)",
+                    }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Fraud summary */}
       {fraudEvents.length > 0 && (

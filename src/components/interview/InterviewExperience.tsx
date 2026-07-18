@@ -921,6 +921,21 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
           <BrandLogo size="sm" className="scale-75 origin-left" />
           <span className="text-sm font-medium">Question {currentIdx + 1} of {questions.length}</span>
         </div>
+        {/* Progress stepper: done · current · upcoming */}
+        <div className="hidden md:flex items-center gap-1.5" aria-label={`Progress: question ${currentIdx + 1} of ${questions.length}`}>
+          {questions.map((question, i) => (
+            <span
+              key={question.id}
+              className={`h-1.5 rounded-full transition-all duration-500 ${
+                i < currentIdx
+                  ? "w-4 bg-emerald-400/80"
+                  : i === currentIdx
+                    ? "w-7 bg-blue-500"
+                    : "w-4 bg-white/15"
+              }`}
+            />
+          ))}
+        </div>
         <div className="flex items-center gap-4">
           {fraudCount > 0 && (
             <span className="badge bg-amber-500/15 text-amber-400 border border-amber-500/20">
@@ -931,7 +946,7 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
           <div className="flex flex-col items-center">
             <span className="text-[10px] text-slate-500 uppercase tracking-wider leading-none mb-0.5">This Q</span>
             <span
-              className={`text-lg font-mono font-bold ${questionTimerCritical ? "text-red-400" : questionTimerWarning ? "text-amber-400" : "text-white"}`}
+              className={`text-lg font-mono font-bold ${questionTimerCritical ? "text-red-400 animate-pulse" : questionTimerWarning ? "text-amber-400" : "text-white"}`}
               style={questionTimerCritical ? { textShadow: "0 0 8px rgba(248,113,113,0.5)" } : {}}
             >
               {qmm}:{qss}
@@ -978,7 +993,7 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
               </div>
               <div className="h-1.5 w-full rounded-full bg-white/10 overflow-hidden">
                 <div
-                  className={`h-full rounded-full transition-all duration-1000 ${questionTimerCritical ? "bg-red-500" : questionTimerWarning ? "bg-amber-400" : "bg-blue-500"}`}
+                  className={`h-full rounded-full transition-all duration-1000 ${questionTimerCritical ? "bg-red-500 animate-pulse" : questionTimerWarning ? "bg-amber-400" : "bg-blue-500"}`}
                   style={{ width: `${(questionTimeLeft / QUESTION_SECONDS) * 100}%` }}
                 />
               </div>
@@ -1019,7 +1034,7 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
             </div>
             <div className="h-1.5 w-full rounded-full bg-white/10 overflow-hidden">
               <div
-                className={`h-full rounded-full transition-all duration-1000 ${questionTimerCritical ? "bg-red-500" : questionTimerWarning ? "bg-amber-400" : "bg-blue-500"}`}
+                className={`h-full rounded-full transition-all duration-1000 ${questionTimerCritical ? "bg-red-500 animate-pulse" : questionTimerWarning ? "bg-amber-400" : "bg-blue-500"}`}
                 style={{ width: `${(questionTimeLeft / QUESTION_SECONDS) * 100}%` }}
               />
             </div>
