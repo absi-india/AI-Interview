@@ -1,5 +1,8 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
+
 type ConfirmDialogProps = {
   open: boolean;
   title: string;
@@ -23,9 +26,28 @@ export function ConfirmDialog({
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
-  if (!open) return null;
+  // Portal target only exists on the client — guard against SSR.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
-  return (
+  // Lock background scroll and allow Esc to cancel while the dialog is open.
+  useEffect(() => {
+    if (!open) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !loading) onCancel();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [open, loading, onCancel]);
+
+  if (!open || !mounted) return null;
+
+  const dialog = (
     <div
       className="fixed inset-0 z-[90] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
       onClick={loading ? undefined : onCancel}
@@ -79,4 +101,8 @@ export function ConfirmDialog({
       </div>
     </div>
   );
+
+  // Render at the document root so no transformed ancestor can offset the
+  // fixed overlay — it always centers on the viewport, not mid-page.
+  return createPortal(dialog, document.body);
 }
