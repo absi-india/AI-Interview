@@ -109,6 +109,11 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
   const [micVerified, setMicVerified] = useState(false);
   const [micLevel, setMicLevel] = useState(0);
   const [showMicHint, setShowMicHint] = useState(false);
+  // Camera picture check: a video TRACK can exist yet output only black frames
+  // (covered lens, closed privacy shutter, virtual camera). Confirm the camera
+  // sends a real picture before the interview can start.
+  const [cameraVerified, setCameraVerified] = useState(false);
+  const [showCameraHint, setShowCameraHint] = useState(false);
   const [currentIdx, setCurrentIdx] = useState(0);
   const [timeLeft, setTimeLeft] = useState(TOTAL_SECONDS);
   const [fraudCount, setFraudCount] = useState(0);
@@ -134,6 +139,9 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
   const micRafRef = useRef<number | null>(null);
   const micHintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const micVerifiedRef = useRef(false);
+  const camRafRef = useRef<number | null>(null);
+  const camHintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cameraVerifiedRef = useRef(false);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   // First chunk from the recorder contains the WebM/MP4 container header (init segment).
@@ -366,8 +374,107 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
     }
   }
 
+  function stopCameraCheck() {
+    if (camRafRef.current !== null) {
+      cancelAnimationFrame(camRafRef.current);
+      camRafRef.current = null;
+    }
+    if (camHintTimerRef.current) {
+      clearTimeout(camHintTimerRef.current);
+      camHintTimerRef.current = null;
+    }
+  }
+
+  function startCameraCheck(stream: MediaStream) {
+    stopCameraCheck();
+    cameraVerifiedRef.current = false;
+    setCameraVerified(false);
+    setShowCameraHint(false);
+
+    // No video track to inspect — don't block (video presence is already
+    // enforced in requestCamera; this is defensive).
+    if (stream.getVideoTracks().length === 0) {
+      cameraVerifiedRef.current = true;
+      setCameraVerified(true);
+      return;
+    }
+
+    let canvas: HTMLCanvasElement | null = null;
+    let sctx: CanvasRenderingContext2D | null = null;
+    try {
+      canvas = document.createElement("canvas");
+      canvas.width = 32;
+      canvas.height = 24;
+      sctx = canvas.getContext("2d", { willReadFrequently: true });
+    } catch {
+      sctx = null;
+    }
+    // If we can't sample frames in this browser, fail open.
+    if (!sctx || !canvas) {
+      cameraVerifiedRef.current = true;
+      setCameraVerified(true);
+      return;
+    }
+    const ctx2d = sctx;
+    const cv = canvas;
+
+    let liveFrames = 0;
+    // If the picture stays black/blank for 8s, surface the covered-lens hint.
+    camHintTimerRef.current = setTimeout(() => {
+      if (!cameraVerifiedRef.current) setShowCameraHint(true);
+    }, 8000);
+
+    const tick = () => {
+      const videoEl = videoRef.current;
+      // Wait until the preview reports real dimensions before sampling.
+      if (videoEl && videoEl.videoWidth > 0 && videoEl.videoHeight > 0) {
+        try {
+          ctx2d.drawImage(videoEl, 0, 0, cv.width, cv.height);
+          const { data } = ctx2d.getImageData(0, 0, cv.width, cv.height);
+          let sum = 0;
+          let min = 255;
+          let max = 0;
+          const pxCount = data.length / 4;
+          for (let i = 0; i < data.length; i += 4) {
+            const lum = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+            sum += lum;
+            if (lum < min) min = lum;
+            if (lum > max) max = lum;
+          }
+          const avg = sum / pxCount;
+          const spread = max - min;
+          // A real scene has some brightness (covered lens is near-black → low
+          // avg) AND variation across the frame (a solid virtual-camera colour
+          // has none → low spread). Require both, kept lenient so a dim-but-real
+          // room still passes.
+          if (avg > 10 && spread > 12) {
+            liveFrames += 1;
+            if (liveFrames >= 10 && !cameraVerifiedRef.current) {
+              cameraVerifiedRef.current = true;
+              setCameraVerified(true);
+              setShowCameraHint(false);
+              stopCameraCheck();
+              return;
+            }
+          }
+        } catch {
+          // getImageData can throw in rare cases — fail open rather than lock out.
+          cameraVerifiedRef.current = true;
+          setCameraVerified(true);
+          stopCameraCheck();
+          return;
+        }
+      }
+      camRafRef.current = requestAnimationFrame(tick);
+    };
+    camRafRef.current = requestAnimationFrame(tick);
+  }
+
   useEffect(() => {
-    return () => stopMicCheck();
+    return () => {
+      stopMicCheck();
+      stopCameraCheck();
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -414,6 +521,7 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
       attachPreviewStream();
       setCameraReady(true);
       startMicCheck(stream);
+      startCameraCheck(stream);
     } catch (err: unknown) {
       setCameraReady(false);
       const errorName = err instanceof DOMException ? err.name : "";
@@ -432,8 +540,9 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
   }
 
   async function beginInterview() {
-    if (!cameraReady || !micVerified) return;
+    if (!cameraReady || !micVerified || !cameraVerified) return;
     stopMicCheck();
+    stopCameraCheck();
     const startRes = await fetch(`/api/interview/${inviteToken}/start`, { method: "POST" });
     if (!startRes.ok) {
       const body = await startRes.json().catch(() => ({}));
@@ -909,6 +1018,30 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
             {visibleCameraError && <p className="mt-3 text-red-600 text-sm">{visibleCameraError}</p>}
             <video ref={videoRef} autoPlay muted playsInline className={`mt-3 rounded-xl w-64 border border-[#e7ebf0] bg-black ${cameraReady ? "" : "hidden"}`} />
 
+            {/* Camera picture check — a track can exist yet output only black frames */}
+            {cameraReady && (
+              cameraVerified ? (
+                <div className="mt-4 flex items-center gap-2.5 rounded-xl border border-[#bbf7d0] bg-[#f0fdf4] px-4 py-3">
+                  <span className="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-[#dcfce7] text-[13px] font-bold text-[#15803d]">✓</span>
+                  <span className="text-sm font-medium text-[#15803d]">Camera working — we can see you.</span>
+                </div>
+              ) : (
+                <div className="mt-4 rounded-xl border border-[#dbe6ff] bg-[#eff4ff] px-4 py-3.5">
+                  <div className="flex items-center gap-2.5">
+                    <svg className="h-4 w-4 flex-none animate-pulse text-[#2563eb]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z" />
+                    </svg>
+                    <span className="text-sm font-semibold text-[#1d4ed8]">Checking your camera — make sure you can see yourself above.</span>
+                  </div>
+                  {showCameraHint && (
+                    <p className="mt-3 rounded-lg border border-[#fde68a] bg-[#fffbeb] px-3 py-2 text-xs font-medium text-[#b45309]">
+                      Your camera picture looks black. Remove any lens cover or privacy shutter, close other video apps (Zoom, Teams, Meet), and make sure you&rsquo;re in a well-lit area — then your picture should appear above.
+                    </p>
+                  )}
+                </div>
+              )
+            )}
+
             {/* Mic sound check — a track can exist yet be silent (muted headset) */}
             {cameraReady && (
               micVerified ? (
@@ -962,7 +1095,7 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
 
           <button
             onClick={beginInterview}
-            disabled={!agreed || !cameraReady || !micVerified}
+            disabled={!agreed || !cameraReady || !micVerified || !cameraVerified}
             className="btn-primary w-full py-3 text-base"
           >
             Begin Interview
@@ -970,6 +1103,10 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
           {!cameraReady ? (
             <p className="mt-3 text-center text-sm text-red-600">
               Camera and microphone access must be granted before you can begin the interview.
+            </p>
+          ) : !cameraVerified ? (
+            <p className="mt-3 text-center text-sm text-[#b45309]">
+              Complete the camera check above — we need to see your picture (not a black screen) before you can begin.
             </p>
           ) : !micVerified ? (
             <p className="mt-3 text-center text-sm text-[#b45309]">
