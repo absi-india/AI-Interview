@@ -9,6 +9,8 @@ import {
   Header,
   ImageRun,
   Packer,
+  PageBorderDisplay,
+  PageBorderOffsetFrom,
   Paragraph,
   ShadingType,
   Table,
@@ -117,42 +119,36 @@ function underlinedHeading(text: string) {
  * Word closes the border there and redraws it at the top of the next page —
  * giving one box per page rather than a box per section.
  */
-function pageBox(sections: (Paragraph | Table)[][], accent: string): Table {
-  const edge = { style: BorderStyle.SINGLE, size: 6, color: accent };
-  const none = { style: BorderStyle.NONE, size: 0, color: "auto" };
-
-  // One row per section: the table's inside-horizontal border becomes the rule
-  // drawn after each section, and the outer borders form the frame.
-  const rows = sections.map((content) => {
-    const body: (Paragraph | Table)[] = content.length ? [...content] : [new Paragraph({ children: [run("")] })];
-    // A table cell must end with a paragraph in OOXML.
-    if (body[body.length - 1] instanceof Table) body.push(new Paragraph({ spacing: { after: 0 }, children: [] }));
-    return new TableRow({
-      // Must stay splittable so a long section continues onto the next page
-      // and the frame is redrawn there.
-      cantSplit: false,
-      children: [
-        new TableCell({
-          width: { size: 100, type: WidthType.PERCENTAGE },
-          margins: { top: 60, bottom: 60, left: 140, right: 140 },
-          children: body,
-        }),
-      ],
-    });
+/**
+ * Horizontal rule drawn after a section: an empty paragraph carrying a bottom
+ * border. Content flows normally around it, so it never affects pagination.
+ */
+function sectionRule(accent: string) {
+  return new Paragraph({
+    spacing: { before: 100, after: 100 },
+    border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: accent, space: 1 } },
+    children: [],
   });
+}
 
-  return new Table({
-    width: { size: 100, type: WidthType.PERCENTAGE },
-    borders: {
-      top: edge,
-      bottom: edge,
-      left: edge,
-      right: edge,
-      insideHorizontal: edge,
-      insideVertical: none,
+/**
+ * Covendis frame. Drawn with Word's own page borders rather than a wrapping
+ * table: Word repeats them on every page automatically, so the content flows
+ * normally and no page can be left half empty by a table row that refuses to
+ * split.
+ */
+function covendisPageBorders(accent: string) {
+  const edge = { style: BorderStyle.SINGLE, size: 6, color: accent, space: 18 };
+  return {
+    pageBorders: {
+      display: PageBorderDisplay.ALL_PAGES,
+      offsetFrom: PageBorderOffsetFrom.TEXT,
     },
-    rows,
-  });
+    pageBorderTop: edge,
+    pageBorderRight: edge,
+    pageBorderBottom: edge,
+    pageBorderLeft: edge,
+  };
 }
 
 function heading(key: SectionKey, tmplId: TemplateId): (Paragraph | Table)[] {
@@ -338,6 +334,8 @@ export async function buildResumeDocx(model: ResumeModel, tmplId: TemplateId): P
   if (tmpl.boxedSections) {
     // Covendis: identity lines sit above the frame, everything else goes inside
     // ONE box that Word redraws on each page the content flows onto.
+    // Content flows normally; the frame comes from page borders and the
+    // dividers are rules between sections.
     const IDENTITY: SectionKey[] = ["header", "name", "contact", "title", "requisition"];
     const above: (Paragraph | Table)[] = [];
     const sections: (Paragraph | Table)[][] = [];
@@ -345,10 +343,13 @@ export async function buildResumeDocx(model: ResumeModel, tmplId: TemplateId): P
       const parts = buildSection(key, model, tmplId);
       if (!parts.length) continue;
       if (IDENTITY.includes(key)) above.push(...parts);
-      else sections.push(parts); // each section becomes its own row → rule between them
+      else sections.push(parts);
     }
     children.push(...above);
-    if (sections.length) children.push(pageBox(sections, tmpl.accent));
+    sections.forEach((parts, i) => {
+      if (i > 0) children.push(sectionRule(tmpl.accent));
+      children.push(...parts);
+    });
   } else {
     for (const key of tmpl.order) {
       children.push(...buildSection(key, model, tmplId));
@@ -395,6 +396,8 @@ export async function buildResumeDocx(model: ResumeModel, tmplId: TemplateId): P
               header: convertInchesToTwip(0.3),
               footer: convertInchesToTwip(0.3),
             },
+            // Covendis: Word draws this frame on every page by itself.
+            ...(tmpl.boxedSections ? { borders: covendisPageBorders(tmpl.accent) } : {}),
           },
         },
         headers: header ? { default: header } : undefined,

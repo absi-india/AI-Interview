@@ -213,27 +213,21 @@ export function ResumePreview({ model, tmplId }: { model: ResumeModel; tmplId: T
         </div>
       )}
       {tmpl.boxedSections ? (
-        <>
+        /* The frame is a page border in the DOCX — Word repeats it on every
+           page — so here it wraps the page content, with a rule between
+           sections. */
+        <div className="border p-3" style={{ borderColor: `#${tmpl.accent}` }}>
           {tmpl.order.filter((k) => IDENTITY_KEYS.includes(k)).map((k) => (
             <Section key={k} k={k} model={model} tmplId={tmplId} />
           ))}
-          {/* One frame around the whole body, with a rule after each section.
-              In the DOCX this frame is redrawn on every page the content
-              flows onto. */}
-          <div className="mt-2.5 border" style={{ borderColor: `#${tmpl.accent}` }}>
-            {tmpl.order
-              .filter((k) => !IDENTITY_KEYS.includes(k) && hasBody(k, model))
-              .map((k, i, arr) => (
-                <div
-                  key={k}
-                  className={`px-3 py-2 ${i < arr.length - 1 ? "border-b" : ""}`}
-                  style={{ borderColor: `#${tmpl.accent}` }}
-                >
-                  <Section k={k} model={model} tmplId={tmplId} />
-                </div>
-              ))}
-          </div>
-        </>
+          {tmpl.order
+            .filter((k) => !IDENTITY_KEYS.includes(k) && hasBody(k, model))
+            .map((k, i) => (
+              <div key={k} className={i > 0 ? "mt-2 border-t pt-2" : "mt-2"} style={{ borderColor: `#${tmpl.accent}` }}>
+                <Section k={k} model={model} tmplId={tmplId} />
+              </div>
+            ))}
+        </div>
       ) : (
         tmpl.order.map((k) => <Section key={k} k={k} model={model} tmplId={tmplId} />)
       )}
