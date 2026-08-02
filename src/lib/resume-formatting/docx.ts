@@ -56,7 +56,16 @@ function nameParagraph(model: ResumeModel, color: string) {
   });
 }
 
-function contactLine(model: ResumeModel) {
+function contactLine(model: ResumeModel, hideDetails: boolean) {
+  // Ohio ITSA submissions omit phone / email / LinkedIn — location only.
+  if (hideDetails) {
+    if (!model.contact.location) return null;
+    return new Paragraph({
+      spacing: { after: 120 },
+      children: [run("Current location: ", { bold: true }), run(model.contact.location)],
+    });
+  }
+
   const parts = [
     model.contact.location,
     model.contact.phone,
@@ -105,6 +114,51 @@ function blueBoxHeading(text: string, fill: string) {
                 children: [run(text.toUpperCase(), { bold: true, size: 22, color: "FFFFFF" })],
               }),
             ],
+          }),
+        ],
+      }),
+    ],
+  });
+}
+
+/**
+ * Covendis: an outlined box whose first row is the blue heading bar and whose
+ * second row encloses the section content — matching the reference layout.
+ */
+function boxedSection(label: string, content: (Paragraph | Table)[], accent: string): Table {
+  const edge = { style: BorderStyle.SINGLE, size: 6, color: accent };
+  // A table cell must end with a paragraph in OOXML.
+  const body: (Paragraph | Table)[] = content.length ? [...content] : [new Paragraph({ children: [run("")] })];
+  if (body[body.length - 1] instanceof Table) body.push(new Paragraph({ spacing: { after: 0 }, children: [] }));
+
+  return new Table({
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    borders: {
+      top: edge,
+      bottom: edge,
+      left: edge,
+      right: edge,
+      insideHorizontal: edge,
+      insideVertical: edge,
+    },
+    rows: [
+      new TableRow({
+        cantSplit: true,
+        children: [
+          new TableCell({
+            width: { size: 100, type: WidthType.PERCENTAGE },
+            shading: { type: ShadingType.SOLID, color: accent, fill: accent },
+            margins: { top: 40, bottom: 40, left: 120, right: 120 },
+            children: [new Paragraph({ children: [run(label.toUpperCase(), { bold: true, size: 22, color: "FFFFFF" })] })],
+          }),
+        ],
+      }),
+      new TableRow({
+        children: [
+          new TableCell({
+            width: { size: 100, type: WidthType.PERCENTAGE },
+            margins: { top: 60, bottom: 60, left: 120, right: 120 },
+            children: body,
           }),
         ],
       }),
@@ -239,40 +293,57 @@ function simpleField(label: string, value: string | undefined) {
 }
 
 // ── Section dispatcher ──
+/** Body content of a headed section, without the heading itself. */
+function sectionBody(key: SectionKey, model: ResumeModel, tmplId: TemplateId): (Paragraph | Table)[] {
+  switch (key) {
+    case "summary":
+      return summaryPara(model);
+    case "skills":
+      return skillsBlock(model);
+    case "experience":
+      return experienceBlock(model);
+    case "education":
+      return getTemplate(tmplId).educationTable ? [educationTable(model)] : educationBlock(model);
+    case "certifications":
+      return certsBlock(model);
+    case "projects":
+      return projectsBlock(model);
+    case "additional":
+      return model.additional ? [new Paragraph({ children: [run(model.additional)] })] : [];
+    default:
+      return [];
+  }
+}
+
 function buildSection(key: SectionKey, model: ResumeModel, tmplId: TemplateId): (Paragraph | Table)[] {
+  const tmpl = getTemplate(tmplId);
+
+  // Un-headed identity fields render the same way in every template.
   switch (key) {
     case "header":
       return []; // handled by the running header
     case "name":
-      return [nameParagraph(model, getTemplate(tmplId).accent)];
+      return [nameParagraph(model, tmpl.accent)];
     case "contact": {
-      const c = contactLine(model);
+      const c = contactLine(model, tmpl.hideContactDetails);
       return c ? [c] : [];
     }
     case "title":
       return simpleField("Title / Role", model.title);
     case "requisition":
       return simpleField("VectorVMS Requisition Number", model.requisitionNumber || "Not Available");
-    case "summary":
-      return model.summary ? [...heading("summary", tmplId), ...summaryPara(model)] : [];
-    case "skills":
-      return model.skills.length ? [...heading("skills", tmplId), ...skillsBlock(model)] : [];
-    case "experience":
-      return model.experience.length ? [...heading("experience", tmplId), ...experienceBlock(model)] : [];
-    case "education":
-      if (!model.education.length) return [];
-      return getTemplate(tmplId).educationTable
-        ? [...heading("education", tmplId), educationTable(model)]
-        : [...heading("education", tmplId), ...educationBlock(model)];
-    case "certifications":
-      return model.certifications.length ? [...heading("certifications", tmplId), ...certsBlock(model)] : [];
-    case "projects":
-      return model.projects.length ? [...heading("projects", tmplId), ...projectsBlock(model)] : [];
-    case "additional":
-      return model.additional ? [...heading("additional", tmplId), new Paragraph({ children: [run(model.additional)] })] : [];
     default:
-      return [];
+      break;
   }
+
+  const body = sectionBody(key, model, tmplId);
+  if (!body.length) return [];
+
+  // Covendis encloses the heading and its content in an outlined box.
+  if (tmpl.boxedSections) {
+    return [boxedSection(SECTION_LABEL[key], body, tmpl.accent), new Paragraph({ spacing: { after: 80 }, children: [] })];
+  }
+  return [...heading(key, tmplId), ...body];
 }
 
 export async function buildResumeDocx(model: ResumeModel, tmplId: TemplateId): Promise<Buffer> {

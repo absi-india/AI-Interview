@@ -27,6 +27,16 @@ export interface TemplateDef {
   repeatingLogo: boolean;
   /** Whether major headings render inside solid blue boxes (Covendis). */
   blueHeadingBoxes: boolean;
+  /**
+   * Covendis: each section is drawn as an outlined box — a blue heading bar on
+   * top with the section content enclosed underneath.
+   */
+  boxedSections: boolean;
+  /**
+   * Ohio ITSA submissions go to the client without personal contact details;
+   * only the candidate's current location is shown.
+   */
+  hideContactDetails: boolean;
   /** Whether education renders as a structured table (Ohio). */
   educationTable: boolean;
   fileSuffix: string; // used in the download file name
@@ -54,6 +64,8 @@ export const TEMPLATES: Record<TemplateId, TemplateDef> = {
     accent: "1F3864",
     repeatingLogo: true,
     blueHeadingBoxes: false,
+    boxedSections: false,
+    hideContactDetails: true,
     educationTable: true,
     fileSuffix: "VectorVMS",
   },
@@ -77,6 +89,8 @@ export const TEMPLATES: Record<TemplateId, TemplateDef> = {
     accent: "1F4E79",
     repeatingLogo: false,
     blueHeadingBoxes: true,
+    boxedSections: true,
+    hideContactDetails: false,
     educationTable: false,
     fileSuffix: "Covendis",
   },
@@ -100,6 +114,8 @@ export const TEMPLATES: Record<TemplateId, TemplateDef> = {
     accent: "0F172A",
     repeatingLogo: false,
     blueHeadingBoxes: false,
+    boxedSections: false,
+    hideContactDetails: false,
     educationTable: false,
     fileSuffix: "ABSI",
   },

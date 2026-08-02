@@ -10,7 +10,7 @@ function Heading({ label, tmplId }: { label: string; tmplId: TemplateId }) {
   if (tmpl.blueHeadingBoxes) {
     return (
       <div
-        className="mt-3 mb-2 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-white"
+        className="px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-white"
         style={{ backgroundColor: `#${tmpl.accent}` }}
       >
         {label}
@@ -27,10 +27,137 @@ function Heading({ label, tmplId }: { label: string; tmplId: TemplateId }) {
   );
 }
 
+/** Body of a headed section, without the heading. Returns null when empty. */
+function SectionBody({ k, model, tmplId }: { k: SectionKey; model: ResumeModel; tmplId: TemplateId }) {
+  const tmpl = getTemplate(tmplId);
+
+  switch (k) {
+    case "summary":
+      return model.summary ? <p className="text-[11px] leading-snug text-gray-800">{model.summary}</p> : null;
+
+    case "skills":
+      return model.skills.length ? (
+        <div className="space-y-0.5">
+          {model.skills.map((s, i) => (
+            <div key={i} className="text-[11px] leading-snug">
+              <span className="font-semibold">{s.category}:</span> {s.skills.join(", ")}
+            </div>
+          ))}
+        </div>
+      ) : null;
+
+    case "experience":
+      return model.experience.length ? (
+        <div className="space-y-2">
+          {model.experience.map((e, i) => (
+            <div key={i}>
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="text-[11px] font-bold text-gray-900">{[e.company, e.location].filter(Boolean).join(", ")}</span>
+                <span className="whitespace-nowrap text-[10.5px] font-semibold text-gray-700">{[e.startDate, e.endDate].filter(Boolean).join(" – ")}</span>
+              </div>
+              {e.title && <div className="text-[11px] italic text-gray-700">{e.title}</div>}
+              <ul className="ml-4 list-disc space-y-0.5">
+                {e.bullets.map((b, j) => (
+                  <li key={j} className="text-[11px] leading-snug text-gray-800">{b}</li>
+                ))}
+              </ul>
+              {e.environment && (
+                <div className="mt-0.5 text-[10.5px] text-gray-700"><span className="font-semibold">Environment:</span> {e.environment}</div>
+              )}
+            </div>
+          ))}
+        </div>
+      ) : null;
+
+    case "education":
+      if (!model.education.length) return null;
+      if (tmpl.educationTable) {
+        return (
+          <table className="w-full border-collapse text-[9.5px]">
+            <thead>
+              <tr className="bg-gray-100">
+                {["Degree", "Area of Study", "School / University", "Location", "Awarded?", "Date"].map((h) => (
+                  <th key={h} className="border border-gray-300 px-1 py-0.5 text-left font-semibold">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {model.education.map((e, i) => (
+                <tr key={i}>
+                  {[e.degree, e.areaOfStudy, e.school, e.location, e.awarded, e.date].map((v, j) => (
+                    <td key={j} className="border border-gray-300 px-1 py-0.5 align-top">{v || ""}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        );
+      }
+      return (
+        <div className="space-y-0.5">
+          {model.education.map((e, i) => (
+            <div key={i} className="text-[11px] leading-snug">
+              <span className="font-semibold">{[e.degree, e.areaOfStudy].filter(Boolean).join(", ")}</span>
+              {[e.school, e.location].filter(Boolean).length > 0 && <> — {[e.school, e.location].filter(Boolean).join(", ")}</>}
+              {e.date && <> ({e.date})</>}
+            </div>
+          ))}
+        </div>
+      );
+
+    case "certifications":
+      return model.certifications.length ? (
+        <ul className="ml-4 list-disc space-y-0.5">
+          {model.certifications.map((c, i) => (
+            <li key={i} className="text-[11px] leading-snug text-gray-800">
+              {c.name}{[c.issuer, c.date].filter(Boolean).length ? ` — ${[c.issuer, c.date].filter(Boolean).join(", ")}` : ""}
+            </li>
+          ))}
+        </ul>
+      ) : null;
+
+    case "projects":
+      return model.projects.length ? (
+        <div className="space-y-1.5">
+          {model.projects.map((p, i) => (
+            <div key={i}>
+              <div className="text-[11px] font-bold text-gray-900">{p.name}</div>
+              {p.description && <div className="text-[11px] leading-snug text-gray-800">{p.description}</div>}
+              {p.bullets.length > 0 && (
+                <ul className="ml-4 list-disc space-y-0.5">
+                  {p.bullets.map((b, j) => <li key={j} className="text-[11px] leading-snug text-gray-800">{b}</li>)}
+                </ul>
+              )}
+            </div>
+          ))}
+        </div>
+      ) : null;
+
+    case "additional":
+      return model.additional ? <p className="text-[11px] leading-snug text-gray-800">{model.additional}</p> : null;
+
+    default:
+      return null;
+  }
+}
+
+function hasBody(k: SectionKey, model: ResumeModel): boolean {
+  switch (k) {
+    case "summary": return Boolean(model.summary);
+    case "skills": return model.skills.length > 0;
+    case "experience": return model.experience.length > 0;
+    case "education": return model.education.length > 0;
+    case "certifications": return model.certifications.length > 0;
+    case "projects": return model.projects.length > 0;
+    case "additional": return Boolean(model.additional);
+    default: return false;
+  }
+}
+
 function Section({ k, model, tmplId }: { k: SectionKey; model: ResumeModel; tmplId: TemplateId }) {
   const tmpl = getTemplate(tmplId);
-  const label = SECTION_LABEL[k];
 
+  // Un-headed identity fields.
   switch (k) {
     case "header":
       return null;
@@ -41,9 +168,14 @@ function Section({ k, model, tmplId }: { k: SectionKey; model: ResumeModel; tmpl
         </div>
       );
     case "contact": {
+      // Ohio ITSA submissions omit phone / email / LinkedIn — location only.
+      if (tmpl.hideContactDetails) {
+        return model.contact.location ? (
+          <div className="mt-0.5 text-[11px]"><span className="font-semibold">Current location:</span> {model.contact.location}</div>
+        ) : null;
+      }
       const parts = [model.contact.location, model.contact.phone, model.contact.email, model.contact.linkedin, model.contact.website].filter(Boolean);
-      if (!parts.length) return null;
-      return <div className="mt-0.5 text-[10.5px] text-gray-600">{parts.join("  |  ")}</div>;
+      return parts.length ? <div className="mt-0.5 text-[10.5px] text-gray-600">{parts.join("  |  ")}</div> : null;
     }
     case "title":
       return model.title ? (
@@ -55,138 +187,36 @@ function Section({ k, model, tmplId }: { k: SectionKey; model: ResumeModel; tmpl
           <span className="font-semibold">VectorVMS Requisition Number:</span> {model.requisitionNumber || "Not Available"}
         </div>
       );
-    case "summary":
-      return model.summary ? (
-        <>
-          <Heading label={label} tmplId={tmplId} />
-          <p className="text-[11px] leading-snug text-gray-800">{model.summary}</p>
-        </>
-      ) : null;
-    case "skills":
-      return model.skills.length ? (
-        <>
-          <Heading label={label} tmplId={tmplId} />
-          <div className="space-y-0.5">
-            {model.skills.map((s, i) => (
-              <div key={i} className="text-[11px] leading-snug">
-                <span className="font-semibold">{s.category}:</span> {s.skills.join(", ")}
-              </div>
-            ))}
-          </div>
-        </>
-      ) : null;
-    case "experience":
-      return model.experience.length ? (
-        <>
-          <Heading label={label} tmplId={tmplId} />
-          <div className="space-y-2">
-            {model.experience.map((e, i) => (
-              <div key={i}>
-                <div className="flex items-baseline justify-between gap-2">
-                  <span className="text-[11px] font-bold text-gray-900">{[e.company, e.location].filter(Boolean).join(", ")}</span>
-                  <span className="whitespace-nowrap text-[10.5px] font-semibold text-gray-700">{[e.startDate, e.endDate].filter(Boolean).join(" – ")}</span>
-                </div>
-                {e.title && <div className="text-[11px] italic text-gray-700">{e.title}</div>}
-                <ul className="ml-4 list-disc space-y-0.5">
-                  {e.bullets.map((b, j) => (
-                    <li key={j} className="text-[11px] leading-snug text-gray-800">{b}</li>
-                  ))}
-                </ul>
-                {e.environment && <div className="mt-0.5 text-[10.5px] text-gray-700"><span className="font-semibold">Environment:</span> {e.environment}</div>}
-              </div>
-            ))}
-          </div>
-        </>
-      ) : null;
-    case "education":
-      if (!model.education.length) return null;
-      if (tmpl.educationTable) {
-        return (
-          <>
-            <Heading label={label} tmplId={tmplId} />
-            <table className="w-full border-collapse text-[9.5px]">
-              <thead>
-                <tr className="bg-gray-100">
-                  {["Degree", "Area of Study", "School / University", "Location", "Awarded?", "Date"].map((h) => (
-                    <th key={h} className="border border-gray-300 px-1 py-0.5 text-left font-semibold">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {model.education.map((e, i) => (
-                  <tr key={i}>
-                    {[e.degree, e.areaOfStudy, e.school, e.location, e.awarded, e.date].map((v, j) => (
-                      <td key={j} className="border border-gray-300 px-1 py-0.5 align-top">{v || ""}</td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </>
-        );
-      }
-      return (
-        <>
-          <Heading label={label} tmplId={tmplId} />
-          <div className="space-y-0.5">
-            {model.education.map((e, i) => (
-              <div key={i} className="text-[11px] leading-snug">
-                <span className="font-semibold">{[e.degree, e.areaOfStudy].filter(Boolean).join(", ")}</span>
-                {[e.school, e.location].filter(Boolean).length > 0 && <> — {[e.school, e.location].filter(Boolean).join(", ")}</>}
-                {e.date && <> ({e.date})</>}
-              </div>
-            ))}
-          </div>
-        </>
-      );
-    case "certifications":
-      return model.certifications.length ? (
-        <>
-          <Heading label={label} tmplId={tmplId} />
-          <ul className="ml-4 list-disc space-y-0.5">
-            {model.certifications.map((c, i) => (
-              <li key={i} className="text-[11px] leading-snug text-gray-800">
-                {c.name}{[c.issuer, c.date].filter(Boolean).length ? ` — ${[c.issuer, c.date].filter(Boolean).join(", ")}` : ""}
-              </li>
-            ))}
-          </ul>
-        </>
-      ) : null;
-    case "projects":
-      return model.projects.length ? (
-        <>
-          <Heading label={label} tmplId={tmplId} />
-          <div className="space-y-1.5">
-            {model.projects.map((p, i) => (
-              <div key={i}>
-                <div className="text-[11px] font-bold text-gray-900">{p.name}</div>
-                {p.description && <div className="text-[11px] leading-snug text-gray-800">{p.description}</div>}
-                {p.bullets.length > 0 && (
-                  <ul className="ml-4 list-disc space-y-0.5">
-                    {p.bullets.map((b, j) => <li key={j} className="text-[11px] leading-snug text-gray-800">{b}</li>)}
-                  </ul>
-                )}
-              </div>
-            ))}
-          </div>
-        </>
-      ) : null;
-    case "additional":
-      return model.additional ? (
-        <>
-          <Heading label={label} tmplId={tmplId} />
-          <p className="text-[11px] leading-snug text-gray-800">{model.additional}</p>
-        </>
-      ) : null;
     default:
-      return null;
+      break;
   }
+
+  if (!hasBody(k, model)) return null;
+
+  // Covendis encloses the heading and its content in an outlined box.
+  if (tmpl.boxedSections) {
+    return (
+      <div className="mt-2 border" style={{ borderColor: `#${tmpl.accent}` }}>
+        <Heading label={SECTION_LABEL[k]} tmplId={tmplId} />
+        <div className="px-2.5 py-1.5">
+          <SectionBody k={k} model={model} tmplId={tmplId} />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <Heading label={SECTION_LABEL[k]} tmplId={tmplId} />
+      <SectionBody k={k} model={model} tmplId={tmplId} />
+    </>
+  );
 }
 
 export function ResumePreview({ model, tmplId }: { model: ResumeModel; tmplId: TemplateId }) {
   const tmpl = getTemplate(tmplId);
   return (
-    <div className="mx-auto w-full max-w-[850px] bg-white px-8 py-7 shadow-sm" style={{ aspectRatio: "auto" }}>
+    <div className="mx-auto w-full max-w-[850px] bg-white px-8 py-7 shadow-sm">
       {tmpl.repeatingLogo && (
         <div className="mb-3 border-b border-gray-200 pb-2">
           {/* eslint-disable-next-line @next/next/no-img-element */}

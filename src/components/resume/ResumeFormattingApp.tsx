@@ -486,7 +486,7 @@ export function ResumeFormattingApp() {
             )}
 
             {rail === "details" && (
-              <DetailsForm model={details ?? result.model} clarifications={result.clarifications} onChange={setDetails} />
+              <DetailsForm model={details ?? result.model} clarifications={result.clarifications} onChange={setDetails} templateId={templateId} />
             )}
           </div>
         </div>
@@ -586,10 +586,11 @@ function Stat({ label, value }: { label: string; value: number }) {
 }
 
 function DetailsForm({
-  model, clarifications, onChange,
+  model, clarifications, onChange, templateId,
 }: {
-  model: ResumeModel; clarifications: AnalyzeResult["clarifications"]; onChange: (m: ResumeModel) => void;
+  model: ResumeModel; clarifications: AnalyzeResult["clarifications"]; onChange: (m: ResumeModel) => void; templateId: TemplateId;
 }) {
+  const hidesContact = TEMPLATES[templateId].hideContactDetails;
   const set = (patch: Partial<ResumeModel>) => onChange({ ...model, ...patch });
   const setContact = (patch: Partial<ResumeModel["contact"]>) => onChange({ ...model, contact: { ...model.contact, ...patch } });
   const field = (label: string, value: string | undefined, on: (v: string) => void) => (
@@ -611,6 +612,11 @@ function DetailsForm({
       {field("Full name", model.name, (v) => set({ name: v }))}
       {field("Title / Role", model.title, (v) => set({ title: v }))}
       {field("Current location", model.contact.location, (v) => setContact({ location: v }))}
+      {hidesContact && (
+        <p className="rounded-md border border-[#dbe6ff] bg-[#eff4ff] px-2 py-1.5 text-[10.5px] leading-snug text-[#1d4ed8]">
+          Phone, email and LinkedIn are kept out of the {TEMPLATES[templateId].shortName} resume. They stay saved here and reappear if you switch to Covendis or ABSI.
+        </p>
+      )}
       {field("Phone", model.contact.phone, (v) => setContact({ phone: v }))}
       {field("Email", model.contact.email, (v) => setContact({ email: v }))}
       {field("VectorVMS requisition #", model.requisitionNumber, (v) => set({ requisitionNumber: v }))}
