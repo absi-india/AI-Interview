@@ -193,18 +193,6 @@ function Section({ k, model, tmplId }: { k: SectionKey; model: ResumeModel; tmpl
 
   if (!hasBody(k, model)) return null;
 
-  // Covendis encloses the heading and its content in an outlined box.
-  if (tmpl.boxedSections) {
-    return (
-      <div className="mt-2 border" style={{ borderColor: `#${tmpl.accent}` }}>
-        <Heading label={SECTION_LABEL[k]} tmplId={tmplId} />
-        <div className="px-2.5 py-1.5">
-          <SectionBody k={k} model={model} tmplId={tmplId} />
-        </div>
-      </div>
-    );
-  }
-
   return (
     <>
       <Heading label={SECTION_LABEL[k]} tmplId={tmplId} />
@@ -212,6 +200,9 @@ function Section({ k, model, tmplId }: { k: SectionKey; model: ResumeModel; tmpl
     </>
   );
 }
+
+/** Section keys that render above the Covendis box rather than inside it. */
+const IDENTITY_KEYS: SectionKey[] = ["header", "name", "contact", "title", "requisition"];
 
 export function ResumePreview({ model, tmplId }: { model: ResumeModel; tmplId: TemplateId }) {
   const tmpl = getTemplate(tmplId);
@@ -224,9 +215,22 @@ export function ResumePreview({ model, tmplId }: { model: ResumeModel; tmplId: T
           <div className="mt-1 text-[8px] uppercase tracking-wide text-gray-400">Logo repeats on every page in the exported document</div>
         </div>
       )}
-      {tmpl.order.map((k) => (
-        <Section key={k} k={k} model={model} tmplId={tmplId} />
-      ))}
+      {tmpl.boxedSections ? (
+        <>
+          {tmpl.order.filter((k) => IDENTITY_KEYS.includes(k)).map((k) => (
+            <Section key={k} k={k} model={model} tmplId={tmplId} />
+          ))}
+          {/* One frame around the whole body — in the DOCX this box is redrawn
+              on every page the content flows onto. */}
+          <div className="mt-2.5 border px-3 py-2" style={{ borderColor: `#${tmpl.accent}` }}>
+            {tmpl.order.filter((k) => !IDENTITY_KEYS.includes(k)).map((k) => (
+              <Section key={k} k={k} model={model} tmplId={tmplId} />
+            ))}
+          </div>
+        </>
+      ) : (
+        tmpl.order.map((k) => <Section key={k} k={k} model={model} tmplId={tmplId} />)
+      )}
     </div>
   );
 }

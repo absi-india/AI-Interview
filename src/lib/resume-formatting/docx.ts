@@ -89,43 +89,28 @@ function plainHeading(text: string, color: string) {
   });
 }
 
+/**
+ * Covendis heading bar. A shaded paragraph (not a nested table) so it sits
+ * cleanly inside the page box and never interferes with how that box splits
+ * across pages.
+ */
 function blueBoxHeading(text: string, fill: string) {
-  // Full-width single-cell table = a consistent blue bar that survives page breaks.
-  return new Table({
-    width: { size: 100, type: WidthType.PERCENTAGE },
-    borders: {
-      top: { style: BorderStyle.NONE, size: 0, color: "auto" },
-      bottom: { style: BorderStyle.NONE, size: 0, color: "auto" },
-      left: { style: BorderStyle.NONE, size: 0, color: "auto" },
-      right: { style: BorderStyle.NONE, size: 0, color: "auto" },
-      insideHorizontal: { style: BorderStyle.NONE, size: 0, color: "auto" },
-      insideVertical: { style: BorderStyle.NONE, size: 0, color: "auto" },
-    },
-    rows: [
-      new TableRow({
-        cantSplit: true,
-        children: [
-          new TableCell({
-            width: { size: 100, type: WidthType.PERCENTAGE },
-            shading: { type: ShadingType.SOLID, color: fill, fill },
-            margins: { top: 40, bottom: 40, left: 120, right: 120 },
-            children: [
-              new Paragraph({
-                children: [run(text.toUpperCase(), { bold: true, size: 22, color: "FFFFFF" })],
-              }),
-            ],
-          }),
-        ],
-      }),
-    ],
+  return new Paragraph({
+    shading: { type: ShadingType.SOLID, color: fill, fill },
+    spacing: { before: 80, after: 60 },
+    indent: { left: 0, right: 0 },
+    keepNext: true,
+    children: [run(text.toUpperCase(), { bold: true, size: 22, color: "FFFFFF" })],
   });
 }
 
 /**
- * Covendis: an outlined box whose first row is the blue heading bar and whose
- * second row encloses the section content — matching the reference layout.
+ * Covendis: ONE box around the whole body. This is a single-cell table whose
+ * row is allowed to split, so when the content flows past the bottom of a page
+ * Word closes the border there and redraws it at the top of the next page —
+ * giving one box per page rather than a box per section.
  */
-function boxedSection(label: string, content: (Paragraph | Table)[], accent: string): Table {
+function pageBox(content: (Paragraph | Table)[], accent: string): Table {
   const edge = { style: BorderStyle.SINGLE, size: 6, color: accent };
   // A table cell must end with a paragraph in OOXML.
   const body: (Paragraph | Table)[] = content.length ? [...content] : [new Paragraph({ children: [run("")] })];
@@ -143,21 +128,12 @@ function boxedSection(label: string, content: (Paragraph | Table)[], accent: str
     },
     rows: [
       new TableRow({
-        cantSplit: true,
+        // Must be splittable — this is what produces the per-page box.
+        cantSplit: false,
         children: [
           new TableCell({
             width: { size: 100, type: WidthType.PERCENTAGE },
-            shading: { type: ShadingType.SOLID, color: accent, fill: accent },
-            margins: { top: 40, bottom: 40, left: 120, right: 120 },
-            children: [new Paragraph({ children: [run(label.toUpperCase(), { bold: true, size: 22, color: "FFFFFF" })] })],
-          }),
-        ],
-      }),
-      new TableRow({
-        children: [
-          new TableCell({
-            width: { size: 100, type: WidthType.PERCENTAGE },
-            margins: { top: 60, bottom: 60, left: 120, right: 120 },
+            margins: { top: 80, bottom: 80, left: 140, right: 140 },
             children: body,
           }),
         ],
@@ -339,18 +315,29 @@ function buildSection(key: SectionKey, model: ResumeModel, tmplId: TemplateId): 
   const body = sectionBody(key, model, tmplId);
   if (!body.length) return [];
 
-  // Covendis encloses the heading and its content in an outlined box.
-  if (tmpl.boxedSections) {
-    return [boxedSection(SECTION_LABEL[key], body, tmpl.accent), new Paragraph({ spacing: { after: 80 }, children: [] })];
-  }
   return [...heading(key, tmplId), ...body];
 }
 
 export async function buildResumeDocx(model: ResumeModel, tmplId: TemplateId): Promise<Buffer> {
   const tmpl = getTemplate(tmplId);
   const children: (Paragraph | Table)[] = [];
-  for (const key of tmpl.order) {
-    children.push(...buildSection(key, model, tmplId));
+
+  if (tmpl.boxedSections) {
+    // Covendis: identity lines sit above the frame, everything else goes inside
+    // ONE box that Word redraws on each page the content flows onto.
+    const IDENTITY: SectionKey[] = ["header", "name", "contact", "title", "requisition"];
+    const above: (Paragraph | Table)[] = [];
+    const inside: (Paragraph | Table)[] = [];
+    for (const key of tmpl.order) {
+      const parts = buildSection(key, model, tmplId);
+      (IDENTITY.includes(key) ? above : inside).push(...parts);
+    }
+    children.push(...above);
+    if (inside.length) children.push(pageBox(inside, tmpl.accent));
+  } else {
+    for (const key of tmpl.order) {
+      children.push(...buildSection(key, model, tmplId));
+    }
   }
 
   // Ohio ITSA logo repeats on every page via a default header (no title page).

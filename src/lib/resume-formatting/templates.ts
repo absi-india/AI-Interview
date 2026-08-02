@@ -90,7 +90,7 @@ export const TEMPLATES: Record<TemplateId, TemplateDef> = {
     repeatingLogo: false,
     blueHeadingBoxes: true,
     boxedSections: true,
-    hideContactDetails: false,
+    hideContactDetails: true,
     educationTable: false,
     fileSuffix: "Covendis",
   },
