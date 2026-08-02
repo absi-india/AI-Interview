@@ -25,11 +25,11 @@ export interface TemplateDef {
   accent: string;
   /** Whether the Ohio ITSA logo header repeats on every page. */
   repeatingLogo: boolean;
-  /** Whether major headings render inside solid blue boxes (Covendis). */
-  blueHeadingBoxes: boolean;
+  /** Covendis: section headings are bold and underlined, with no fill behind them. */
+  underlinedHeadings: boolean;
   /**
-   * Covendis: each section is drawn as an outlined box — a blue heading bar on
-   * top with the section content enclosed underneath.
+   * Covendis: the body sits inside one frame that is redrawn on every page,
+   * with a horizontal rule separating each section.
    */
   boxedSections: boolean;
   /**
@@ -63,7 +63,7 @@ export const TEMPLATES: Record<TemplateId, TemplateDef> = {
     ],
     accent: "1F3864",
     repeatingLogo: true,
-    blueHeadingBoxes: false,
+    underlinedHeadings: false,
     boxedSections: false,
     hideContactDetails: true,
     educationTable: true,
@@ -88,7 +88,7 @@ export const TEMPLATES: Record<TemplateId, TemplateDef> = {
     ],
     accent: "1F4E79",
     repeatingLogo: false,
-    blueHeadingBoxes: true,
+    underlinedHeadings: true,
     boxedSections: true,
     hideContactDetails: true,
     educationTable: false,
@@ -113,7 +113,7 @@ export const TEMPLATES: Record<TemplateId, TemplateDef> = {
     ],
     accent: "0F172A",
     repeatingLogo: false,
-    blueHeadingBoxes: false,
+    underlinedHeadings: false,
     boxedSections: false,
     hideContactDetails: false,
     educationTable: false,

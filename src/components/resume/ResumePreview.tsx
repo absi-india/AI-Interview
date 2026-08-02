@@ -7,12 +7,9 @@ import type { ResumeModel, TemplateId } from "@/lib/resume-formatting/types";
 function Heading({ label, tmplId }: { label: string; tmplId: TemplateId }) {
   const tmpl = getTemplate(tmplId);
   if (!label) return null;
-  if (tmpl.blueHeadingBoxes) {
+  if (tmpl.underlinedHeadings) {
     return (
-      <div
-        className="px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-white"
-        style={{ backgroundColor: `#${tmpl.accent}` }}
-      >
+      <div className="mb-1 text-[11px] font-bold uppercase tracking-wide text-black underline decoration-1 underline-offset-2">
         {label}
       </div>
     );
@@ -220,12 +217,21 @@ export function ResumePreview({ model, tmplId }: { model: ResumeModel; tmplId: T
           {tmpl.order.filter((k) => IDENTITY_KEYS.includes(k)).map((k) => (
             <Section key={k} k={k} model={model} tmplId={tmplId} />
           ))}
-          {/* One frame around the whole body — in the DOCX this box is redrawn
-              on every page the content flows onto. */}
-          <div className="mt-2.5 border px-3 py-2" style={{ borderColor: `#${tmpl.accent}` }}>
-            {tmpl.order.filter((k) => !IDENTITY_KEYS.includes(k)).map((k) => (
-              <Section key={k} k={k} model={model} tmplId={tmplId} />
-            ))}
+          {/* One frame around the whole body, with a rule after each section.
+              In the DOCX this frame is redrawn on every page the content
+              flows onto. */}
+          <div className="mt-2.5 border" style={{ borderColor: `#${tmpl.accent}` }}>
+            {tmpl.order
+              .filter((k) => !IDENTITY_KEYS.includes(k) && hasBody(k, model))
+              .map((k, i, arr) => (
+                <div
+                  key={k}
+                  className={`px-3 py-2 ${i < arr.length - 1 ? "border-b" : ""}`}
+                  style={{ borderColor: `#${tmpl.accent}` }}
+                >
+                  <Section k={k} model={model} tmplId={tmplId} />
+                </div>
+              ))}
           </div>
         </>
       ) : (

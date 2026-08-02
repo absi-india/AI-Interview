@@ -90,17 +90,24 @@ function plainHeading(text: string, color: string) {
 }
 
 /**
- * Covendis heading bar. A shaded paragraph (not a nested table) so it sits
- * cleanly inside the page box and never interferes with how that box splits
- * across pages.
+ * Covendis heading: bold and underlined on a plain background, matching the
+ * reference. The separation between sections comes from the frame's internal
+ * rules, not from a filled bar.
  */
-function blueBoxHeading(text: string, fill: string) {
+function underlinedHeading(text: string) {
   return new Paragraph({
-    shading: { type: ShadingType.SOLID, color: fill, fill },
-    spacing: { before: 80, after: 60 },
-    indent: { left: 0, right: 0 },
+    spacing: { before: 20, after: 60 },
     keepNext: true,
-    children: [run(text.toUpperCase(), { bold: true, size: 22, color: "FFFFFF" })],
+    children: [
+      new TextRun({
+        text: text.toUpperCase(),
+        bold: true,
+        underline: {},
+        size: 22,
+        color: "000000",
+        font: BODY_FONT,
+      }),
+    ],
   });
 }
 
@@ -110,11 +117,29 @@ function blueBoxHeading(text: string, fill: string) {
  * Word closes the border there and redraws it at the top of the next page —
  * giving one box per page rather than a box per section.
  */
-function pageBox(content: (Paragraph | Table)[], accent: string): Table {
+function pageBox(sections: (Paragraph | Table)[][], accent: string): Table {
   const edge = { style: BorderStyle.SINGLE, size: 6, color: accent };
-  // A table cell must end with a paragraph in OOXML.
-  const body: (Paragraph | Table)[] = content.length ? [...content] : [new Paragraph({ children: [run("")] })];
-  if (body[body.length - 1] instanceof Table) body.push(new Paragraph({ spacing: { after: 0 }, children: [] }));
+  const none = { style: BorderStyle.NONE, size: 0, color: "auto" };
+
+  // One row per section: the table's inside-horizontal border becomes the rule
+  // drawn after each section, and the outer borders form the frame.
+  const rows = sections.map((content) => {
+    const body: (Paragraph | Table)[] = content.length ? [...content] : [new Paragraph({ children: [run("")] })];
+    // A table cell must end with a paragraph in OOXML.
+    if (body[body.length - 1] instanceof Table) body.push(new Paragraph({ spacing: { after: 0 }, children: [] }));
+    return new TableRow({
+      // Must stay splittable so a long section continues onto the next page
+      // and the frame is redrawn there.
+      cantSplit: false,
+      children: [
+        new TableCell({
+          width: { size: 100, type: WidthType.PERCENTAGE },
+          margins: { top: 60, bottom: 60, left: 140, right: 140 },
+          children: body,
+        }),
+      ],
+    });
+  });
 
   return new Table({
     width: { size: 100, type: WidthType.PERCENTAGE },
@@ -124,21 +149,9 @@ function pageBox(content: (Paragraph | Table)[], accent: string): Table {
       left: edge,
       right: edge,
       insideHorizontal: edge,
-      insideVertical: edge,
+      insideVertical: none,
     },
-    rows: [
-      new TableRow({
-        // Must be splittable — this is what produces the per-page box.
-        cantSplit: false,
-        children: [
-          new TableCell({
-            width: { size: 100, type: WidthType.PERCENTAGE },
-            margins: { top: 80, bottom: 80, left: 140, right: 140 },
-            children: body,
-          }),
-        ],
-      }),
-    ],
+    rows,
   });
 }
 
@@ -146,8 +159,8 @@ function heading(key: SectionKey, tmplId: TemplateId): (Paragraph | Table)[] {
   const tmpl = getTemplate(tmplId);
   const label = SECTION_LABEL[key];
   if (!label) return [];
-  if (tmpl.blueHeadingBoxes) {
-    return [blueBoxHeading(label, tmpl.accent), new Paragraph({ spacing: { after: 40 } })];
+  if (tmpl.underlinedHeadings) {
+    return [underlinedHeading(label)];
   }
   return [plainHeading(label, tmpl.accent)];
 }
@@ -327,13 +340,15 @@ export async function buildResumeDocx(model: ResumeModel, tmplId: TemplateId): P
     // ONE box that Word redraws on each page the content flows onto.
     const IDENTITY: SectionKey[] = ["header", "name", "contact", "title", "requisition"];
     const above: (Paragraph | Table)[] = [];
-    const inside: (Paragraph | Table)[] = [];
+    const sections: (Paragraph | Table)[][] = [];
     for (const key of tmpl.order) {
       const parts = buildSection(key, model, tmplId);
-      (IDENTITY.includes(key) ? above : inside).push(...parts);
+      if (!parts.length) continue;
+      if (IDENTITY.includes(key)) above.push(...parts);
+      else sections.push(parts); // each section becomes its own row → rule between them
     }
     children.push(...above);
-    if (inside.length) children.push(pageBox(inside, tmpl.accent));
+    if (sections.length) children.push(pageBox(sections, tmpl.accent));
   } else {
     for (const key of tmpl.order) {
       children.push(...buildSection(key, model, tmplId));

@@ -270,12 +270,16 @@ export function ResumeFormattingApp() {
                 {t.repeatingLogo ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src="/ohio-itsa-logo.png" alt="Ohio ITSA" className="h-7 w-auto object-contain" />
-                ) : t.blueHeadingBoxes ? (
-                  <div className="w-4/5 space-y-1.5">
-                    <div className="h-2.5 w-full rounded-sm" style={{ background: `#${t.accent}` }} />
-                    <div className="h-1 w-3/4 rounded bg-gray-300" />
-                    <div className="h-2.5 w-full rounded-sm" style={{ background: `#${t.accent}` }} />
-                    <div className="h-1 w-2/3 rounded bg-gray-300" />
+                ) : t.underlinedHeadings ? (
+                  <div className="w-4/5 border" style={{ borderColor: `#${t.accent}` }}>
+                    <div className="border-b px-1.5 py-1" style={{ borderColor: `#${t.accent}` }}>
+                      <div className="h-1 w-1/2 rounded bg-gray-600" />
+                      <div className="mt-1 h-0.5 w-full rounded bg-gray-300" />
+                    </div>
+                    <div className="px-1.5 py-1">
+                      <div className="h-1 w-1/2 rounded bg-gray-600" />
+                      <div className="mt-1 h-0.5 w-3/4 rounded bg-gray-300" />
+                    </div>
                   </div>
                 ) : (
                   <div className="w-4/5 space-y-1.5">
