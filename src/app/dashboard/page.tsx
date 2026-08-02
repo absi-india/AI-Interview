@@ -142,6 +142,7 @@ export default async function DashboardPage({
   const navItems: { label: string; href: string | null; active?: boolean }[] = [
     { label: "Overview", href: "/dashboard", active: true },
     { label: "Activity", href: "/activity" },
+    { label: "Resume Formatting", href: "/resume" },
     ...(role === "ADMIN" ? [{ label: "Admin Panel", href: "/admin" }] : []),
   ];
 

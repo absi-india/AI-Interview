@@ -22,6 +22,7 @@
     "bullmq": "^5.74.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "docx": "^9.7.1",
     "exceljs": "^4.4.0",
     "firebase": "^12.12.0",
     "firebase-admin": "^13.8.0",
