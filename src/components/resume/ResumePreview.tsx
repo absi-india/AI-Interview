@@ -29,8 +29,22 @@ function SectionBody({ k, model, tmplId }: { k: SectionKey; model: ResumeModel; 
   const tmpl = getTemplate(tmplId);
 
   switch (k) {
-    case "summary":
-      return model.summary ? <p className="text-[11px] leading-snug text-gray-800">{model.summary}</p> : null;
+    case "summary": {
+      const bullets = model.summaryBullets ?? [];
+      if (!model.summary && !bullets.length) return null;
+      return (
+        <>
+          {model.summary && <p className="text-justify text-[11px] leading-snug text-gray-800">{model.summary}</p>}
+          {bullets.length > 0 && (
+            <ul className="ml-4 list-disc space-y-0.5">
+              {bullets.map((b, i) => (
+                <li key={i} className="text-justify text-[11px] leading-snug text-gray-800">{b}</li>
+              ))}
+            </ul>
+          )}
+        </>
+      );
+    }
 
     case "skills":
       return model.skills.length ? (
@@ -55,7 +69,7 @@ function SectionBody({ k, model, tmplId }: { k: SectionKey; model: ResumeModel; 
               {e.title && <div className="text-[11px] italic text-gray-700">{e.title}</div>}
               <ul className="ml-4 list-disc space-y-0.5">
                 {e.bullets.map((b, j) => (
-                  <li key={j} className="text-[11px] leading-snug text-gray-800">{b}</li>
+                  <li key={j} className="text-justify text-[11px] leading-snug text-gray-800">{b}</li>
                 ))}
               </ul>
               {e.environment && (
@@ -122,7 +136,7 @@ function SectionBody({ k, model, tmplId }: { k: SectionKey; model: ResumeModel; 
               {p.description && <div className="text-[11px] leading-snug text-gray-800">{p.description}</div>}
               {p.bullets.length > 0 && (
                 <ul className="ml-4 list-disc space-y-0.5">
-                  {p.bullets.map((b, j) => <li key={j} className="text-[11px] leading-snug text-gray-800">{b}</li>)}
+                  {p.bullets.map((b, j) => <li key={j} className="text-justify text-[11px] leading-snug text-gray-800">{b}</li>)}
                 </ul>
               )}
             </div>
@@ -140,7 +154,7 @@ function SectionBody({ k, model, tmplId }: { k: SectionKey; model: ResumeModel; 
 
 function hasBody(k: SectionKey, model: ResumeModel): boolean {
   switch (k) {
-    case "summary": return Boolean(model.summary);
+    case "summary": return Boolean(model.summary) || (model.summaryBullets?.length ?? 0) > 0;
     case "skills": return model.skills.length > 0;
     case "experience": return model.experience.length > 0;
     case "education": return model.education.length > 0;
@@ -160,7 +174,7 @@ function Section({ k, model, tmplId }: { k: SectionKey; model: ResumeModel; tmpl
       return null;
     case "name":
       return (
-        <div className="text-[17px] font-bold leading-tight" style={{ color: `#${tmpl.accent}` }}>
+        <div className="text-center text-[17px] font-bold leading-tight" style={{ color: `#${tmpl.accent}` }}>
           {model.name || "Candidate Name"}
         </div>
       );
@@ -168,11 +182,11 @@ function Section({ k, model, tmplId }: { k: SectionKey; model: ResumeModel; tmpl
       // Ohio ITSA submissions omit phone / email / LinkedIn — location only.
       if (tmpl.hideContactDetails) {
         return model.contact.location ? (
-          <div className="mt-0.5 text-[11px]"><span className="font-semibold">Current location:</span> {model.contact.location}</div>
+          <div className="mt-0.5 text-center text-[11px]"><span className="font-semibold">Current location:</span> {model.contact.location}</div>
         ) : null;
       }
       const parts = [model.contact.location, model.contact.phone, model.contact.email, model.contact.linkedin, model.contact.website].filter(Boolean);
-      return parts.length ? <div className="mt-0.5 text-[10.5px] text-gray-600">{parts.join("  |  ")}</div> : null;
+      return parts.length ? <div className="mt-0.5 text-center text-[10.5px] text-gray-600">{parts.join("  |  ")}</div> : null;
     }
     case "title":
       return model.title ? (

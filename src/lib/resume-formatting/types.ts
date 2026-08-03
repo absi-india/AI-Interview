@@ -59,6 +59,8 @@ export interface ResumeModel {
   contact: ContactInfo;
   requisitionNumber?: string; // VectorVMS / Ohio ITSA requisition number
   summary?: string;
+  /** Summary written as bullets in the source; preserved rather than flattened. */
+  summaryBullets?: string[];
   skills: SkillCategory[];
   experience: ExperienceEntry[];
   education: EducationEntry[];

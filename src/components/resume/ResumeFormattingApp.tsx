@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { showToast } from "@/components/ui/Toaster";
 import { ResumePreview } from "@/components/resume/ResumePreview";
 import { TEMPLATES } from "@/lib/resume-formatting/templates";
+import { buildSnapshot } from "@/lib/resume-formatting/snapshot";
 import {
   applyAcceptedSuggestions,
   countSuggestions,
@@ -65,10 +66,21 @@ export function ResumeFormattingApp() {
   const [view, setView] = useState<ViewMode>("split");
   const [zoom, setZoom] = useState(1);
   const [leftPct, setLeftPct] = useState(48);
-  const [rail, setRail] = useState<"suggestions" | "score" | "details">("suggestions");
+  const [rail, setRail] = useState<"snapshot" | "suggestions" | "score" | "details">("snapshot");
   const [exporting, setExporting] = useState(false);
   const [details, setDetails] = useState<ResumeModel | null>(null);
   const [reviewing, setReviewing] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
+
+  // Elapsed timer while the resume is being analysed, so the wait is visible
+  // rather than an unmoving bar.
+  useEffect(() => {
+    if (!busy) return;
+    setElapsed(0);
+    const started = Date.now();
+    const id = setInterval(() => setElapsed(Math.round((Date.now() - started) / 1000)), 250);
+    return () => clearInterval(id);
+  }, [busy]);
 
   const splitRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -128,7 +140,7 @@ export function ResumeFormattingApp() {
           setSelectedId(null);
           setStep("editor");
           showToast("Resume formatted — reviewing wording in the background…", "success");
-          void loadSuggestions(data.rawText);
+          void loadSuggestions(data.rawText, data.model);
         } catch {
           setUploadError("Something went wrong reading the analysis. Please try again.");
         }
@@ -156,13 +168,13 @@ export function ResumeFormattingApp() {
   }
 
   /** Second pass — runs after the editor is open so it never blocks the user. */
-  async function loadSuggestions(rawText: string) {
+  async function loadSuggestions(rawText: string, modelForReview: ResumeModel) {
     setReviewing(true);
     try {
       const res = await fetch("/api/resume-format/suggest", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rawText }),
+        body: JSON.stringify({ rawText, model: modelForReview }),
       });
       if (!res.ok) return;
       const data = (await res.json()) as { suggestions?: Suggestion[] };
@@ -386,14 +398,40 @@ export function ResumeFormattingApp() {
               <input ref={fileInputRef} type="file" accept=".pdf,.doc,.docx" className="hidden" onChange={(e) => chooseFile(e.target.files?.[0] ?? null)} />
             </div>
 
-            {busy && (
-              <div className="mt-4">
-                <div className="h-2 overflow-hidden rounded-full bg-[#e7ebf0]">
-                  <div className="h-full rounded-full bg-[#2563eb] transition-[width]" style={{ width: `${progress < 100 ? progress : 100}%` }} />
+            {busy && (() => {
+              const uploading = progress < 100;
+              // Upload is the first 25%; analysis eases towards 95% so the bar
+              // keeps moving without ever claiming to be finished.
+              const pct = uploading
+                ? Math.round(progress * 0.25)
+                : Math.min(95, 25 + Math.round(70 * (1 - Math.exp(-elapsed / 14))));
+              const stage = uploading
+                ? `Uploading… ${progress}%`
+                : elapsed < 6
+                  ? "Reading your resume…"
+                  : elapsed < 15
+                    ? "Extracting sections and experience…"
+                    : "Almost there — structuring the last sections…";
+              return (
+                <div className="mt-4">
+                  <div className="h-2 overflow-hidden rounded-full bg-[#e7ebf0]">
+                    <div className="h-full rounded-full bg-[#2563eb] transition-[width] duration-500" style={{ width: `${pct}%` }} />
+                  </div>
+                  <div className="mt-2 flex items-center justify-between gap-3 text-xs">
+                    <span className="flex items-center gap-2 text-[#475569]">
+                      <span className="h-3 w-3 flex-none animate-spin rounded-full border-2 border-[#2563eb] border-t-transparent" />
+                      {stage}
+                    </span>
+                    <span className="tabular-nums font-medium text-[#94a3b8]">{elapsed}s</span>
+                  </div>
+                  {!uploading && (
+                    <p className="mt-1.5 text-[11px] text-[#94a3b8]">
+                      Longer resumes take longer — every page is processed so nothing is left out.
+                    </p>
+                  )}
                 </div>
-                <p className="mt-2 text-xs text-[#64748b]">{progress < 100 ? `Uploading… ${progress}%` : "Analyzing resume with AI — this can take a few seconds…"}</p>
-              </div>
-            )}
+              );
+            })()}
 
             {!busy && (
               <button onClick={analyze} className="btn-primary mt-4 w-full">Analyze &amp; Format</button>
@@ -474,15 +512,17 @@ export function ResumeFormattingApp() {
 
         {/* right rail */}
         <div className="flex w-[360px] flex-none flex-col border-l border-[#e1e7f0] bg-white">
-          <div className="flex border-b border-[#e1e7f0] text-xs">
-            {(["suggestions", "score", "details"] as const).map((t) => (
-              <button key={t} onClick={() => setRail(t)} className={`flex-1 px-2 py-2.5 capitalize ${rail === t ? "border-b-2 border-[#2563eb] font-semibold text-[#2563eb]" : "text-[#64748b]"}`}>
+          <div className="flex border-b border-[#e1e7f0] text-[11px]">
+            {(["snapshot", "suggestions", "score", "details"] as const).map((t) => (
+              <button key={t} onClick={() => setRail(t)} className={`flex-1 px-1.5 py-2.5 capitalize ${rail === t ? "border-b-2 border-[#2563eb] font-semibold text-[#2563eb]" : "text-[#64748b]"}`}>
                 {t === "suggestions" ? `Suggestions (${counts.pending})` : t}
               </button>
             ))}
           </div>
 
           <div className="min-h-0 flex-1 overflow-auto p-3">
+            {rail === "snapshot" && <SnapshotPanel model={appliedModel} />}
+
             {rail === "suggestions" && (
               <div className="space-y-2.5">
                 {reviewing && (
@@ -601,6 +641,89 @@ function SuggestionCard({
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+/** Recruiter-facing overview so the whole resume doesn't have to be read. */
+function SnapshotPanel({ model }: { model: ResumeModel }) {
+  const s = useMemo(() => buildSnapshot(model), [model]);
+  const Row = ({ label, children }: { label: string; children: React.ReactNode }) => (
+    <div className="border-b border-[#f1f5f9] py-1.5 last:border-0">
+      <div className="text-[10px] uppercase tracking-wide text-[#94a3b8]">{label}</div>
+      <div className="mt-0.5 text-[12px] leading-snug text-[#0f172a]">{children}</div>
+    </div>
+  );
+
+  return (
+    <div className="space-y-2">
+      <div className="grid grid-cols-3 gap-2 text-center">
+        <div className="rounded-lg border border-[#e7ebf0] py-2">
+          <div className="text-[17px] font-semibold text-[#0f172a]">{s.totalYears ?? "—"}</div>
+          <div className="text-[10px] text-[#94a3b8]">Years exp.</div>
+        </div>
+        <div className="rounded-lg border border-[#e7ebf0] py-2">
+          <div className="text-[17px] font-semibold text-[#0f172a]">{s.companyCount}</div>
+          <div className="text-[10px] text-[#94a3b8]">Companies</div>
+        </div>
+        <div className="rounded-lg border border-[#e7ebf0] py-2">
+          <div className={`text-[17px] font-semibold ${s.gaps.length ? "text-[#b45309]" : "text-[#15803d]"}`}>{s.gaps.length}</div>
+          <div className="text-[10px] text-[#94a3b8]">Gaps</div>
+        </div>
+      </div>
+
+      {s.datesIncomplete && (
+        <p className="rounded-md border border-[#fde68a] bg-[#fffbeb] px-2 py-1.5 text-[10.5px] leading-snug text-[#b45309]">
+          Some employment dates were unclear, so totals may be incomplete. Check the Details tab.
+        </p>
+      )}
+
+      <div className="rounded-xl border border-[#e7ebf0] px-2.5 py-1">
+        {(s.currentTitle || s.currentCompany) && (
+          <Row label="Current role">
+            <span className="font-semibold">{s.currentTitle || "—"}</span>
+            {s.currentCompany && <> · {s.currentCompany}</>}
+          </Row>
+        )}
+        {s.location && <Row label="Location">{s.location}</Row>}
+        {s.averageTenureMonths !== null && (
+          <Row label="Average tenure">
+            {s.averageTenureMonths >= 12
+              ? `${Math.round((s.averageTenureMonths / 12) * 10) / 10} years`
+              : `${s.averageTenureMonths} months`}
+          </Row>
+        )}
+        {s.gaps.length > 0 && (
+          <Row label="Employment gaps">
+            <ul className="space-y-0.5">
+              {s.gaps.map((g, i) => (
+                <li key={i} className="text-[#b45309]">
+                  {g.months >= 12 ? `${Math.round((g.months / 12) * 10) / 10} yr` : `${g.months} mo`} between {g.afterCompany} and {g.beforeCompany}
+                </li>
+              ))}
+            </ul>
+          </Row>
+        )}
+        {s.companies.length > 0 && <Row label="Employers">{s.companies.join(" · ")}</Row>}
+        {s.topSkills.length > 0 && (
+          <Row label="Key skills">
+            <div className="flex flex-wrap gap-1">
+              {s.topSkills.map((k) => (
+                <span key={k} className="rounded bg-[#eff4ff] px-1.5 py-0.5 text-[10.5px] text-[#1d4ed8]">{k}</span>
+              ))}
+            </div>
+          </Row>
+        )}
+        {s.educationSummary.length > 0 && <Row label="Education">{s.educationSummary.join(" · ")}</Row>}
+        {s.certificationCount > 0 && (
+          <Row label={`Certifications (${s.certificationCount})`}>{s.certifications.join(" · ")}</Row>
+        )}
+        {s.projectCount > 0 && <Row label="Projects">{s.projectCount} listed</Row>}
+      </div>
+
+      <p className="text-[10px] leading-snug text-[#94a3b8]">
+        Calculated from the candidate&rsquo;s own resume content. Overlapping roles are counted once.
+      </p>
     </div>
   );
 }

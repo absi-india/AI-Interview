@@ -28,6 +28,7 @@ export function applyAcceptedSuggestions(model: ResumeModel, suggestions: Sugges
   };
 
   clone.summary = apply(clone.summary);
+  clone.summaryBullets = clone.summaryBullets?.map((b) => apply(b) ?? b);
   clone.title = apply(clone.title);
   clone.additional = apply(clone.additional);
   clone.experience = clone.experience.map((e) => ({

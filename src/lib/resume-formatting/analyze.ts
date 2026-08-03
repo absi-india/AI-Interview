@@ -2,6 +2,7 @@ import "server-only";
 
 import OpenAI from "openai";
 import { randomUUID } from "node:crypto";
+import { chunkText, segmentResume } from "./segment";
 import {
   emptyResumeModel,
   type AnalyzeResult,
@@ -13,7 +14,12 @@ import {
 } from "./types";
 
 const OPENAI_MODEL = process.env.OPENAI_MODEL?.trim() || "gpt-4o-mini";
-const MAX_INPUT_CHARS = 16000;
+// Effectively the whole document: long resumes used to be cut off at 16k chars,
+// which silently discarded everything past roughly page three.
+const MAX_INPUT_CHARS = 120_000;
+/** Per-request slice of a long section, small enough to echo back in full. */
+const CHUNK_CHARS = 6_000;
+const MAX_OUTPUT_TOKENS = 8_000;
 
 function getOpenAiApiKey(): string | null {
   const key = process.env.OPENAI_API_KEY?.trim();
@@ -51,11 +57,13 @@ const STRUCTURE_PROMPT = `You are a resume-formatting assistant for a staffing c
 
 ${RULES}
 
+You are given ONE SECTION of a resume at a time. Extract only what appears in the text you are given, and leave every other field empty. Extract EVERY entry and EVERY bullet present — never summarise, merge, shorten or drop any of them.
+
 Return ONE JSON object with exactly these keys: "model", "clarifications", "scores".
 
 "model" is the faithfully extracted resume with this shape:
 {
-  "name": string, "title": string, "requisitionNumber": string, "summary": string,
+  "name": string, "title": string, "requisitionNumber": string, "summary": string, "summaryBullets": [string],
   "contact": { "location": string, "phone": string, "email": string, "linkedin": string, "website": string },
   "skills": [ { "category": string, "skills": [string] } ],
   "experience": [ { "company": string, "location": string, "startDate": string, "endDate": string, "title": string, "bullets": [string], "environment": string } ],
@@ -64,7 +72,7 @@ Return ONE JSON object with exactly these keys: "model", "clarifications", "scor
   "projects": [ { "name": string, "description": string, "bullets": [string] } ],
   "additional": string
 }
-Use empty string "" or [] for anything not present. Copy bullet text VERBATIM from the resume — do not improve or shorten it here.
+Use empty string "" or [] for anything not present. Copy every bullet VERBATIM and in full — do not improve, shorten, truncate or omit any of them. If the professional summary is written as bullets, put each one in "summaryBullets" rather than flattening them into "summary".
 
 "clarifications" is an array of at most 12 questions for missing/unclear/conflicting info:
 { "question": string, "field": dotted hint like "contact.location" or "experience[0].endDate" }
@@ -114,6 +122,7 @@ function normalizeModel(raw: unknown): ResumeModel {
     title: toStr(r.title),
     requisitionNumber: toStr(r.requisitionNumber),
     summary: toStr(r.summary),
+    summaryBullets: toStrArr(r.summaryBullets),
     contact: {
       location: toStr(contact.location),
       phone: toStr(contact.phone),
@@ -239,6 +248,9 @@ async function callJson(system: string, user: string, timeoutMs: number): Promis
   const response = await client.chat.completions.create({
     model: OPENAI_MODEL,
     temperature: 0.2,
+    // Without an explicit ceiling the JSON gets cut off mid-document and the
+    // tail of the resume is lost.
+    max_tokens: MAX_OUTPUT_TOKENS,
     response_format: { type: "json_object" },
     messages: [
       { role: "system", content: system },
@@ -248,22 +260,118 @@ async function callJson(system: string, user: string, timeoutMs: number): Promis
   return JSON.parse(response.choices[0]?.message?.content ?? "{}") as Record<string, unknown>;
 }
 
+/** Merge a partial model from one chunk into the accumulating result. */
+function mergeModel(base: ResumeModel, add: ResumeModel): ResumeModel {
+  return {
+    name: base.name || add.name,
+    title: base.title || add.title,
+    requisitionNumber: base.requisitionNumber || add.requisitionNumber,
+    summary: base.summary || add.summary,
+    summaryBullets: [...(base.summaryBullets ?? []), ...(add.summaryBullets ?? [])],
+    contact: {
+      location: base.contact.location || add.contact.location,
+      phone: base.contact.phone || add.contact.phone,
+      email: base.contact.email || add.contact.email,
+      linkedin: base.contact.linkedin || add.contact.linkedin,
+      website: base.contact.website || add.contact.website,
+    },
+    skills: [...base.skills, ...add.skills],
+    experience: [...base.experience, ...add.experience],
+    education: [...base.education, ...add.education],
+    certifications: [...base.certifications, ...add.certifications],
+    projects: [...base.projects, ...add.projects],
+    additional: [base.additional, add.additional].filter(Boolean).join("\n").trim(),
+  };
+}
+
 /**
- * Pass 1: extract the structured resume. Returns no suggestions — the review
- * runs as a second request so the editor can open without waiting for it.
+ * Pass 1: extract the structured resume.
+ *
+ * The resume is segmented and each part sent as its own small request, run in
+ * parallel. Previously one request carried the whole document, so anything past
+ * the input cap or the model's output limit was silently lost — on a six-page
+ * resume that was most of it.
  */
 export async function analyzeResume(rawText: string, fileName: string): Promise<AnalyzeResult> {
-  const trimmed = rawText.slice(0, MAX_INPUT_CHARS);
-  if (!getOpenAiApiKey() || !trimmed) return fallbackResult(rawText, fileName);
+  const text = rawText.slice(0, MAX_INPUT_CHARS);
+  if (!getOpenAiApiKey() || !text.trim()) return fallbackResult(rawText, fileName);
+
+  const seg = segmentResume(text);
+
+  // Head/summary/skills are small and always sent together; the bulky sections
+  // are chunked so no single request has to echo back too much.
+  const profileText = [seg.head, seg.summary && `PROFESSIONAL SUMMARY\n${seg.summary}`, seg.skills && `TECHNICAL SKILLS\n${seg.skills}`]
+    .filter(Boolean)
+    .join("\n\n");
+  const qualsText = [
+    seg.education && `EDUCATION\n${seg.education}`,
+    seg.certifications && `CERTIFICATIONS\n${seg.certifications}`,
+    seg.projects && `PROJECTS\n${seg.projects}`,
+    seg.additional && `ADDITIONAL INFORMATION\n${seg.additional}`,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+
+  const jobs: { label: string; body: string }[] = [
+    ...(profileText ? [{ label: "PROFILE", body: profileText }] : []),
+    ...chunkText(seg.experience, CHUNK_CHARS).map((c) => ({ label: "PROFESSIONAL EXPERIENCE", body: c })),
+    ...(qualsText ? [{ label: "QUALIFICATIONS", body: qualsText }] : []),
+  ];
+
+  // Nothing recognised (unusual layout) — fall back to one request over all text.
+  if (!jobs.length) jobs.push({ label: "RESUME", body: text });
 
   try {
-    const parsed = await callJson(STRUCTURE_PROMPT, `RESUME TEXT:\n"""\n${trimmed}\n"""`, 55_000);
+    const parts = await Promise.all(
+      jobs.map(async ({ label, body }) => {
+        try {
+          const parsed = await callJson(
+            STRUCTURE_PROMPT,
+            `SECTION: ${label}\nRESUME TEXT:\n"""\n${body}\n"""`,
+            50_000,
+          );
+          return parsed;
+        } catch (err) {
+          console.warn("[resume-formatting] chunk failed", label, err);
+          return null;
+        }
+      }),
+    );
+
+    let model = emptyResumeModel();
+    const clarifications: ClarifyQuestion[] = [];
+    const scoreSets: QualityScores[] = [];
+
+    for (const parsed of parts) {
+      if (!parsed) continue;
+      model = mergeModel(model, normalizeModel(parsed.model));
+      clarifications.push(...normalizeClarifications(parsed.clarifications));
+      const s = normalizeScores(parsed.scores);
+      if (s.overall) scoreSets.push(s);
+    }
+
+    // Nothing came back at all — keep the text rather than showing an empty resume.
+    if (!model.name && !model.experience.length && !model.summary && !model.summaryBullets?.length) {
+      return fallbackResult(rawText, fileName);
+    }
+
+    const avg = (pick: (s: QualityScores) => number) =>
+      scoreSets.length ? Math.round(scoreSets.reduce((a, s) => a + pick(s), 0) / scoreSets.length) : 0;
+
     return {
-      model: normalizeModel(parsed.model),
+      model,
       suggestions: [],
-      clarifications: normalizeClarifications(parsed.clarifications),
+      clarifications: clarifications.slice(0, 20),
       rawText,
-      scores: normalizeScores(parsed.scores),
+      scores: {
+        overall: avg((s) => s.overall),
+        grammar: avg((s) => s.grammar),
+        spelling: avg((s) => s.spelling),
+        ats: avg((s) => s.ats),
+        readability: avg((s) => s.readability),
+        formatting: avg((s) => s.formatting),
+        professional: avg((s) => s.professional),
+      },
       fileName,
     };
   } catch (err) {

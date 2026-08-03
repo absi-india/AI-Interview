@@ -54,6 +54,7 @@ function run(text: string, opts: { bold?: boolean; italics?: boolean; size?: num
 function nameParagraph(model: ResumeModel, color: string) {
   return new Paragraph({
     spacing: { after: 40 },
+    alignment: AlignmentType.CENTER,
     children: [run(model.name || "Candidate Name", { bold: true, size: 32, color })],
   });
 }
@@ -64,6 +65,7 @@ function contactLine(model: ResumeModel, hideDetails: boolean) {
     if (!model.contact.location) return null;
     return new Paragraph({
       spacing: { after: 120 },
+      alignment: AlignmentType.CENTER,
       children: [run("Current location: ", { bold: true }), run(model.contact.location)],
     });
   }
@@ -78,6 +80,7 @@ function contactLine(model: ResumeModel, hideDetails: boolean) {
   if (!parts.length) return null;
   return new Paragraph({
     spacing: { after: 120 },
+    alignment: AlignmentType.CENTER,
     children: [run(parts.join("  |  "), { size: 18, color: "444444" })],
   });
 }
@@ -163,12 +166,28 @@ function heading(key: SectionKey, tmplId: TemplateId): (Paragraph | Table)[] {
 
 // ── Body builders ──
 function bullet(text: string) {
-  return new Paragraph({ bullet: { level: 0 }, spacing: { after: 20 }, children: [run(text)] });
+  return new Paragraph({
+    bullet: { level: 0 },
+    spacing: { after: 20 },
+    alignment: AlignmentType.JUSTIFIED,
+    children: [run(text)],
+  });
 }
 
 function summaryPara(model: ResumeModel) {
-  if (!model.summary) return [];
-  return [new Paragraph({ spacing: { after: 80 }, children: [run(model.summary)] })];
+  const out: Paragraph[] = [];
+  if (model.summary) {
+    out.push(
+      new Paragraph({
+        spacing: { after: 80 },
+        alignment: AlignmentType.JUSTIFIED,
+        children: [run(model.summary)],
+      }),
+    );
+  }
+  // A summary written as bullets in the source stays bulleted.
+  for (const b of model.summaryBullets ?? []) out.push(bullet(b));
+  return out;
 }
 
 function skillsBlock(model: ResumeModel) {
@@ -207,7 +226,7 @@ function experienceBlock(model: ResumeModel) {
     }
     e.bullets.forEach((b) => out.push(bullet(b)));
     if (e.environment) {
-      out.push(new Paragraph({ spacing: { after: 40 }, children: [run("Environment: ", { bold: true }), run(e.environment)] }));
+      out.push(new Paragraph({ spacing: { after: 40 }, alignment: AlignmentType.JUSTIFIED, children: [run("Environment: ", { bold: true }), run(e.environment)] }));
     }
   }
   return out;
@@ -258,7 +277,7 @@ function educationBlock(model: ResumeModel) {
 function certsBlock(model: ResumeModel) {
   return model.certifications.map((c) => {
     const extra = [c.issuer, c.date].filter(Boolean).join(", ");
-    return new Paragraph({ bullet: { level: 0 }, spacing: { after: 20 }, children: [run(c.name + (extra ? ` — ${extra}` : ""))] });
+    return new Paragraph({ bullet: { level: 0 }, spacing: { after: 20 }, alignment: AlignmentType.JUSTIFIED, children: [run(c.name + (extra ? ` — ${extra}` : ""))] });
   });
 }
 
@@ -266,7 +285,7 @@ function projectsBlock(model: ResumeModel) {
   const out: Paragraph[] = [];
   for (const p of model.projects) {
     out.push(new Paragraph({ spacing: { before: 60, after: 10 }, keepNext: true, children: [run(p.name, { bold: true })] }));
-    if (p.description) out.push(new Paragraph({ spacing: { after: 20 }, children: [run(p.description)] }));
+    if (p.description) out.push(new Paragraph({ spacing: { after: 20 }, alignment: AlignmentType.JUSTIFIED, children: [run(p.description)] }));
     p.bullets.forEach((b) => out.push(bullet(b)));
   }
   return out;
@@ -294,7 +313,7 @@ function sectionBody(key: SectionKey, model: ResumeModel, tmplId: TemplateId): (
     case "projects":
       return projectsBlock(model);
     case "additional":
-      return model.additional ? [new Paragraph({ children: [run(model.additional)] })] : [];
+      return model.additional ? [new Paragraph({ alignment: AlignmentType.JUSTIFIED, children: [run(model.additional)] })] : [];
     default:
       return [];
   }
@@ -410,6 +429,14 @@ export async function buildResumeDocx(model: ResumeModel, tmplId: TemplateId): P
 }
 
 export function resumeFileName(model: ResumeModel, tmplId: TemplateId): string {
-  const safeName = (model.name || "Candidate").replace(/[^A-Za-z0-9]+/g, "") || "Candidate";
-  return `${safeName}_${getTemplate(tmplId).fileSuffix}_Resume.docx`;
+  // firstname-lastname, lower case — e.g. nagendra-chappidi.docx
+  const parts = (model.name || "")
+    .replace(/[^A-Za-z\s'-]+/g, " ")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  const first = parts[0] ?? "";
+  const last = parts.length > 1 ? parts[parts.length - 1] : "";
+  const slug = [first, last].filter(Boolean).join("-").toLowerCase().replace(/[^a-z-]/g, "") || "candidate";
+  return `${slug}-${getTemplate(tmplId).fileSuffix.toLowerCase()}.docx`;
 }
