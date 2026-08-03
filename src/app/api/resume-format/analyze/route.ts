@@ -4,7 +4,7 @@ import { analyzeResume } from "@/lib/resume-formatting/analyze";
 import { ACCEPTED_EXTENSIONS, extractResumeText, getExtension } from "@/lib/resume-formatting/extract";
 
 export const runtime = "nodejs";
-export const maxDuration = 90;
+export const maxDuration = 60;
 
 const MAX_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
 

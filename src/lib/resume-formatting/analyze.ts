@@ -36,16 +36,22 @@ const SUGGESTION_TYPES: SuggestionType[] = [
   "missing-info",
 ];
 
-const SYSTEM_PROMPT = `You are a resume-formatting assistant for a staffing company. You reorganize and clean up resumes WITHOUT inventing anything.
-
-ABSOLUTE RULES:
+const RULES = `ABSOLUTE RULES:
 1. Never invent candidate information. Only use facts present in the provided resume text.
 2. Never add employers, job titles, employment dates, degrees, certifications, skills, technologies, projects, achievements, responsibilities, or contact details that are not in the text.
 3. Preserve the original meaning of every sentence.
-4. Every wording/spelling/grammar/clarity change must be returned as a SUGGESTION (pending), never silently applied.
-5. When information is missing, unclear, or conflicting, add a CLARIFICATION question instead of guessing.
+4. Never silently rewrite content — improvements are returned as suggestions for the user to approve.
+5. When information is missing, unclear, or conflicting, raise a clarification question instead of guessing.`;
 
-You will return ONE JSON object with exactly these keys: "model", "suggestions", "clarifications", "scores".
+/**
+ * Pass 1 — structure only. Kept free of suggestions so the response stays small
+ * and the editor can open quickly; the review pass runs separately.
+ */
+const STRUCTURE_PROMPT = `You are a resume-formatting assistant for a staffing company. You reorganize resumes WITHOUT inventing anything.
+
+${RULES}
+
+Return ONE JSON object with exactly these keys: "model", "clarifications", "scores".
 
 "model" is the faithfully extracted resume with this shape:
 {
@@ -58,20 +64,28 @@ You will return ONE JSON object with exactly these keys: "model", "suggestions",
   "projects": [ { "name": string, "description": string, "bullets": [string] } ],
   "additional": string
 }
-Use empty string "" or [] for anything not present. Keep bullet text as-is in the model (do NOT pre-apply improvements); improvements go in "suggestions".
+Use empty string "" or [] for anything not present. Copy bullet text VERBATIM from the resume — do not improve or shorten it here.
 
-"suggestions" is an array of at most 40 items:
-{ "type": one of ${SUGGESTION_TYPES.map((t) => `"${t}"`).join(", ")},
-  "section": string (e.g. "Professional Experience"),
-  "original": exact substring from the resume,
-  "suggested": improved version preserving meaning,
-  "reason": short explanation }
-Focus on real issues: spelling, grammar, weak/unclear/overly-long sentences, weak action verbs, repeated responsibilities, inconsistent tense, ATS wording, inconsistent date formats. "original" must appear verbatim in the resume text so it can be located.
-
-"clarifications" is an array of questions for missing/unclear/conflicting info:
+"clarifications" is an array of at most 12 questions for missing/unclear/conflicting info:
 { "question": string, "field": dotted hint like "contact.location" or "experience[0].endDate" }
 
-"scores" is: { "overall", "grammar", "spelling", "ats", "readability", "formatting", "professional" } — each an integer 0-100 estimating current quality (before any fixes). These are estimates, not guarantees.
+"scores" is: { "overall", "grammar", "spelling", "ats", "readability", "formatting", "professional" } — each an integer 0-100 estimating current quality. These are estimates, not guarantees.
+
+Return only the JSON object.`;
+
+/** Pass 2 — the review, returning only suggested wording changes. */
+const REVIEW_PROMPT = `You are reviewing a resume for a staffing company.
+
+${RULES}
+
+Return ONE JSON object with a single key "suggestions": an array of at most 20 items:
+{ "type": one of ${SUGGESTION_TYPES.map((t) => `"${t}"`).join(", ")},
+  "section": string (e.g. "Professional Experience"),
+  "original": exact substring copied verbatim from the resume text,
+  "suggested": improved version preserving the original meaning,
+  "reason": short explanation }
+
+Focus on the highest-value issues: spelling, grammar, weak/unclear/overly-long sentences, weak action verbs, repeated responsibilities, inconsistent verb tense, ATS wording, inconsistent date formats. "original" MUST appear verbatim in the resume text so it can be located. Prefer 10-20 strong suggestions over many trivial ones.
 
 Return only the JSON object.`;
 
@@ -167,7 +181,7 @@ function normalizeSuggestions(raw: unknown): Suggestion[] {
       };
     })
     .filter((s): s is Suggestion => s !== null)
-    .slice(0, 40);
+    .slice(0, 20);
 }
 
 function normalizeClarifications(raw: unknown): ClarifyQuestion[] {
@@ -218,36 +232,56 @@ function fallbackResult(rawText: string, fileName: string): AnalyzeResult {
   };
 }
 
+async function callJson(system: string, user: string, timeoutMs: number): Promise<Record<string, unknown>> {
+  const apiKey = getOpenAiApiKey();
+  if (!apiKey) throw new Error("OPENAI_NOT_CONFIGURED");
+  const client = new OpenAI({ apiKey, timeout: timeoutMs });
+  const response = await client.chat.completions.create({
+    model: OPENAI_MODEL,
+    temperature: 0.2,
+    response_format: { type: "json_object" },
+    messages: [
+      { role: "system", content: system },
+      { role: "user", content: user },
+    ],
+  });
+  return JSON.parse(response.choices[0]?.message?.content ?? "{}") as Record<string, unknown>;
+}
+
+/**
+ * Pass 1: extract the structured resume. Returns no suggestions — the review
+ * runs as a second request so the editor can open without waiting for it.
+ */
 export async function analyzeResume(rawText: string, fileName: string): Promise<AnalyzeResult> {
   const trimmed = rawText.slice(0, MAX_INPUT_CHARS);
-  const apiKey = getOpenAiApiKey();
-  if (!apiKey || !trimmed) return fallbackResult(rawText, fileName);
+  if (!getOpenAiApiKey() || !trimmed) return fallbackResult(rawText, fileName);
 
   try {
-    const client = new OpenAI({ apiKey, timeout: 60_000 });
-    const response = await client.chat.completions.create({
-      model: OPENAI_MODEL,
-      temperature: 0.2,
-      response_format: { type: "json_object" },
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: `RESUME TEXT:\n"""\n${trimmed}\n"""` },
-      ],
-    });
-
-    const content = response.choices[0]?.message?.content ?? "";
-    const parsed = JSON.parse(content) as Record<string, unknown>;
-
+    const parsed = await callJson(STRUCTURE_PROMPT, `RESUME TEXT:\n"""\n${trimmed}\n"""`, 55_000);
     return {
       model: normalizeModel(parsed.model),
-      suggestions: normalizeSuggestions(parsed.suggestions),
+      suggestions: [],
       clarifications: normalizeClarifications(parsed.clarifications),
       rawText,
       scores: normalizeScores(parsed.scores),
       fileName,
     };
   } catch (err) {
-    console.warn("[resume-formatting] AI analysis failed, using fallback", err);
+    console.warn("[resume-formatting] structure pass failed, using fallback", err);
     return fallbackResult(rawText, fileName);
+  }
+}
+
+/** Pass 2: the wording review. Failure here is non-fatal — the editor still works. */
+export async function reviewResume(rawText: string): Promise<Suggestion[]> {
+  const trimmed = rawText.slice(0, MAX_INPUT_CHARS);
+  if (!getOpenAiApiKey() || !trimmed) return [];
+
+  try {
+    const parsed = await callJson(REVIEW_PROMPT, `RESUME TEXT:\n"""\n${trimmed}\n"""`, 55_000);
+    return normalizeSuggestions(parsed.suggestions);
+  } catch (err) {
+    console.warn("[resume-formatting] review pass failed", err);
+    return [];
   }
 }

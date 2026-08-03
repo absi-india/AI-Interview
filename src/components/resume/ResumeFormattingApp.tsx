@@ -68,6 +68,7 @@ export function ResumeFormattingApp() {
   const [rail, setRail] = useState<"suggestions" | "score" | "details">("suggestions");
   const [exporting, setExporting] = useState(false);
   const [details, setDetails] = useState<ResumeModel | null>(null);
+  const [reviewing, setReviewing] = useState(false);
 
   const splitRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -121,26 +122,30 @@ export function ResumeFormattingApp() {
           const data = JSON.parse(xhr.responseText) as AnalyzeResult;
           setResult(data);
           setDetails(data.model);
-          setSuggestions(data.suggestions);
+          setSuggestions([]);
           setHistory([]);
           setFuture([]);
-          setSelectedId(data.suggestions[0]?.id ?? null);
+          setSelectedId(null);
           setStep("editor");
-          showToast(
-            `Resume analyzed — ${data.suggestions.length} suggestion${data.suggestions.length === 1 ? "" : "s"} to review.`,
-            "success",
-          );
+          showToast("Resume formatted — reviewing wording in the background…", "success");
+          void loadSuggestions(data.rawText);
         } catch {
           setUploadError("Something went wrong reading the analysis. Please try again.");
         }
       } else {
-        let msg = "We couldn't process this file.";
+        let msg = "";
         try {
-          msg = (JSON.parse(xhr.responseText) as { error?: string }).error ?? msg;
+          msg = (JSON.parse(xhr.responseText) as { error?: string }).error ?? "";
         } catch {
-          // keep the generic message
+          // Non-JSON body means the platform returned the error, not our route —
+          // almost always the request timing out on a very long resume.
         }
-        setUploadError(msg);
+        setUploadError(
+          msg ||
+            (xhr.status === 504 || xhr.status === 0
+              ? "This resume took too long to analyze. Please try again — if it keeps failing, shorten the resume or split it."
+              : `We couldn't process this file (error ${xhr.status}). Please try again, or save it as a PDF and re-upload.`),
+        );
       }
     };
     xhr.onerror = () => {
@@ -148,6 +153,33 @@ export function ResumeFormattingApp() {
       setUploadError("Upload failed. Please check your connection and try again.");
     };
     xhr.send(fd);
+  }
+
+  /** Second pass — runs after the editor is open so it never blocks the user. */
+  async function loadSuggestions(rawText: string) {
+    setReviewing(true);
+    try {
+      const res = await fetch("/api/resume-format/suggest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rawText }),
+      });
+      if (!res.ok) return;
+      const data = (await res.json()) as { suggestions?: Suggestion[] };
+      const list = data.suggestions ?? [];
+      setSuggestions(list);
+      setSelectedId(list[0]?.id ?? null);
+      showToast(
+        list.length
+          ? `${list.length} suggestion${list.length === 1 ? "" : "s"} ready to review.`
+          : "No wording issues found.",
+        list.length ? "success" : "info",
+      );
+    } catch {
+      // Non-fatal — the resume is already formatted and editable.
+    } finally {
+      setReviewing(false);
+    }
   }
 
   // ── suggestion actions (with undo history) ──
@@ -453,7 +485,15 @@ export function ResumeFormattingApp() {
           <div className="min-h-0 flex-1 overflow-auto p-3">
             {rail === "suggestions" && (
               <div className="space-y-2.5">
-                {suggestions.length === 0 && <p className="p-4 text-center text-sm text-[#94a3b8]">No AI suggestions — the resume looks clean, or AI analysis was unavailable.</p>}
+                {reviewing && (
+                  <div className="flex items-center gap-2.5 rounded-xl border border-[#dbe6ff] bg-[#eff4ff] px-3 py-2.5">
+                    <span className="h-3.5 w-3.5 flex-none animate-spin rounded-full border-2 border-[#2563eb] border-t-transparent" />
+                    <span className="text-[12px] font-medium text-[#1d4ed8]">Reviewing wording… your formatted resume is ready to edit meanwhile.</span>
+                  </div>
+                )}
+                {!reviewing && suggestions.length === 0 && (
+                  <p className="p-4 text-center text-sm text-[#94a3b8]">No AI suggestions — the resume looks clean, or AI analysis was unavailable.</p>
+                )}
                 {suggestions.map((s) => (
                   <SuggestionCard
                     key={s.id}
