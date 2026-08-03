@@ -1,6 +1,7 @@
 import "server-only";
 
 import mammoth from "mammoth";
+import { htmlToMarkedLines } from "./segment";
 
 /** Uploaded file types we accept for formatting. */
 export const ACCEPTED_EXTENSIONS = ["pdf", "doc", "docx"] as const;
@@ -19,6 +20,22 @@ async function extractPdfText(buffer: Buffer): Promise<string> {
   } finally {
     await parser.destroy();
   }
+}
+
+/**
+ * Extract DOCX text via HTML so that list items stay distinguishable from
+ * paragraphs; see htmlToMarkedLines for why that matters.
+ */
+async function extractDocxText(buffer: Buffer): Promise<string> {
+  const { value: html } = await mammoth.convertToHtml({ buffer });
+  const lines = htmlToMarkedLines(html);
+
+  if (!lines.length) {
+    // Unusual document — fall back to raw text rather than returning nothing.
+    const raw = await mammoth.extractRawText({ buffer });
+    return raw.value.trim();
+  }
+  return lines.join("\n").trim();
 }
 
 export interface ExtractionResult {
@@ -48,8 +65,7 @@ export async function extractResumeText(
     }
 
     if (ext === "docx") {
-      const result = await mammoth.extractRawText({ buffer });
-      const clean = result.value.trim();
+      const clean = await extractDocxText(buffer);
       return { text: clean, needsManualText: clean.length < 30 };
     }
 

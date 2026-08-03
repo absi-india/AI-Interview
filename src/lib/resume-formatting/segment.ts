@@ -7,6 +7,81 @@
  * resume gets processed and nothing is silently dropped.
  */
 
+/** Marker prefixed to every list item so bullet boundaries survive extraction. */
+export const BULLET_MARK = "• ";
+
+function decodeEntities(s: string): string {
+  return s
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#(\d+);/g, (_, d) => String.fromCharCode(Number(d)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCharCode(parseInt(h, 16)))
+    .replace(/[ \t]+/g, " ")
+    .trim();
+}
+
+/**
+ * Flatten converted DOCX HTML into lines, marking list items.
+ *
+ * Raw text extraction cannot tell a list item from a paragraph, so a role's
+ * bullets arrive as anonymous lines and get merged or dropped later. Keeping
+ * the <li> boundaries makes every bullet individually identifiable.
+ */
+export function htmlToMarkedLines(html: string): string[] {
+  const lines: string[] = [];
+  const blockRe = /<(p|li|h[1-6])\b[^>]*>([\s\S]*?)<\/\1>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = blockRe.exec(html)) !== null) {
+    const tag = m[1].toLowerCase();
+    const text = decodeEntities(m[2]);
+    if (!text) continue;
+    lines.push(tag === "li" ? `${BULLET_MARK}${text}` : text);
+  }
+  return lines;
+}
+
+/** A job as it appears in the source text, used to guarantee no bullet is lost. */
+export interface SourceJob {
+  header: string;
+  bullets: string[];
+}
+
+/** "Mar 2023 – Jul 2024", "2018 - Present", "Feb 2018 — Aug 2019". */
+const DATE_RANGE =
+  /(?:[A-Za-z]{3,9}\.?\s+)?(?:19|20)\d{2}\s*(?:[–—]|-{1,2}|\bto\b)\s*(?:(?:[A-Za-z]{3,9}\.?\s+)?(?:19|20)\d{2}|present|current|till\s*date|to\s*date|now|ongoing)/i;
+
+/**
+ * Split the experience section into the jobs actually present in the source.
+ * A new job begins at any non-bullet line carrying a date range.
+ */
+export function splitSourceJobs(experienceText: string): SourceJob[] {
+  const jobs: SourceJob[] = [];
+  let current: SourceJob | null = null;
+
+  for (const raw of experienceText.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line) continue;
+    const isBullet = line.startsWith(BULLET_MARK.trim());
+
+    if (!isBullet && DATE_RANGE.test(line)) {
+      current = { header: line, bullets: [] };
+      jobs.push(current);
+      continue;
+    }
+    if (!current) continue;
+    if (isBullet) {
+      const text = line.replace(/^[•\-*•●▪]\s*/, "").trim();
+      if (text) current.bullets.push(text);
+    }
+  }
+
+  return jobs;
+}
+
 export interface ResumeSegments {
   /** Everything before the first recognised section heading (name, contact, title). */
   head: string;

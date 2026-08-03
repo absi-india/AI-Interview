@@ -3,6 +3,7 @@ import "server-only";
 import OpenAI from "openai";
 import { randomUUID } from "node:crypto";
 import { chunkText, segmentResume } from "./segment";
+import { repairExperienceBullets } from "./repair";
 import {
   emptyResumeModel,
   type AnalyzeResult,
@@ -72,6 +73,8 @@ Return ONE JSON object with exactly these keys: "model", "clarifications", "scor
   "projects": [ { "name": string, "description": string, "bullets": [string] } ],
   "additional": string
 }
+Lines beginning with "• " are individual bullet points: each one is a SEPARATE entry in "bullets" — never merge two of them, never leave one out, and never stop early.
+
 Use empty string "" or [] for anything not present. Copy every bullet VERBATIM and in full — do not improve, shorten, truncate or omit any of them. If the professional summary is written as bullets, put each one in "summaryBullets" rather than flattening them into "summary".
 
 "clarifications" is an array of at most 12 questions for missing/unclear/conflicting info:
@@ -354,6 +357,9 @@ export async function analyzeResume(rawText: string, fileName: string): Promise<
     if (!model.name && !model.experience.length && !model.summary && !model.summaryBullets?.length) {
       return fallbackResult(rawText, fileName);
     }
+
+    // Restore any bullet the model failed to return.
+    model = repairExperienceBullets(model, seg.experience);
 
     const avg = (pick: (s: QualityScores) => number) =>
       scoreSets.length ? Math.round(scoreSets.reduce((a, s) => a + pick(s), 0) / scoreSets.length) : 0;
