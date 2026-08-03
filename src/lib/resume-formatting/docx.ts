@@ -22,6 +22,7 @@ import {
   convertInchesToTwip,
 } from "docx";
 import { getTemplate, SECTION_LABEL, type SectionKey } from "./templates";
+import { splitBulletLabel } from "./segment";
 import type { ResumeModel, TemplateId } from "./types";
 
 const BODY_FONT = "Calibri";
@@ -165,12 +166,18 @@ function heading(key: SectionKey, tmplId: TemplateId): (Paragraph | Table)[] {
 }
 
 // ── Body builders ──
+function bulletRuns(text: string) {
+  const split = splitBulletLabel(text);
+  if (!split) return [run(text)];
+  return [run(split.label, { bold: true }), run(split.rest)];
+}
+
 function bullet(text: string) {
   return new Paragraph({
     bullet: { level: 0 },
     spacing: { after: 20 },
     alignment: AlignmentType.JUSTIFIED,
-    children: [run(text)],
+    children: bulletRuns(text),
   });
 }
 

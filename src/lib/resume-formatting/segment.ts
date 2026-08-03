@@ -44,6 +44,22 @@ export function htmlToMarkedLines(html: string): string[] {
   return lines;
 }
 
+/**
+ * Split a bullet into its lead-in label and the rest, e.g.
+ * "Payments Modernization: Architected …". Resumes use the label as a scannable
+ * heading, so it is emboldened as in the source. A colon appearing late, or
+ * after sentence punctuation, is ordinary prose and left alone.
+ */
+export function splitBulletLabel(text: string): { label: string; rest: string } | null {
+  const idx = text.indexOf(":");
+  if (idx < 2 || idx > 70) return null;
+  const lead = text.slice(0, idx);
+  if (/[.!?]/.test(lead)) return null;
+  const rest = text.slice(idx + 1);
+  if (!rest.trim()) return null;
+  return { label: text.slice(0, idx + 1), rest };
+}
+
 /** A job as it appears in the source text, used to guarantee no bullet is lost. */
 export interface SourceJob {
   header: string;

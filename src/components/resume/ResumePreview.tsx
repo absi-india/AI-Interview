@@ -1,5 +1,18 @@
 import { getTemplate, SECTION_LABEL, type SectionKey } from "@/lib/resume-formatting/templates";
+import { splitBulletLabel } from "@/lib/resume-formatting/segment";
 import type { ResumeModel, TemplateId } from "@/lib/resume-formatting/types";
+
+/** Bullet text with its lead-in label emboldened, as in the source resume. */
+function BulletText({ text }: { text: string }) {
+  const split = splitBulletLabel(text);
+  if (!split) return <>{text}</>;
+  return (
+    <>
+      <span className="font-semibold">{split.label}</span>
+      {split.rest}
+    </>
+  );
+}
 
 // On-screen approximation of the exported document. The DOCX export
 // (src/lib/resume-formatting/docx.ts) mirrors this layout.
@@ -38,7 +51,7 @@ function SectionBody({ k, model, tmplId }: { k: SectionKey; model: ResumeModel; 
           {bullets.length > 0 && (
             <ul className="ml-4 list-disc space-y-0.5">
               {bullets.map((b, i) => (
-                <li key={i} className="text-justify text-[11px] leading-snug text-gray-800">{b}</li>
+                <li key={i} className="text-justify text-[11px] leading-snug text-gray-800"><BulletText text={b} /></li>
               ))}
             </ul>
           )}
@@ -69,7 +82,7 @@ function SectionBody({ k, model, tmplId }: { k: SectionKey; model: ResumeModel; 
               {e.title && <div className="text-[11px] italic text-gray-700">{e.title}</div>}
               <ul className="ml-4 list-disc space-y-0.5">
                 {e.bullets.map((b, j) => (
-                  <li key={j} className="text-justify text-[11px] leading-snug text-gray-800">{b}</li>
+                  <li key={j} className="text-justify text-[11px] leading-snug text-gray-800"><BulletText text={b} /></li>
                 ))}
               </ul>
               {e.environment && (
@@ -136,7 +149,7 @@ function SectionBody({ k, model, tmplId }: { k: SectionKey; model: ResumeModel; 
               {p.description && <div className="text-[11px] leading-snug text-gray-800">{p.description}</div>}
               {p.bullets.length > 0 && (
                 <ul className="ml-4 list-disc space-y-0.5">
-                  {p.bullets.map((b, j) => <li key={j} className="text-justify text-[11px] leading-snug text-gray-800">{b}</li>)}
+                  {p.bullets.map((b, j) => <li key={j} className="text-justify text-[11px] leading-snug text-gray-800"><BulletText text={b} /></li>)}
                 </ul>
               )}
             </div>
