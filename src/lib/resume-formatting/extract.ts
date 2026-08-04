@@ -23,19 +23,61 @@ async function extractPdfText(buffer: Buffer): Promise<string> {
 }
 
 /**
+ * Text from the DOCX page headers.
+ *
+ * Some resumes put the candidate's name and contact details only in the running
+ * page header. Mammoth converts the document body alone, so that identity block
+ * never arrived and the name came out blank. The header parts are read straight
+ * from the package and prepended once, with the repeated page numbering that
+ * accompanies them stripped.
+ */
+async function extractDocxHeaderText(buffer: Buffer): Promise<string> {
+  try {
+    const JSZip = (await import("jszip")).default;
+    const zip = await JSZip.loadAsync(buffer);
+    const names = Object.keys(zip.files).filter((n) => /^word\/header\d*\.xml$/i.test(n));
+    const seen = new Set<string>();
+    const lines: string[] = [];
+
+    for (const name of names.sort()) {
+      const xml = await zip.files[name].async("string");
+      // Each <w:p> is a line; <w:t> runs hold its text.
+      for (const para of xml.split(/<w:p[ >]/).slice(1)) {
+        const text = (para.match(/<w:t[^>]*>([\s\S]*?)<\/w:t>/g) ?? [])
+          .map((t) => t.replace(/<[^>]+>/g, ""))
+          .join("")
+          .replace(/\s+/g, " ")
+          .trim();
+        if (!text) continue;
+        if (/^page\b|\bpage \d+ of\b/i.test(text)) continue; // page numbering
+        if (seen.has(text)) continue; // repeats on every page
+        seen.add(text);
+        lines.push(text);
+      }
+    }
+    return lines.join("\n");
+  } catch {
+    return "";
+  }
+}
+
+/**
  * Extract DOCX text via HTML so that list items stay distinguishable from
  * paragraphs; see htmlToMarkedLines for why that matters.
  */
 async function extractDocxText(buffer: Buffer): Promise<string> {
-  const { value: html } = await mammoth.convertToHtml({ buffer });
+  const [{ value: html }, headerText] = await Promise.all([
+    mammoth.convertToHtml({ buffer }),
+    extractDocxHeaderText(buffer),
+  ]);
   const lines = htmlToMarkedLines(html);
 
   if (!lines.length) {
     // Unusual document — fall back to raw text rather than returning nothing.
     const raw = await mammoth.extractRawText({ buffer });
-    return raw.value.trim();
+    return [headerText, raw.value].filter(Boolean).join("\n").trim();
   }
-  return lines.join("\n").trim();
+  return [headerText, lines.join("\n")].filter(Boolean).join("\n").trim();
 }
 
 export interface ExtractionResult {

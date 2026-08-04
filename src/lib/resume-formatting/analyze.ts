@@ -315,14 +315,20 @@ export async function analyzeResume(rawText: string, fileName: string): Promise<
     .filter(Boolean)
     .join("\n\n");
 
+  // Every part is chunked, including the profile. A section left whole can
+  // exceed the output limit on its own and come back truncated, silently losing
+  // the tail of the resume — which is what happened to layouts whose headings
+  // were not recognised and so arrived as one enormous block.
   const jobs: { label: string; body: string }[] = [
-    ...(profileText ? [{ label: "PROFILE", body: profileText }] : []),
+    ...chunkText(profileText, CHUNK_CHARS).map((c) => ({ label: "PROFILE", body: c })),
     ...chunkText(seg.experience, CHUNK_CHARS).map((c) => ({ label: "PROFESSIONAL EXPERIENCE", body: c })),
-    ...(qualsText ? [{ label: "QUALIFICATIONS", body: qualsText }] : []),
+    ...chunkText(qualsText, CHUNK_CHARS).map((c) => ({ label: "QUALIFICATIONS", body: c })),
   ];
 
-  // Nothing recognised (unusual layout) — fall back to one request over all text.
-  if (!jobs.length) jobs.push({ label: "RESUME", body: text });
+  // Unusual layout with nothing recognised — still chunked, never sent whole.
+  if (!jobs.length) {
+    jobs.push(...chunkText(text, CHUNK_CHARS).map((c) => ({ label: "RESUME", body: c })));
+  }
 
   try {
     const parts = await Promise.all(

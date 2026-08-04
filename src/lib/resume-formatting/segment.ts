@@ -33,11 +33,50 @@ function decodeEntities(s: string): string {
  */
 export function htmlToMarkedLines(html: string): string[] {
   const lines: string[] = [];
-  const blockRe = /<(p|li|h[1-6])\b[^>]*>([\s\S]*?)<\/\1>/gi;
+  // Tables are matched first and consumed whole, so their cells are not also
+  // picked up as loose paragraphs. Resumes often hold the entire project list
+  // in a table, where a row's date, client and role must stay on one line.
+  const blockRe = /<table\b[\s\S]*?<\/table>|<(p|li|h[1-6])\b[^>]*>([\s\S]*?)<\/\1>/gi;
   let m: RegExpExecArray | null;
+
   while ((m = blockRe.exec(html)) !== null) {
-    const tag = m[1].toLowerCase();
-    const text = decodeEntities(m[2]);
+    if (m[0].toLowerCase().startsWith("<table")) {
+      const table = m[0];
+      const rows: string[][] = [];
+      const rowRe = /<tr\b[^>]*>([\s\S]*?)<\/tr>/gi;
+      let r: RegExpExecArray | null;
+      while ((r = rowRe.exec(table)) !== null) {
+        const cells: string[] = [];
+        const cellRe = /<t[dh]\b[^>]*>([\s\S]*?)<\/t[dh]>/gi;
+        let c: RegExpExecArray | null;
+        while ((c = cellRe.exec(r[1])) !== null) cells.push(c[1]);
+        if (cells.length) rows.push(cells);
+      }
+
+      // Word is also used to lay a whole resume out inside a table. Flattening
+      // that would destroy its lists and paragraphs, so a table is only treated
+      // as data when its rows are genuinely tabular: several cells, none of
+      // which carries list markup.
+      const isLayout =
+        !rows.length ||
+        rows.every((cells) => cells.length < 2) ||
+        /<(ul|ol|li)\b/i.test(table);
+
+      if (isLayout) {
+        lines.push(...htmlToMarkedLines(rows.flat().join("\n")));
+      } else {
+        for (const cells of rows) {
+          const texts = cells
+            .map((cell) => decodeEntities(cell.replace(/<\/p>\s*<p[^>]*>/gi, " ")))
+            .filter(Boolean);
+          if (texts.length) lines.push(texts.join("  |  "));
+        }
+      }
+      continue;
+    }
+
+    const tag = (m[1] ?? "").toLowerCase();
+    const text = decodeEntities(m[2] ?? "");
     if (!text) continue;
     lines.push(tag === "li" ? `${BULLET_MARK}${text}` : text);
   }
@@ -123,12 +162,46 @@ const HEADING_PATTERNS: { key: SegmentKey; re: RegExp }[] = [
   { key: "additional", re: /^(additional\s+information|other\s+information|miscellaneous|interests|awards?|publications?|languages?)\s*:?\s*$/i },
 ];
 
+/**
+ * Looser second pass for headings that carry extra words or trailing marks —
+ * "Skill sets in SAP –", "SAP Project Experience", "Education –". Real resumes
+ * rarely use the bare canonical wording, and an unmatched heading used to dump
+ * the entire document into one block.
+ */
+const HEADING_KEYWORDS: { key: SegmentKey; re: RegExp }[] = [
+  { key: "certifications", re: /\bcertificat/i },
+  { key: "education", re: /\beducation|\bacademic|\bqualifications?\b/i },
+  { key: "experience", re: /\b(experience|employment|work\s+history|projects?)\b/i },
+  { key: "skills", re: /\bskills?\b|\bcompetenc|\bexpertise\b|\btechnolog(y|ies)\b/i },
+  { key: "summary", re: /\bsummary\b|\bprofile\b|\bobjective\b|\bsynopsis\b/i },
+  { key: "additional", re: /\badditional\b|\bawards?\b|\bpublications?\b|\blanguages?\b|\binterests\b/i },
+];
+
 function matchHeading(line: string): SegmentKey | null {
-  const cleaned = line.trim().replace(/[_*]+/g, "").trim();
-  // Headings are short; a long line that merely starts with the word is body text.
+  const raw = line.trim();
+  // Bullets are body text, never headings.
+  if (!raw || raw.startsWith(BULLET_MARK.trim())) return null;
+
+  const cleaned = raw.replace(/[_*]+/g, "").trim();
+  // Headings are short; a long line that merely contains the word is body text.
   if (!cleaned || cleaned.length > 60) return null;
+
   for (const { key, re } of HEADING_PATTERNS) {
     if (re.test(cleaned)) return key;
+  }
+
+  // Strip trailing separators/colons and any leading numbering before the
+  // looser check, so "Education –" and "1. Skills:" still register.
+  const stripped = cleaned
+    .replace(/^[0-9]+[.)]\s*/, "")
+    .replace(/[\s:–—-]+$/, "")
+    .trim();
+  if (!stripped || stripped.length > 45) return null;
+  // A heading is a label, not a sentence.
+  if (/[.!?]$/.test(stripped) || stripped.split(/\s+/).length > 6) return null;
+
+  for (const { key, re } of HEADING_KEYWORDS) {
+    if (re.test(stripped)) return key;
   }
   return null;
 }
