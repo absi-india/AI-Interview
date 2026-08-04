@@ -105,9 +105,95 @@ export interface SourceJob {
   bullets: string[];
 }
 
-/** "Mar 2023 – Jul 2024", "2018 - Present", "Feb 2018 — Aug 2019". */
-const DATE_RANGE =
-  /(?:[A-Za-z]{3,9}\.?\s+)?(?:19|20)\d{2}\s*(?:[–—]|-{1,2}|\bto\b)\s*(?:(?:[A-Za-z]{3,9}\.?\s+)?(?:19|20)\d{2}|present|current|till\s*date|to\s*date|now|ongoing)/i;
+// A year is either four digits or an apostrophe form: 2024, '07, ’99.
+const YEAR = String.raw`(?:(?:19|20)\d{2}|['’]\s?\d{2})`;
+const MONTH = String.raw`(?:[A-Za-z]{3,9}\.?\s*)?`;
+const OPEN_END = String.raw`(?:present|current|till\s*date|to\s*date|now|ongoing)`;
+/**
+ * "Mar 2023 – Jul 2024", "2018 - Present", "Jun'07 – Jan'09".
+ * The apostrophe form matters: resumes using it were not being recognised as
+ * new roles at all, so their bullets accumulated under the previous employer.
+ */
+const DATE_RANGE = new RegExp(
+  `${MONTH}${YEAR}\\s*(?:[–—]|-{1,2}|\\bto\\b)\\s*(?:${MONTH}${YEAR}|${OPEN_END})`,
+  "i",
+);
+
+/** True when a line looks like the start of a role rather than body text. */
+function isJobHeader(line: string): boolean {
+  const t = line.trim();
+  if (!t || t.startsWith(BULLET_MARK.trim())) return false;
+  // Table rows carrying a role can be long; prose paragraphs are longer still.
+  if (t.length > 200) return false;
+  return DATE_RANGE.test(t);
+}
+
+/**
+ * Chunk the experience section on role boundaries.
+ *
+ * Splitting on blank lines could cut a role in half, leaving a chunk that opens
+ * with bullets and no employer. Those bullets were then attributed to whichever
+ * company happened to be in view, which is how one client's responsibilities
+ * ended up filed under another. Roles are kept whole; a role too large for one
+ * chunk is split with its header repeated so the employer is never in doubt.
+ */
+export function chunkExperienceByJob(experienceText: string, maxChars: number): string[] {
+  const text = experienceText.trim();
+  if (!text) return [];
+  if (text.length <= maxChars) return [text];
+
+  const lines = text.split(/\r?\n/);
+  const blocks: { header: string; lines: string[] }[] = [];
+  let current: { header: string; lines: string[] } | null = null;
+
+  for (const line of lines) {
+    if (isJobHeader(line)) {
+      current = { header: line.trim(), lines: [line] };
+      blocks.push(current);
+    } else if (current) {
+      current.lines.push(line);
+    } else {
+      // Preamble before the first role.
+      if (!blocks.length) blocks.push({ header: "", lines: [] });
+      blocks[0].lines.push(line);
+    }
+  }
+
+  const chunks: string[] = [];
+  let buf: string[] = [];
+  const flush = () => {
+    const joined = buf.join("\n").trim();
+    if (joined) chunks.push(joined);
+    buf = [];
+  };
+
+  for (const block of blocks) {
+    const body = block.lines.join("\n");
+    if (body.length > maxChars) {
+      flush();
+      // Oversized role: split it, repeating the header on every piece.
+      const header = block.header;
+      let piece: string[] = header ? [header] : [];
+      let size = header.length;
+      for (const line of block.lines.slice(header ? 1 : 0)) {
+        if (size + line.length + 1 > maxChars && piece.length > (header ? 1 : 0)) {
+          chunks.push(piece.join("\n").trim());
+          piece = header ? [header] : [];
+          size = header.length;
+        }
+        piece.push(line);
+        size += line.length + 1;
+      }
+      if (piece.length > (header ? 1 : 0)) chunks.push(piece.join("\n").trim());
+      continue;
+    }
+    if (buf.join("\n").length + body.length + 1 > maxChars && buf.length) flush();
+    buf.push(body);
+  }
+  flush();
+
+  return chunks.filter(Boolean);
+}
 
 /**
  * Split the experience section into the jobs actually present in the source.
@@ -122,7 +208,7 @@ export function splitSourceJobs(experienceText: string): SourceJob[] {
     if (!line) continue;
     const isBullet = line.startsWith(BULLET_MARK.trim());
 
-    if (!isBullet && DATE_RANGE.test(line)) {
+    if (isJobHeader(line)) {
       current = { header: line, bullets: [] };
       jobs.push(current);
       continue;

@@ -2,7 +2,7 @@ import "server-only";
 
 import OpenAI from "openai";
 import { randomUUID } from "node:crypto";
-import { chunkText, segmentResume } from "./segment";
+import { chunkExperienceByJob, chunkText, segmentResume } from "./segment";
 import { repairExperienceBullets } from "./repair";
 import {
   emptyResumeModel,
@@ -321,7 +321,7 @@ export async function analyzeResume(rawText: string, fileName: string): Promise<
   // were not recognised and so arrived as one enormous block.
   const jobs: { label: string; body: string }[] = [
     ...chunkText(profileText, CHUNK_CHARS).map((c) => ({ label: "PROFILE", body: c })),
-    ...chunkText(seg.experience, CHUNK_CHARS).map((c) => ({ label: "PROFESSIONAL EXPERIENCE", body: c })),
+    ...chunkExperienceByJob(seg.experience, CHUNK_CHARS).map((c) => ({ label: "PROFESSIONAL EXPERIENCE", body: c })),
     ...chunkText(qualsText, CHUNK_CHARS).map((c) => ({ label: "QUALIFICATIONS", body: c })),
   ];
 
