@@ -5,6 +5,7 @@ import { showToast } from "@/components/ui/Toaster";
 import { ResumePreview } from "@/components/resume/ResumePreview";
 import { TEMPLATES } from "@/lib/resume-formatting/templates";
 import { buildSnapshot } from "@/lib/resume-formatting/snapshot";
+import { buildMatchReport, type MatchReport } from "@/lib/resume-formatting/match";
 import {
   applyAcceptedSuggestions,
   countSuggestions,
@@ -66,7 +67,7 @@ export function ResumeFormattingApp() {
   const [view, setView] = useState<ViewMode>("split");
   const [zoom, setZoom] = useState(1);
   const [leftPct, setLeftPct] = useState(48);
-  const [rail, setRail] = useState<"snapshot" | "suggestions" | "score" | "details">("snapshot");
+  const [rail, setRail] = useState<"match" | "snapshot" | "suggestions" | "score" | "details">("match");
   const [exporting, setExporting] = useState(false);
   const [details, setDetails] = useState<ResumeModel | null>(null);
   const [reviewing, setReviewing] = useState(false);
@@ -96,6 +97,11 @@ export function ResumeFormattingApp() {
     [result, suggestions],
   );
   const counts = useMemo(() => countSuggestions(suggestions), [suggestions]);
+  // Verification of the formatted result against the uploaded file.
+  const matchReport = useMemo(
+    () => (result && appliedModel ? buildMatchReport(result.rawText, appliedModel, suggestions) : null),
+    [result, appliedModel, suggestions],
+  );
   const pendingList = useMemo(() => suggestions.filter((s) => s.status === "pending"), [suggestions]);
 
   // ── upload ──
@@ -513,14 +519,16 @@ export function ResumeFormattingApp() {
         {/* right rail */}
         <div className="flex w-[360px] flex-none flex-col border-l border-[#e1e7f0] bg-white">
           <div className="flex border-b border-[#e1e7f0] text-[11px]">
-            {(["snapshot", "suggestions", "score", "details"] as const).map((t) => (
-              <button key={t} onClick={() => setRail(t)} className={`flex-1 px-1.5 py-2.5 capitalize ${rail === t ? "border-b-2 border-[#2563eb] font-semibold text-[#2563eb]" : "text-[#64748b]"}`}>
-                {t === "suggestions" ? `Suggestions (${counts.pending})` : t}
+            {(["match", "snapshot", "suggestions", "score", "details"] as const).map((t) => (
+              <button key={t} onClick={() => setRail(t)} className={`flex-1 px-1 py-2.5 capitalize ${rail === t ? "border-b-2 border-[#2563eb] font-semibold text-[#2563eb]" : "text-[#64748b]"}`}>
+                {t === "suggestions" ? `Sugg. (${counts.pending})` : t === "match" && matchReport ? `Match ${matchReport.coverage}%` : t}
               </button>
             ))}
           </div>
 
           <div className="min-h-0 flex-1 overflow-auto p-3">
+            {rail === "match" && matchReport && <MatchPanel report={matchReport} />}
+
             {rail === "snapshot" && <SnapshotPanel model={appliedModel} />}
 
             {rail === "suggestions" && (
@@ -595,6 +603,19 @@ export function ResumeFormattingApp() {
           className="btn-secondary px-3 py-1.5 disabled:opacity-40"
         >Next &rarr;</button>
         <span className="ml-2 text-[#64748b]">{counts.pending} pending · {counts.accepted + counts.edited} accepted · {counts.rejected} rejected</span>
+        {matchReport && matchReport.coverage < 95 && (
+          <button
+            onClick={() => setRail("match")}
+            className={`ml-2 rounded-md border px-2 py-1 font-semibold ${
+              matchReport.coverage < 85
+                ? "border-[#fecaca] bg-[#fef2f2] text-[#dc2626]"
+                : "border-[#fde68a] bg-[#fffbeb] text-[#b45309]"
+            }`}
+            title="Some of the uploaded content is not in the formatted resume"
+          >
+            {matchReport.coverage}% match — {matchReport.missingUnits.length} not found
+          </button>
+        )}
         <button onClick={exportDocx} disabled={exporting} className="btn-primary ml-auto px-4 py-1.5 disabled:opacity-60">
           {exporting ? "Generating…" : "Generate Final Document"}
         </button>
@@ -641,6 +662,98 @@ function SuggestionCard({
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Verification that the formatted resume still contains what was uploaded.
+ * Deliberately strict — anything not found is listed, so the figure can be
+ * checked rather than taken on trust.
+ */
+function MatchPanel({ report }: { report: MatchReport }) {
+  const [showAll, setShowAll] = useState(false);
+  const pct = report.coverage;
+  const tone = pct >= 95 ? "#15803d" : pct >= 85 ? "#b45309" : "#dc2626";
+  const verdict =
+    pct >= 99
+      ? "Everything from the upload is present."
+      : pct >= 95
+        ? "Nearly everything is present — check the items below."
+        : pct >= 85
+          ? "Some content is missing. Review before sending this out."
+          : "Significant content is missing. Do not send this without checking.";
+
+  const dropped = report.missingUnits.filter((m) => m.status === "missing");
+  const shown = showAll ? report.missingUnits : report.missingUnits.slice(0, 25);
+
+  return (
+    <div className="space-y-3">
+      <div className="rounded-xl border p-3 text-center" style={{ borderColor: tone }}>
+        <div className="text-[30px] font-semibold leading-none tabular-nums" style={{ color: tone }}>{pct}%</div>
+        <div className="mt-1 text-[11px] text-[#64748b]">of the original content found in the formatted resume</div>
+        <p className="mt-2 text-[11.5px] font-medium" style={{ color: tone }}>{verdict}</p>
+      </div>
+
+      <div className="grid grid-cols-3 gap-2 text-center text-[11px]">
+        <div className="rounded-lg border border-[#e7ebf0] py-1.5">
+          <div className="text-[15px] font-semibold text-[#15803d]">{report.exact}</div>
+          <div className="text-[10px] text-[#94a3b8]">Matched</div>
+        </div>
+        <div className="rounded-lg border border-[#e7ebf0] py-1.5">
+          <div className="text-[15px] font-semibold text-[#a21caf]">{report.reworded}</div>
+          <div className="text-[10px] text-[#94a3b8]">Reworded</div>
+        </div>
+        <div className="rounded-lg border border-[#e7ebf0] py-1.5">
+          <div className="text-[15px] font-semibold text-[#dc2626]">{dropped.length}</div>
+          <div className="text-[10px] text-[#94a3b8]">Missing</div>
+        </div>
+      </div>
+
+      {report.missingUnits.length === 0 ? (
+        <p className="rounded-lg border border-[#bbf7d0] bg-[#f0fdf4] px-3 py-2.5 text-[12px] text-[#15803d]">
+          Every line of the upload was found in the formatted resume.
+        </p>
+      ) : (
+        <div>
+          <div className="mb-1.5 text-[11px] font-semibold text-[#0f172a]">
+            Not found in the formatted resume ({report.missingUnits.length})
+          </div>
+          <div className="space-y-1.5">
+            {shown.map((m, i) => (
+              <div
+                key={i}
+                className={`rounded-md border px-2 py-1.5 text-[11px] leading-snug ${
+                  m.status === "missing"
+                    ? "border-[#fecaca] bg-[#fef2f2] text-[#7f1d1d]"
+                    : "border-[#fde68a] bg-[#fffbeb] text-[#92400e]"
+                }`}
+              >
+                <div className="mb-0.5 text-[9.5px] font-semibold uppercase tracking-wide opacity-70">
+                  {m.status === "missing" ? "Missing" : "Changed"}
+                </div>
+                {m.text}
+                {m.changedTo && (
+                  <div className="mt-1 border-t border-current/20 pt-1 opacity-80">
+                    <span className="font-semibold">Now reads:</span> {m.changedTo}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+          {report.missingUnits.length > shown.length && (
+            <button onClick={() => setShowAll(true)} className="btn-secondary mt-2 w-full py-1.5 text-[11px]">
+              Show all {report.missingUnits.length}
+            </button>
+          )}
+        </div>
+      )}
+
+      <p className="text-[10px] leading-snug text-[#94a3b8]">
+        Compared line by line against the uploaded file. {report.totalUnits} content lines checked;
+        {" "}{report.ignored} page numbers and repeated headers ignored. Wording you approved counts as
+        present, not missing. &ldquo;Changed&rdquo; means the line is recognisable but no longer says the same thing.
+      </p>
     </div>
   );
 }
