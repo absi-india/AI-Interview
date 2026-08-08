@@ -28,6 +28,58 @@ function alreadyPresent(bullet: string, existing: string[]): boolean {
   });
 }
 
+/** Reduce a date to a comparable year-month key, tolerating "Jun'07" and "2007". */
+function dateKey(value: string | undefined): string {
+  const v = normalize(value ?? "");
+  if (!v) return "";
+  const year = v.match(/\b(19|20)?(\d{2})\b(?!.*\b(19|20)?\d{2}\b)/);
+  const month = v.match(/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/);
+  const y = year ? year[2] : "";
+  return `${month ? month[1] : ""}${y}`;
+}
+
+/**
+ * Collapse the same engagement listed more than once.
+ *
+ * Resumes commonly carry a summary table of every project AND a detailed
+ * write-up of each one further down. Both are extracted, which would otherwise
+ * present every role twice. Entries are merged only when the employer and the
+ * dates agree — the same client engaged across different years stays separate.
+ */
+export function mergeDuplicateRoles(model: ResumeModel): ResumeModel {
+  const merged: ResumeModel["experience"] = [];
+  const indexByKey = new Map<string, number>();
+  let collapsed = 0;
+
+  for (const entry of model.experience) {
+    const company = normalize(entry.company ?? "");
+    const key = `${company}|${dateKey(entry.startDate)}|${dateKey(entry.endDate)}`;
+    // Without a company or any date there is nothing safe to match on.
+    const existingIdx = company && (entry.startDate || entry.endDate) ? indexByKey.get(key) : undefined;
+
+    if (existingIdx === undefined) {
+      indexByKey.set(key, merged.length);
+      merged.push({ ...entry, bullets: [...entry.bullets] });
+      continue;
+    }
+
+    const target = merged[existingIdx];
+    // Keep the fuller title and location, and add only genuinely new bullets.
+    if ((entry.title ?? "").length > (target.title ?? "").length) target.title = entry.title;
+    if ((entry.location ?? "").length > (target.location ?? "").length) target.location = entry.location;
+    if ((entry.environment ?? "").length > (target.environment ?? "").length) target.environment = entry.environment;
+    for (const b of entry.bullets) {
+      if (!alreadyPresent(b, target.bullets)) target.bullets.push(b);
+    }
+    collapsed += 1;
+  }
+
+  if (collapsed) {
+    console.info(`[resume-formatting] merged ${collapsed} duplicate role entr(ies)`);
+  }
+  return { ...model, experience: merged };
+}
+
 /**
  * Pick the model entry corresponding to a source job block.
  *

@@ -3,7 +3,7 @@ import "server-only";
 import OpenAI from "openai";
 import { randomUUID } from "node:crypto";
 import { chunkExperienceByJob, chunkText, segmentResume } from "./segment";
-import { repairExperienceBullets } from "./repair";
+import { mergeDuplicateRoles, repairExperienceBullets } from "./repair";
 import {
   emptyResumeModel,
   type AnalyzeResult,
@@ -364,8 +364,11 @@ export async function analyzeResume(rawText: string, fileName: string): Promise<
       return fallbackResult(rawText, fileName);
     }
 
-    // Restore any bullet the model failed to return.
+    // Restore any bullet the model failed to return, then collapse the same
+    // engagement where the resume listed it both in a summary table and again
+    // as a detailed section.
     model = repairExperienceBullets(model, seg.experience);
+    model = mergeDuplicateRoles(model);
 
     const avg = (pick: (s: QualityScores) => number) =>
       scoreSets.length ? Math.round(scoreSets.reduce((a, s) => a + pick(s), 0) / scoreSets.length) : 0;
