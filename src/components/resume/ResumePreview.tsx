@@ -57,11 +57,11 @@ function SectionBody({ k, model, tmplId }: { k: SectionKey; model: ResumeModel; 
       if (!model.summary && !bullets.length) return null;
       return (
         <>
-          {model.summary && <p className="text-justify text-[11px] leading-snug text-gray-800">{model.summary}</p>}
+          {model.summary && <p className="text-justify text-[16px] leading-snug text-gray-800">{model.summary}</p>}
           {bullets.length > 0 && (
             <ul className="ml-4 list-disc space-y-0.5">
               {bullets.map((b, i) => (
-                <li key={i} className="text-justify text-[11px] leading-snug text-gray-800"><BulletText text={b} /></li>
+                <li key={i} className="text-justify text-[16px] leading-snug text-gray-800"><BulletText text={b} /></li>
               ))}
             </ul>
           )}
@@ -71,9 +71,9 @@ function SectionBody({ k, model, tmplId }: { k: SectionKey; model: ResumeModel; 
 
     case "skills":
       return model.skills.length ? (
-        <div className="space-y-0.5">
+        <div className="space-y-1">
           {model.skills.map((s, i) => (
-            <div key={i} className="text-[11px] leading-snug">
+            <div key={i} className="text-[16px] leading-snug">
               <span className="font-semibold">{s.category}:</span> {s.skills.join(", ")}
             </div>
           ))}
@@ -86,13 +86,13 @@ function SectionBody({ k, model, tmplId }: { k: SectionKey; model: ResumeModel; 
           {model.experience.map((e, i) => (
             <div key={i}>
               <div className="flex items-baseline justify-between gap-2">
-                <span className="text-[11px] font-bold text-gray-900">{[e.company, e.location].filter(Boolean).join(", ")}</span>
-                <span className="whitespace-nowrap text-[10.5px] font-semibold text-gray-700">{[e.startDate, e.endDate].filter(Boolean).join(" – ")}</span>
+                <span className="text-[16px] font-bold text-gray-900">{[e.company, e.location].filter(Boolean).join(", ")}</span>
+                <span className="whitespace-nowrap text-[15px] font-semibold text-gray-700">{[e.startDate, e.endDate].filter(Boolean).join(" – ")}</span>
               </div>
-              {e.title && <div className="text-[11px] italic text-gray-700">{e.title}</div>}
+              {e.title && <div className="text-[16px] italic text-gray-700">{e.title}</div>}
               <ul className="ml-4 list-disc space-y-0.5">
                 {e.bullets.map((b, j) => (
-                  <li key={j} className="text-justify text-[11px] leading-snug text-gray-800"><BulletText text={b} /></li>
+                  <li key={j} className="text-justify text-[16px] leading-snug text-gray-800"><BulletText text={b} /></li>
                 ))}
               </ul>
               {e.environment && (
@@ -128,9 +128,9 @@ function SectionBody({ k, model, tmplId }: { k: SectionKey; model: ResumeModel; 
         );
       }
       return (
-        <div className="space-y-0.5">
+        <div className="space-y-1">
           {model.education.map((e, i) => (
-            <div key={i} className="text-[11px] leading-snug">
+            <div key={i} className="text-[16px] leading-snug">
               <span className="font-semibold">{[e.degree, e.areaOfStudy].filter(Boolean).join(", ")}</span>
               {[e.school, e.location].filter(Boolean).length > 0 && <> — {[e.school, e.location].filter(Boolean).join(", ")}</>}
               {e.date && <> ({e.date})</>}
@@ -143,7 +143,7 @@ function SectionBody({ k, model, tmplId }: { k: SectionKey; model: ResumeModel; 
       return model.certifications.length ? (
         <ul className="ml-4 list-disc space-y-0.5">
           {model.certifications.map((c, i) => (
-            <li key={i} className="text-[11px] leading-snug text-gray-800">
+            <li key={i} className="text-[16px] leading-snug text-gray-800">
               {c.name}{[c.issuer, c.date].filter(Boolean).length ? ` — ${[c.issuer, c.date].filter(Boolean).join(", ")}` : ""}
             </li>
           ))}
@@ -155,11 +155,11 @@ function SectionBody({ k, model, tmplId }: { k: SectionKey; model: ResumeModel; 
         <div className="space-y-1.5">
           {model.projects.map((p, i) => (
             <div key={i}>
-              <div className="text-[11px] font-bold text-gray-900">{p.name}</div>
-              {p.description && <div className="text-[11px] leading-snug text-gray-800">{p.description}</div>}
+              <div className="text-[16px] font-bold text-gray-900">{p.name}</div>
+              {p.description && <div className="text-[16px] leading-snug text-gray-800">{p.description}</div>}
               {p.bullets.length > 0 && (
                 <ul className="ml-4 list-disc space-y-0.5">
-                  {p.bullets.map((b, j) => <li key={j} className="text-justify text-[11px] leading-snug text-gray-800"><BulletText text={b} /></li>)}
+                  {p.bullets.map((b, j) => <li key={j} className="text-justify text-[16px] leading-snug text-gray-800"><BulletText text={b} /></li>)}
                 </ul>
               )}
             </div>
@@ -168,7 +168,7 @@ function SectionBody({ k, model, tmplId }: { k: SectionKey; model: ResumeModel; 
       ) : null;
 
     case "additional":
-      return model.additional ? <p className="text-[11px] leading-snug text-gray-800">{model.additional}</p> : null;
+      return model.additional ? <p className="text-[16px] leading-snug text-gray-800">{model.additional}</p> : null;
 
     default:
       return null;
@@ -205,11 +205,11 @@ function Section({ k, model, tmplId }: { k: SectionKey; model: ResumeModel; tmpl
       // Ohio ITSA submissions omit phone / email / LinkedIn — location only.
       if (tmpl.hideContactDetails) {
         return model.contact.location ? (
-          <div className="mt-0.5 text-center text-[11px]"><span className="font-semibold">Current location:</span> {model.contact.location}</div>
+          <div className="mt-0.5 text-center text-[16px]"><span className="font-semibold">Current location:</span> {model.contact.location}</div>
         ) : null;
       }
       const parts = [model.contact.location, model.contact.phone, model.contact.email, model.contact.linkedin, model.contact.website].filter(Boolean);
-      return parts.length ? <div className="mt-0.5 text-center text-[10.5px] text-gray-600">{parts.join("  |  ")}</div> : null;
+      return parts.length ? <div className="mt-0.5 text-center text-[16px] text-gray-600">{parts.join("  |  ")}</div> : null;
     }
     case "title":
       // Ohio ITSA renders title and requisition together, under "requisition".
@@ -220,7 +220,7 @@ function Section({ k, model, tmplId }: { k: SectionKey; model: ResumeModel; tmpl
     case "requisition":
       if (tmpl.titleAndRequisitionOnOneLine) {
         return (
-          <div className="mt-2 space-y-0.5 text-[11px]">
+          <div className="mt-2 space-y-0.5 text-[16px]">
             <div className="flex justify-between font-bold" style={{ color: `#${tmpl.accent}` }}>
               <span>Title/Role:</span>
               <span>Requisition Number:</span>
