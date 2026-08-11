@@ -1,8 +1,36 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import {
+  SESSION_ORIGIN_EVENT,
+  formatSessionOrigin,
+  hasAnySessionOrigin,
+  readSessionOrigin,
+} from "@/lib/sessionOrigin";
+
+/**
+ * Record where the interview was taken from, for the integrity report.
+ * Deliberately swallows every error: this is supporting information and must
+ * never be able to stop a candidate starting their interview.
+ */
+async function recordSessionOrigin(testId: string, req: NextRequest) {
+  try {
+    const origin = readSessionOrigin(req.headers);
+    if (!hasAnySessionOrigin(origin)) return;
+    await prisma.fraudEvent.create({
+      data: {
+        testId,
+        type: SESSION_ORIGIN_EVENT,
+        severity: "LOW",
+        detail: formatSessionOrigin(origin),
+      },
+    });
+  } catch (err) {
+    console.warn("[start] could not record session origin", err);
+  }
+}
 
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ token: string }> }
 ) {
   try {
@@ -23,6 +51,8 @@ export async function POST(
         where: { id: test.id },
         data: { status: "IN_PROGRESS", startedAt: new Date() },
       });
+      // Only on the genuine first start, so a reconnect does not add duplicates.
+      await recordSessionOrigin(test.id, req);
     }
 
     return NextResponse.json({ ok: true });

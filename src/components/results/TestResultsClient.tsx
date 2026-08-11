@@ -224,7 +224,12 @@ export function TestResultsClient({ test, shareUrl }: { test: Test; shareUrl?: s
       .sort((a, b) => b.avgFive - a.avgFive);
   }, [test.questions]);
 
-  const fraudEvents = test.fraudEvents.filter((event) => happenedDuringInterview(event, test.completedAt));
+  const SESSION_ORIGIN_EVENT = "SESSION_ORIGIN";
+  const eventsDuringInterview = test.fraudEvents.filter((event) => happenedDuringInterview(event, test.completedAt));
+  // Where the interview was taken from is context, not a violation, so it is
+  // kept out of the integrity counts and shown on its own.
+  const sessionOrigin = eventsDuringInterview.find((e) => e.type === SESSION_ORIGIN_EVENT);
+  const fraudEvents = eventsDuringInterview.filter((e) => e.type !== SESSION_ORIGIN_EVENT);
   const highCount = fraudEvents.filter((e) => e.severity === "HIGH").length;
   const mediumCount = fraudEvents.filter((e) => e.severity === "MEDIUM").length;
   const lowCount = fraudEvents.filter((e) => e.severity === "LOW").length;
@@ -337,6 +342,28 @@ export function TestResultsClient({ test, shareUrl }: { test: Test; shareUrl?: s
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Where the interview was taken from */}
+      {sessionOrigin && (
+        <div className="glass-card p-5 mb-6 animate-fade-in-up">
+          <div className="flex items-start gap-3">
+            <div className="flex h-9 w-9 flex-none items-center justify-center rounded-lg bg-[#eff4ff] text-[#2563eb]">
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
+              </svg>
+            </div>
+            <div className="min-w-0">
+              <h2 className="text-[15px] font-semibold text-[#0f172a]">Session Origin</h2>
+              <p className="mt-0.5 font-mono text-[13px] text-[#334155] break-words">{sessionOrigin.detail}</p>
+              <p className="mt-1.5 text-[11.5px] leading-snug text-[#94a3b8]">
+                Recorded when the interview began. Location is estimated from the network address — usually the right
+                city, and a VPN will report wherever it connects through. Treat it as a prompt to look closer, not as proof.
+              </p>
+            </div>
           </div>
         </div>
       )}
