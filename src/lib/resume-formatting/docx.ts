@@ -46,7 +46,7 @@ function run(text: string, opts: { bold?: boolean; italics?: boolean; size?: num
     text,
     bold: opts.bold,
     italics: opts.italics,
-    size: opts.size ?? 32,
+    size: opts.size ?? 20,
     color: opts.color,
     font: BODY_FONT,
   });
@@ -82,7 +82,7 @@ function contactLine(model: ResumeModel, hideDetails: boolean) {
   return new Paragraph({
     spacing: { after: 120 },
     alignment: AlignmentType.CENTER,
-    children: [run(parts.join("  |  "), { color: "444444" })],
+    children: [run(parts.join("  |  "), { size: 18, color: "444444" })],
   });
 }
 
@@ -265,7 +265,7 @@ function educationTable(model: ResumeModel) {
         new TableCell({
           shading: { type: ShadingType.SOLID, color: "F2F2F2", fill: "F2F2F2" },
           margins: { top: 30, bottom: 30, left: 60, right: 60 },
-          children: [new Paragraph({ children: [run(h, { bold: true, size: 18 })] })],
+          children: [new Paragraph({ children: [run(h, { bold: true, size: 16 })] })],
         }),
     ),
   });
@@ -276,7 +276,7 @@ function educationTable(model: ResumeModel) {
           (v) =>
             new TableCell({
               margins: { top: 30, bottom: 30, left: 60, right: 60 },
-              children: [new Paragraph({ children: [run(v || "", { size: 18 })] })],
+              children: [new Paragraph({ children: [run(v || "", { size: 16 })] })],
             }),
         ),
       }),
