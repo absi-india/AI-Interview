@@ -30,7 +30,7 @@ function Heading({ label, tmplId }: { label: string; tmplId: TemplateId }) {
   if (tmpl.boxedHeadings) {
     return (
       <div
-        className="mt-3 mb-1.5 border px-2 py-1 text-[16px] font-bold uppercase tracking-wide"
+        className="mt-3 mb-1.5 border px-2 py-1 text-[11px] font-bold uppercase tracking-wide"
         style={{ color: `#${tmpl.accent}`, backgroundColor: "#E8E8E8", borderColor: "#AFAFAF" }}
       >
         {label}
@@ -262,9 +262,9 @@ export function ResumePreview({ model, tmplId }: { model: ResumeModel; tmplId: T
       style={{ fontFamily: "Arial, Helvetica, sans-serif" }}
     >
       {tmpl.repeatingLogo && (
-        <div className="mb-3 border-b border-gray-200 pb-2">
+        <div className="mb-3 border-b border-gray-200 pb-2 text-center">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/ohio-itsa-logo.png" alt="OST — OHIO ITSA — Information Technology Staff Augmentation" className="h-9 w-auto object-contain" />
+          <img src="/ohio-itsa-logo.png" alt="OST — OHIO ITSA — Information Technology Staff Augmentation" className="mx-auto h-9 w-auto object-contain" />
           <div className="mt-1 text-[8px] uppercase tracking-wide text-gray-400">Logo repeats on every page in the exported document</div>
         </div>
       )}

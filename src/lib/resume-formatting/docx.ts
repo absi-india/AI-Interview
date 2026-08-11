@@ -167,7 +167,7 @@ function boxedHeading(text: string, color: string) {
     border: { top: edge, bottom: edge, left: edge, right: edge },
     spacing: { before: 180, after: 100 },
     keepNext: true,
-    children: [run(text.toUpperCase(), { bold: true, size: 32, color })],
+    children: [run(text.toUpperCase(), { bold: true, size: 20, color })],
   });
 }
 
@@ -437,7 +437,7 @@ export async function buildResumeDocx(model: ResumeModel, tmplId: TemplateId): P
       header = new Header({
         children: [
           new Paragraph({
-            alignment: AlignmentType.LEFT,
+            alignment: AlignmentType.CENTER,
             spacing: { after: 60 },
             children: [
               new ImageRun({
