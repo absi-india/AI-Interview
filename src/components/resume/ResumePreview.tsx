@@ -30,7 +30,7 @@ function Heading({ label, tmplId }: { label: string; tmplId: TemplateId }) {
   if (tmpl.boxedHeadings) {
     return (
       <div
-        className="mt-3 mb-1.5 border px-2 py-1 text-[11px] font-bold uppercase tracking-wide"
+        className="mt-3 mb-1.5 border px-2 py-1 text-[16px] font-bold uppercase tracking-wide"
         style={{ color: `#${tmpl.accent}`, backgroundColor: "#E8E8E8", borderColor: "#AFAFAF" }}
       >
         {label}
@@ -39,7 +39,7 @@ function Heading({ label, tmplId }: { label: string; tmplId: TemplateId }) {
   }
   return (
     <div
-      className="mt-3 mb-1.5 border-b pb-0.5 text-[11px] font-bold uppercase tracking-wide"
+      className="mt-3 mb-1.5 border-b pb-0.5 text-[16px] font-bold uppercase tracking-wide"
       style={{ color: `#${tmpl.accent}`, borderColor: `#${tmpl.accent}` }}
     >
       {label}

@@ -91,7 +91,7 @@ function plainHeading(text: string, color: string) {
   return new Paragraph({
     spacing: { before: 180, after: 60 },
     border: { bottom: { style: BorderStyle.SINGLE, size: 6, color, space: 2 } },
-    children: [run(text.toUpperCase(), { bold: true, size: 20, color })],
+    children: [run(text.toUpperCase(), { bold: true, size: 32, color })],
   });
 }
 
@@ -167,7 +167,7 @@ function boxedHeading(text: string, color: string) {
     border: { top: edge, bottom: edge, left: edge, right: edge },
     spacing: { before: 180, after: 100 },
     keepNext: true,
-    children: [run(text.toUpperCase(), { bold: true, size: 20, color })],
+    children: [run(text.toUpperCase(), { bold: true, size: 32, color })],
   });
 }
 
