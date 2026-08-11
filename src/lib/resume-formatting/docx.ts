@@ -25,7 +25,7 @@ import { getTemplate, SECTION_LABEL, type SectionKey } from "./templates";
 import { splitBulletLabel } from "./segment";
 import type { ResumeModel, TemplateId } from "./types";
 
-const BODY_FONT = "Calibri";
+const BODY_FONT = "Arial";
 const FULL_WIDTH_TWIP = convertInchesToTwip(7.5); // 8.5" letter - 0.5" margins each side
 
 // ── Logo (read from /public so it deploys; reference/ is untracked) ──
@@ -91,7 +91,7 @@ function plainHeading(text: string, color: string) {
   return new Paragraph({
     spacing: { before: 180, after: 60 },
     border: { bottom: { style: BorderStyle.SINGLE, size: 6, color, space: 2 } },
-    children: [run(text.toUpperCase(), { bold: true, size: 22, color })],
+    children: [run(text.toUpperCase(), { bold: true, size: 20, color })],
   });
 }
 
@@ -109,7 +109,7 @@ function underlinedHeading(text: string) {
         text: text.toUpperCase(),
         bold: true,
         underline: {},
-        size: 22,
+        size: 20,
         color: "000000",
         font: BODY_FONT,
       }),
@@ -155,13 +155,28 @@ function covendisPageBorders(accent: string) {
   };
 }
 
+/**
+ * ABSI heading: accent text on a light shaded bar with a thin border, as in the
+ * reference resume. A shaded paragraph rather than a table, so it never affects
+ * how the document paginates.
+ */
+function boxedHeading(text: string, color: string) {
+  const edge = { style: BorderStyle.SINGLE, size: 4, color: "AFAFAF", space: 4 };
+  return new Paragraph({
+    shading: { type: ShadingType.SOLID, color: "E8E8E8", fill: "E8E8E8" },
+    border: { top: edge, bottom: edge, left: edge, right: edge },
+    spacing: { before: 180, after: 100 },
+    keepNext: true,
+    children: [run(text.toUpperCase(), { bold: true, size: 20, color })],
+  });
+}
+
 function heading(key: SectionKey, tmplId: TemplateId): (Paragraph | Table)[] {
   const tmpl = getTemplate(tmplId);
   const label = SECTION_LABEL[key];
   if (!label) return [];
-  if (tmpl.underlinedHeadings) {
-    return [underlinedHeading(label)];
-  }
+  if (tmpl.underlinedHeadings) return [underlinedHeading(label)];
+  if (tmpl.boxedHeadings) return [boxedHeading(label, tmpl.accent)];
   return [plainHeading(label, tmpl.accent)];
 }
 
@@ -303,6 +318,34 @@ function simpleField(label: string, value: string | undefined) {
   return [new Paragraph({ spacing: { after: 30 }, children: [run(`${label}: `, { bold: true }), run(value)] })];
 }
 
+/**
+ * Ohio ITSA pairs the title/role with the requisition number on one line, the
+ * requisition aligned to the right margin, as the official form does. Labels on
+ * the first line, values beneath them.
+ */
+function titleAndRequisition(model: ResumeModel, color: string) {
+  const tab = [{ type: TabStopType.RIGHT, position: FULL_WIDTH_TWIP }];
+  return [
+    new Paragraph({
+      tabStops: tab,
+      spacing: { before: 120, after: 0 },
+      keepNext: true,
+      children: [
+        run("Title/Role:", { bold: true, color }),
+        run("\tRequisition Number:", { bold: true, color }),
+      ],
+    }),
+    new Paragraph({
+      tabStops: tab,
+      spacing: { after: 120 },
+      children: [
+        run(model.title || "—", { bold: true }),
+        run(`\t${model.requisitionNumber || "Not Available"}`, { bold: true }),
+      ],
+    }),
+  ];
+}
+
 // ── Section dispatcher ──
 /** Body content of a headed section, without the heading itself. */
 function sectionBody(key: SectionKey, model: ResumeModel, tmplId: TemplateId): (Paragraph | Table)[] {
@@ -340,9 +383,12 @@ function buildSection(key: SectionKey, model: ResumeModel, tmplId: TemplateId): 
       return c ? [c] : [];
     }
     case "title":
-      return simpleField("Title / Role", model.title);
+      // Ohio ITSA renders both on one line, emitted with the requisition key.
+      return tmpl.titleAndRequisitionOnOneLine ? [] : simpleField("Title / Role", model.title);
     case "requisition":
-      return simpleField("VectorVMS Requisition Number", model.requisitionNumber || "Not Available");
+      return tmpl.titleAndRequisitionOnOneLine
+        ? titleAndRequisition(model, tmpl.accent)
+        : simpleField("VectorVMS Requisition Number", model.requisitionNumber || "Not Available");
     default:
       break;
   }

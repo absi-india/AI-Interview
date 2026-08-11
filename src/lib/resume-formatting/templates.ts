@@ -37,6 +37,13 @@ export interface TemplateDef {
    * only the candidate's current location is shown.
    */
   hideContactDetails: boolean;
+  /** ABSI: headings sit in a shaded, bordered box with the accent colour text. */
+  boxedHeadings: boolean;
+  /**
+   * Ohio ITSA: title/role and requisition number share one line, the
+   * requisition number aligned to the right margin as in the official form.
+   */
+  titleAndRequisitionOnOneLine: boolean;
   /** Whether education renders as a structured table (Ohio). */
   educationTable: boolean;
   fileSuffix: string; // used in the download file name
@@ -61,10 +68,12 @@ export const TEMPLATES: Record<TemplateId, TemplateDef> = {
       "summary",
       "skills",
     ],
-    accent: "1F3864",
+    accent: "333399",
     repeatingLogo: true,
     underlinedHeadings: false,
     boxedSections: false,
+    boxedHeadings: false,
+    titleAndRequisitionOnOneLine: true,
     hideContactDetails: true,
     educationTable: true,
     fileSuffix: "VectorVMS",
@@ -90,6 +99,8 @@ export const TEMPLATES: Record<TemplateId, TemplateDef> = {
     repeatingLogo: false,
     underlinedHeadings: true,
     boxedSections: true,
+    boxedHeadings: false,
+    titleAndRequisitionOnOneLine: false,
     hideContactDetails: true,
     educationTable: false,
     fileSuffix: "Covendis",
@@ -111,10 +122,12 @@ export const TEMPLATES: Record<TemplateId, TemplateDef> = {
       "certifications",
       "additional",
     ],
-    accent: "0F172A",
+    accent: "333399",
     repeatingLogo: false,
     underlinedHeadings: false,
     boxedSections: false,
+    boxedHeadings: true,
+    titleAndRequisitionOnOneLine: false,
     hideContactDetails: false,
     educationTable: false,
     fileSuffix: "ABSI",

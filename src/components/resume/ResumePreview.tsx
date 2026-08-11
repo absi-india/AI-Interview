@@ -27,6 +27,16 @@ function Heading({ label, tmplId }: { label: string; tmplId: TemplateId }) {
       </div>
     );
   }
+  if (tmpl.boxedHeadings) {
+    return (
+      <div
+        className="mt-3 mb-1.5 border px-2 py-1 text-[11px] font-bold uppercase tracking-wide"
+        style={{ color: `#${tmpl.accent}`, backgroundColor: "#E8E8E8", borderColor: "#AFAFAF" }}
+      >
+        {label}
+      </div>
+    );
+  }
   return (
     <div
       className="mt-3 mb-1.5 border-b pb-0.5 text-[11px] font-bold uppercase tracking-wide"
@@ -202,10 +212,26 @@ function Section({ k, model, tmplId }: { k: SectionKey; model: ResumeModel; tmpl
       return parts.length ? <div className="mt-0.5 text-center text-[10.5px] text-gray-600">{parts.join("  |  ")}</div> : null;
     }
     case "title":
+      // Ohio ITSA renders title and requisition together, under "requisition".
+      if (tmpl.titleAndRequisitionOnOneLine) return null;
       return model.title ? (
         <div className="mt-0.5 text-[11px]"><span className="font-semibold">Title / Role:</span> {model.title}</div>
       ) : null;
     case "requisition":
+      if (tmpl.titleAndRequisitionOnOneLine) {
+        return (
+          <div className="mt-2 space-y-0.5 text-[11px]">
+            <div className="flex justify-between font-bold" style={{ color: `#${tmpl.accent}` }}>
+              <span>Title/Role:</span>
+              <span>Requisition Number:</span>
+            </div>
+            <div className="flex justify-between font-bold text-gray-900">
+              <span>{model.title || "—"}</span>
+              <span>{model.requisitionNumber || "Not Available"}</span>
+            </div>
+          </div>
+        );
+      }
       return (
         <div className="mt-0.5 text-[11px]">
           <span className="font-semibold">VectorVMS Requisition Number:</span> {model.requisitionNumber || "Not Available"}
@@ -231,7 +257,10 @@ const IDENTITY_KEYS: SectionKey[] = ["header", "name", "contact", "title", "requ
 export function ResumePreview({ model, tmplId }: { model: ResumeModel; tmplId: TemplateId }) {
   const tmpl = getTemplate(tmplId);
   return (
-    <div className="mx-auto w-full max-w-[850px] bg-white px-8 py-7 shadow-sm">
+    <div
+      className="mx-auto w-full max-w-[850px] bg-white px-8 py-7 shadow-sm"
+      style={{ fontFamily: "Arial, Helvetica, sans-serif" }}
+    >
       {tmpl.repeatingLogo && (
         <div className="mb-3 border-b border-gray-200 pb-2">
           {/* eslint-disable-next-line @next/next/no-img-element */}
