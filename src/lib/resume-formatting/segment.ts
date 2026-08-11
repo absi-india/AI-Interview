@@ -10,6 +10,13 @@
 /** Marker prefixed to every list item so bullet boundaries survive extraction. */
 export const BULLET_MARK = "• ";
 
+/**
+ * Prefix identifying a chunk that continues the role named after it, rather
+ * than starting a new one. Repeating a role's header verbatim across chunks
+ * caused each piece to be read as a separate employer.
+ */
+export const CONTINUATION_MARK = "[CONTINUES THE SAME ROLE] ";
+
 function decodeEntities(s: string): string {
   return s
     .replace(/<[^>]+>/g, "")
@@ -106,7 +113,9 @@ export interface SourceJob {
 }
 
 // A year is either four digits or an apostrophe form: 2024, '07, ’99.
-const YEAR = String.raw`(?:(?:19|20)\d{2}|['’]\s?\d{2})`;
+// Word autocorrects apostrophes to curly quotes, and which one it picks varies:
+// "Aug ’21 – Apr ‘22" carries both. Missing one merges two roles into one.
+const YEAR = String.raw`(?:(?:19|20)\d{2}|['’‘]\s?\d{2})`;
 const MONTH = String.raw`(?:[A-Za-z]{3,9}\.?\s*)?`;
 const OPEN_END = String.raw`(?:present|current|till\s*date|to\s*date|now|ongoing)`;
 /**
@@ -129,6 +138,30 @@ function isJobHeader(line: string): boolean {
 }
 
 /**
+ * Where a role actually begins.
+ *
+ * Many resumes put the employer on its own line and the job title with the
+ * dates on the next:
+ *
+ *   BCBS, Jacksonville - FL (Remote)
+ *   Salesforce Technical Architect/Developer - L4        Apr '22 - Present
+ *
+ * Anchoring on the date alone leaves the employer behind, and the role then
+ * takes its name from a word in the title — inventing an employer the candidate
+ * never worked for. The plain line immediately above is taken as part of the
+ * header when it looks like a company rather than prose or another role.
+ */
+function roleStartIndex(lines: string[], dateLineIdx: number): number {
+  const prev = lines[dateLineIdx - 1]?.trim();
+  if (!prev) return dateLineIdx;
+  if (prev.startsWith(BULLET_MARK.trim())) return dateLineIdx;
+  if (DATE_RANGE.test(prev)) return dateLineIdx; // already a role header of its own
+  if (prev.length > 90) return dateLineIdx; // a sentence, not a company line
+  if (/[.!?]$/.test(prev)) return dateLineIdx; // prose
+  return dateLineIdx - 1;
+}
+
+/**
  * Chunk the experience section on role boundaries.
  *
  * Splitting on blank lines could cut a role in half, leaving a chunk that opens
@@ -145,12 +178,23 @@ export function chunkExperienceByJob(experienceText: string, maxChars: number): 
   const lines = text.split(/\r?\n/);
   const blocks: { header: string; lines: string[] }[] = [];
   let current: { header: string; lines: string[] } | null = null;
+  let consumedIdx = -1;
 
-  for (const line of lines) {
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (i === consumedIdx) continue;
+
     if (isJobHeader(line)) {
-      current = { header: line.trim(), lines: [line] };
+      const start = roleStartIndex(lines, i);
+      // Begin the role at its employer line so the chunk carries the company,
+      // not just the title and dates.
+      const headerLines = start < i ? [lines[start], line] : [line];
+      if (start < i && current) current.lines.pop(); // it belonged here, not above
+      current = { header: headerLines.map((l) => l.trim()).join(" — "), lines: [...headerLines] };
       blocks.push(current);
-    } else if (current) {
+      continue;
+    }
+    if (current) {
       current.lines.push(line);
     } else {
       // Preamble before the first role.
@@ -171,20 +215,28 @@ export function chunkExperienceByJob(experienceText: string, maxChars: number): 
     const body = block.lines.join("\n");
     if (body.length > maxChars) {
       flush();
-      // Oversized role: split it, repeating the header on every piece.
-      const header = block.header;
-      let piece: string[] = header ? [header] : [];
-      let size = header.length;
-      for (const line of block.lines.slice(header ? 1 : 0)) {
-        if (size + line.length + 1 > maxChars && piece.length > (header ? 1 : 0)) {
+      // An oversized role has to be split, but repeating its header verbatim
+      // made each piece read as a fresh role, inventing employers that do not
+      // exist. Continuation pieces are labelled instead, so the extractor knows
+      // the bullets belong to the role already described.
+      const headerLineCount = block.header && block.lines.length ? (block.header.includes(" — ") ? 2 : 1) : 0;
+      const headerLines = block.lines.slice(0, headerLineCount);
+      const contMarker = `${CONTINUATION_MARK}${block.header}`;
+      let piece: string[] = [...headerLines];
+      let size = piece.join("\n").length;
+      let first = true;
+
+      for (const line of block.lines.slice(headerLineCount)) {
+        if (size + line.length + 1 > maxChars && piece.length > (first ? headerLineCount : 1)) {
           chunks.push(piece.join("\n").trim());
-          piece = header ? [header] : [];
-          size = header.length;
+          first = false;
+          piece = [contMarker];
+          size = contMarker.length;
         }
         piece.push(line);
         size += line.length + 1;
       }
-      if (piece.length > (header ? 1 : 0)) chunks.push(piece.join("\n").trim());
+      if (piece.length > (first ? headerLineCount : 1)) chunks.push(piece.join("\n").trim());
       continue;
     }
     if (buf.join("\n").length + body.length + 1 > maxChars && buf.length) flush();
@@ -200,16 +252,28 @@ export function chunkExperienceByJob(experienceText: string, maxChars: number): 
  * A new job begins at any non-bullet line carrying a date range.
  */
 export function splitSourceJobs(experienceText: string): SourceJob[] {
+  const lines = experienceText.split(/\r?\n/);
   const jobs: SourceJob[] = [];
   let current: SourceJob | null = null;
+  // Set when the preceding line has been absorbed as the employer, so it is
+  // not then also read as body text.
+  let consumedIdx = -1;
 
-  for (const raw of experienceText.split(/\r?\n/)) {
-    const line = raw.trim();
-    if (!line) continue;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line || i === consumedIdx) continue;
     const isBullet = line.startsWith(BULLET_MARK.trim());
 
     if (isJobHeader(line)) {
-      current = { header: line, bullets: [] };
+      const start = roleStartIndex(lines, i);
+      // Carry the employer line into the header so the role is identified by
+      // the company rather than by a word from its job title.
+      const header = start < i ? `${lines[start].trim()} ${line}` : line;
+      if (start < i && current) {
+        // That line was provisionally part of the previous role; take it back.
+        current.bullets = current.bullets.filter((b) => b !== lines[start].trim());
+      }
+      current = { header, bullets: [] };
       jobs.push(current);
       continue;
     }

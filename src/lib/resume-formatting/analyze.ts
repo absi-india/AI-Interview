@@ -2,7 +2,7 @@ import "server-only";
 
 import OpenAI from "openai";
 import { randomUUID } from "node:crypto";
-import { chunkExperienceByJob, chunkText, segmentResume } from "./segment";
+import { chunkExperienceByJob, chunkText, segmentResume, CONTINUATION_MARK } from "./segment";
 import { repairExperienceBullets } from "./repair";
 import {
   emptyResumeModel,
@@ -74,6 +74,10 @@ Return ONE JSON object with exactly these keys: "model", "clarifications", "scor
   "additional": string
 }
 Lines beginning with "• " are individual bullet points: each one is a SEPARATE entry in "bullets" — never merge two of them, never leave one out, and never stop early.
+
+A line beginning with "${CONTINUATION_MARK.trim()}" names a role that was already described earlier; the bullets after it belong to THAT role. Reproduce its company, title and dates exactly as given on that line — do not invent a new employer, and never take a company name out of a job title.
+
+An employer and its job title may appear on separate lines, the employer first ("BCBS, Jacksonville - FL" then "Salesforce Technical Architect - L4  Apr '22 - Present"). The employer is the company; the rest is the title. Never report a product or technology named inside a job title as the employer.
 
 Use empty string "" or [] for anything not present. Copy every bullet VERBATIM and in full — do not improve, shorten, truncate or omit any of them. If the professional summary is written as bullets, put each one in "summaryBullets" rather than flattening them into "summary".
 
