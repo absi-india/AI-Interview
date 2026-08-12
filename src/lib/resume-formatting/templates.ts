@@ -76,7 +76,7 @@ export const TEMPLATES: Record<TemplateId, TemplateDef> = {
     titleAndRequisitionOnOneLine: true,
     hideContactDetails: true,
     educationTable: true,
-    fileSuffix: "VectorVMS",
+    fileSuffix: "OHITS",
   },
   covendis: {
     id: "covendis",

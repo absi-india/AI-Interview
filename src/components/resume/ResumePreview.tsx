@@ -39,8 +39,8 @@ function Heading({ label, tmplId }: { label: string; tmplId: TemplateId }) {
   }
   return (
     <div
-      className="mt-3 mb-1.5 border-b pb-0.5 text-[16px] font-bold uppercase tracking-wide"
-      style={{ color: `#${tmpl.accent}`, borderColor: `#${tmpl.accent}` }}
+      className="mt-3 mb-1.5 text-[16px] font-bold uppercase tracking-wide"
+      style={{ color: `#${tmpl.accent}` }}
     >
       {label}
     </div>

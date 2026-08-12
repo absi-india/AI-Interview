@@ -87,10 +87,10 @@ function contactLine(model: ResumeModel, hideDetails: boolean) {
 }
 
 // ── Section heading variants ──
+/** Ohio ITSA heading: plain accent text, with no rule beneath it. */
 function plainHeading(text: string, color: string) {
   return new Paragraph({
     spacing: { before: 180, after: 60 },
-    border: { bottom: { style: BorderStyle.SINGLE, size: 6, color, space: 2 } },
     children: [run(text.toUpperCase(), { bold: true, size: 32, color })],
   });
 }
@@ -482,14 +482,15 @@ export async function buildResumeDocx(model: ResumeModel, tmplId: TemplateId): P
 }
 
 export function resumeFileName(model: ResumeModel, tmplId: TemplateId): string {
-  // firstname-lastname, lower case — e.g. nagendra-chappidi.docx
+  // e.g. OHITS_Resume-Abrar Syeda.docx
   const parts = (model.name || "")
-    .replace(/[^A-Za-z\s'-]+/g, " ")
+    .replace(/[^A-Za-z\s'.-]+/g, " ")
     .trim()
     .split(/\s+/)
     .filter(Boolean);
   const first = parts[0] ?? "";
   const last = parts.length > 1 ? parts[parts.length - 1] : "";
-  const slug = [first, last].filter(Boolean).join("-").toLowerCase().replace(/[^a-z-]/g, "") || "candidate";
-  return `${slug}-${getTemplate(tmplId).fileSuffix.toLowerCase()}.docx`;
+  // Characters Windows and macOS refuse in a file name.
+  const candidate = [first, last].filter(Boolean).join(" ").replace(/[\\/:*?"<>|]/g, "").trim() || "Candidate";
+  return `${getTemplate(tmplId).fileSuffix}_Resume-${candidate}.docx`;
 }
