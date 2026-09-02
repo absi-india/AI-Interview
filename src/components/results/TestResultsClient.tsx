@@ -183,11 +183,15 @@ export function TestResultsClient({ test, shareUrl }: { test: Test; shareUrl?: s
     }
   }
 
-  async function rerateWithAI() {
+  async function rerateWithAI({ retranscribe = false } = {}) {
     setRerating(true);
 
     try {
-      const response = await fetch(`/api/tests/${test.id}/rerate`, { method: "POST" });
+      const response = await fetch(`/api/tests/${test.id}/rerate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ retranscribe }),
+      });
       const body = await response.json().catch(() => ({}));
 
       if (!response.ok) {
@@ -195,7 +199,7 @@ export function TestResultsClient({ test, shareUrl }: { test: Test; shareUrl?: s
         return;
       }
 
-      showToast("AI scoring updated — refreshing results");
+      showToast(retranscribe ? "Recordings re-read and re-scored — refreshing results" : "AI scoring updated — refreshing results");
       window.location.reload();
     } catch {
       showToast("Failed to re-run AI scoring. Please try again.", "error");
@@ -287,11 +291,21 @@ export function TestResultsClient({ test, shareUrl }: { test: Test; shareUrl?: s
             </button>
             {test.status === "COMPLETED" && (
               <button
-                onClick={rerateWithAI}
+                onClick={() => rerateWithAI()}
                 disabled={rerating}
                 className="btn-secondary text-sm disabled:opacity-70 disabled:cursor-not-allowed"
               >
                 {rerating ? "Re-scoring..." : "Re-run AI Scoring"}
+              </button>
+            )}
+            {test.status === "COMPLETED" && test.questions.some((q) => q.videoUrl) && (
+              <button
+                onClick={() => rerateWithAI({ retranscribe: true })}
+                disabled={rerating}
+                title="Reads the answers again from the recordings, replacing the saved transcripts, then re-scores"
+                className="btn-secondary text-sm disabled:opacity-70 disabled:cursor-not-allowed"
+              >
+                {rerating ? "Working..." : "Re-transcribe from Video"}
               </button>
             )}
           </div>

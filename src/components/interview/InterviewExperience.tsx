@@ -654,7 +654,11 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
     }
     setUploadError("");
     if (resetAnswer) startQuestionTimer();
-    questionStartedAtMs.current = Date.now();
+    // Only a genuinely new question restarts the how-long-did-they-take clock.
+    // Recording also restarts mid-answer when the recogniser drops, and resetting
+    // here made a candidate who had been speaking for minutes look as though they
+    // had answered in a second.
+    if (resetAnswer) questionStartedAtMs.current = Date.now();
     startSpeechRecognition();
   }
 

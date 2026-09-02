@@ -22,7 +22,7 @@ function getRatingLabel(score: number): string {
 export async function rateTest(
   testId: string,
   fallbackOrigin?: string,
-  options: { force?: boolean } = {},
+  options: { force?: boolean; retranscribe?: boolean } = {},
 ): Promise<{ ok: boolean; alreadyRated?: boolean }> {
   const test = await prisma.test.findUnique({
     where: { id: testId },
@@ -43,11 +43,16 @@ export async function rateTest(
   // Fallback: some answers recorded a video but the browser's live speech-to-text
   // produced no transcript (it silently stops on tab changes / network blips).
   // Transcribe the recording server-side so the spoken answer isn't lost.
+  // Normally only a blank transcript is recovered. A transcript can also come
+  // back wrong rather than missing — the recogniser drops mid-answer and leaves
+  // a fragment — and because a fragment is not blank it was never retried, so
+  // re-scoring returned the same low mark for ever. retranscribe re-reads the
+  // recording regardless of what is already stored.
   const needsTranscription = pool.filter(
     (q) =>
-      (q.transcript?.trim() ?? "") === "" &&
-      (q.codeResponse?.trim() ?? "") === "" &&
-      Boolean(q.videoUrl)
+      Boolean(q.videoUrl) &&
+      (options.retranscribe ||
+        ((q.transcript?.trim() ?? "") === "" && (q.codeResponse?.trim() ?? "") === ""))
   );
   if (needsTranscription.length > 0) {
     await Promise.all(
