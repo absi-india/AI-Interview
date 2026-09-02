@@ -199,7 +199,20 @@ export function TestResultsClient({ test, shareUrl }: { test: Test; shareUrl?: s
         return;
       }
 
-      showToast(retranscribe ? "Recordings re-read and re-scored — refreshing results" : "AI scoring updated — refreshing results");
+      if (retranscribe) {
+        const t = (body as { transcription?: { attempted: number; recovered: number; reasons: string[] } }).transcription;
+        if (t && t.attempted > 0 && t.recovered === 0) {
+          // Nothing was recovered — say why rather than reporting a hollow success.
+          const why = t.reasons[0] ?? "the recordings could not be transcribed";
+          showToast(`No answers could be recovered — ${why}`, "error");
+          return;
+        }
+        showToast(
+          t ? `Re-read ${t.recovered} of ${t.attempted} recordings — refreshing results` : "Recordings re-read — refreshing results",
+        );
+      } else {
+        showToast("AI scoring updated — refreshing results");
+      }
       window.location.reload();
     } catch {
       showToast("Failed to re-run AI scoring. Please try again.", "error");

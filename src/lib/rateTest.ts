@@ -1,7 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import { rateAnswersBatch } from "@/lib/claude";
-import { transcribeRecording } from "@/lib/transcribe";
+import { transcribeRecordingDetailed } from "@/lib/transcribe";
 import { sendRatingCompleteEmail } from "@/lib/mailer";
 
 const RATING_LABELS: Array<[number, string]> = [
@@ -23,7 +23,12 @@ export async function rateTest(
   testId: string,
   fallbackOrigin?: string,
   options: { force?: boolean; retranscribe?: boolean } = {},
-): Promise<{ ok: boolean; alreadyRated?: boolean }> {
+): Promise<{
+  ok: boolean;
+  alreadyRated?: boolean;
+  /** How the recovery went, so a caller can report it rather than guess. */
+  transcription?: { attempted: number; recovered: number; reasons: string[] };
+}> {
   const test = await prisma.test.findUnique({
     where: { id: testId },
     include: {
@@ -54,15 +59,22 @@ export async function rateTest(
       (options.retranscribe ||
         ((q.transcript?.trim() ?? "") === "" && (q.codeResponse?.trim() ?? "") === ""))
   );
+  // Reported back so a recovery that achieved nothing says so, instead of
+  // looking identical to a successful one that changed no scores.
+  const transcription = { attempted: needsTranscription.length, recovered: 0, reasons: [] as string[] };
+
   if (needsTranscription.length > 0) {
     await Promise.all(
       needsTranscription.map(async (q) => {
-        const text = await transcribeRecording(q.videoUrl);
+        const { text, error } = await transcribeRecordingDetailed(q.videoUrl);
         const clean = text?.trim();
         if (clean) {
           // Persist immediately so partial progress survives a function timeout.
           await prisma.question.update({ where: { id: q.id }, data: { transcript: clean } });
           q.transcript = clean; // reflect locally so the answered/blank split below sees it
+          transcription.recovered += 1;
+        } else if (error) {
+          transcription.reasons.push(error);
         }
       })
     );
@@ -126,7 +138,7 @@ export async function rateTest(
       where: { id: testId },
       data: { overallScore: 0, overallRating: "No Answers" },
     });
-    return { ok: true };
+    return { ok: true, transcription };
   }
 
   const overallScore =
@@ -151,5 +163,5 @@ export async function rateTest(
     // SMTP may not be configured
   }
 
-  return { ok: true };
+  return { ok: true, transcription };
 }

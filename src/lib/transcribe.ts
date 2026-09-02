@@ -59,17 +59,29 @@ async function loadRecording(
  * on tab changes / network blips) even though the video + audio recorded fine.
  * Returns the transcript text, or null if unavailable/failed.
  */
-export async function transcribeRecording(videoUrl: string | null | undefined): Promise<string | null> {
-  if (!videoUrl) return null;
+export type TranscribeOutcome = { text: string | null; error?: string };
+
+/**
+ * Transcribe a stored recording, reporting why it could not be done.
+ *
+ * The plain wrapper below returns null for every kind of failure, which made a
+ * failed recovery indistinguishable from a recording that genuinely had nothing
+ * in it — the score stayed where it was with nothing to explain it.
+ */
+export async function transcribeRecordingDetailed(
+  videoUrl: string | null | undefined,
+): Promise<TranscribeOutcome> {
+  if (!videoUrl) return { text: null, error: "no recording saved for this answer" };
 
   const apiKey = getOpenAiApiKey();
-  if (!apiKey) return null;
+  if (!apiKey) return { text: null, error: "transcription is not configured" };
 
   const loaded = await loadRecording(videoUrl);
-  if (!loaded || loaded.buffer.length === 0) return null;
+  if (!loaded) return { text: null, error: "recording could not be read from storage" };
+  if (loaded.buffer.length === 0) return { text: null, error: "recording file is empty" };
   if (loaded.buffer.length > MAX_TRANSCRIBE_BYTES) {
-    console.warn("[transcribe] recording too large to transcribe", loaded.buffer.length);
-    return null;
+    const mb = Math.round((loaded.buffer.length / (1024 * 1024)) * 10) / 10;
+    return { text: null, error: `recording is ${mb} MB, over the ${MAX_TRANSCRIBE_BYTES / (1024 * 1024)} MB limit` };
   }
 
   const client = new OpenAI({ apiKey, timeout: 90_000 });
@@ -83,9 +95,18 @@ export async function transcribeRecording(videoUrl: string | null | undefined): 
       response_format: "text",
     });
     const text = typeof result === "string" ? result : (result as { text?: string }).text ?? "";
-    return text.trim() || null;
+    const clean = text.trim();
+    if (!clean) return { text: null, error: "no speech found in the recording" };
+    return { text: clean };
   } catch (err) {
-    console.warn("[transcribe] transcription failed", err instanceof Error ? err.message : err);
-    return null;
+    const message = err instanceof Error ? err.message : String(err);
+    console.warn("[transcribe] transcription failed", message);
+    return { text: null, error: `transcription failed: ${message}` };
   }
+}
+
+/** Backwards-compatible form used where the reason is not needed. */
+export async function transcribeRecording(videoUrl: string | null | undefined): Promise<string | null> {
+  const { text } = await transcribeRecordingDetailed(videoUrl);
+  return text;
 }
