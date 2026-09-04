@@ -6,6 +6,7 @@ import Link from "next/link";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { BrandLogo } from "@/components/BrandLogo";
 import { getFirebaseAuth } from "@/lib/firebase";
+import { useCaptcha } from "@/components/auth/useCaptcha";
 
 function isFirebaseHostAuthError(code: string | undefined) {
   return code === "auth/app-not-authorized" || code === "auth/unauthorized-domain";
@@ -27,16 +28,23 @@ function ForgotPasswordForm({ onBack }: { onBack: () => void }) {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [error, setError] = useState("");
+  const captcha = useCaptcha();
 
   async function handleReset(e: React.FormEvent) {
     e.preventDefault();
     setStatus("sending");
     setError("");
     try {
+      const solved = await captcha.getProof();
+      if (!solved.ok) {
+        setStatus("idle");
+        return;
+      }
+
       const response = await fetch("/api/auth/password-reset", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, captcha: solved.proof }),
       });
 
       if (!response.ok) {
@@ -85,6 +93,7 @@ function ForgotPasswordForm({ onBack }: { onBack: () => void }) {
               placeholder="you@example.com"
             />
         </div>
+        {captcha.element}
         {status === "error" && <p className="text-red-600 text-sm">{error}</p>}
         <button
           type="submit"
@@ -112,16 +121,22 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showReset, setShowReset] = useState(false);
+  const captcha = useCaptcha();
 
-  async function signInWithPassword() {
-    return signInWithCredentials(email, password);
+  async function signInWithPassword(captchaProof: string | null | undefined) {
+    return signInWithCredentials(email, password, captchaProof);
   }
 
-  async function signInWithCredentials(loginEmail: string, loginPassword: string) {
+  async function signInWithCredentials(
+    loginEmail: string,
+    loginPassword: string,
+    captchaProof: string | null | undefined,
+  ) {
     const dashboardCallbackUrl = `${window.location.origin}/`;
     const result = await signIn("credentials", {
       email: loginEmail,
       password: loginPassword,
+      captcha: captchaProof ?? "",
       redirect: false,
       callbackUrl: dashboardCallbackUrl,
     });
@@ -140,7 +155,9 @@ export default function LoginPage() {
     setError("");
 
     try {
-      await signInWithCredentials(localDevEmail, localDevPassword);
+      const solved = await captcha.getProof();
+      if (!solved.ok) return;
+      await signInWithCredentials(localDevEmail, localDevPassword, solved.proof);
     } finally {
       setLoading(false);
     }
@@ -151,10 +168,19 @@ export default function LoginPage() {
     setLoading(true);
     setError("");
     const dashboardCallbackUrl = `${window.location.origin}/`;
+    // Solved once per attempt, then reused: this form can call the credentials
+    // provider twice (Firebase, then the bcrypt fallback), and a Turnstile
+    // token is only good for one verification. Declared out here because the
+    // catch below falls back to a second attempt.
+    let captchaProof: string | null | undefined = null;
 
     try {
+      const solved = await captcha.getProof();
+      if (!solved.ok) return;
+      captchaProof = solved.proof;
+
       if (!hasFirebaseClientConfig()) {
-        await signInWithPassword();
+        await signInWithPassword(captchaProof);
         return;
       }
 
@@ -165,13 +191,14 @@ export default function LoginPage() {
       // Exchange the Firebase token for a Next-Auth session
       const result = await signIn("credentials", {
         idToken,
+        captcha: captchaProof ?? "",
         redirect: false,
         callbackUrl: dashboardCallbackUrl,
       });
       if (result?.error) {
         // Firebase auth succeeded but token exchange failed (e.g. missing Admin SDK config).
         // Fall back to local bcrypt credentials.
-        await signInWithPassword();
+        await signInWithPassword(captchaProof);
       } else {
         router.push("/");
       }
@@ -184,7 +211,7 @@ export default function LoginPage() {
       }
       // Firebase user not found, wrong password, SDK not configured, or any other
       // Firebase error → fall back to legacy bcrypt credentials (covers seeded admin accounts).
-      const signedIn = await signInWithPassword();
+      const signedIn = await signInWithPassword(captchaProof);
       if (!signedIn) {
         if (isFirebaseHostAuthError(code)) {
           setError(
@@ -257,6 +284,7 @@ export default function LoginPage() {
                   className="input-dark"
                 />
               </div>
+              {captcha.element}
               {error && <p className="text-red-600 text-sm">{error}</p>}
               <button
                 type="submit"

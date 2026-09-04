@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { firebaseAdmin } from "@/lib/firebase-admin";
+import { captchaEnabled, verifyCaptchaProof } from "@/lib/captcha";
 
 export async function POST(req: NextRequest) {
   try {
@@ -12,6 +13,15 @@ export async function POST(req: NextRequest) {
 
     if (!name) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    }
+
+    // Sign-up is open to anyone who can reach the page, so a script could mint
+    // recruiter accounts in bulk. Skipped when no captcha is configured.
+    if (captchaEnabled() && !verifyCaptchaProof(body?.captcha)) {
+      return NextResponse.json(
+        { error: "Please complete the verification and try again." },
+        { status: 400 },
+      );
     }
 
     if (idToken) {

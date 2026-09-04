@@ -6,6 +6,7 @@ import Link from "next/link";
 import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
 import { BrandLogo } from "@/components/BrandLogo";
 import { getFirebaseAuth } from "@/lib/firebase";
+import { useCaptcha } from "@/components/auth/useCaptcha";
 
 function shouldFallbackToPasswordRegistration(message: string | undefined) {
   return Boolean(message && message.includes("Firebase Admin env vars are not set"));
@@ -19,12 +20,13 @@ export default function RegisterPage() {
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const captcha = useCaptcha();
 
-  async function registerWithPasswordFallback() {
+  async function registerWithPasswordFallback(captchaProof: string | null | undefined) {
     const fallbackRes = await fetch("/api/auth/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, email, password }),
+      body: JSON.stringify({ name, email, password, captcha: captchaProof }),
     });
 
     const fallbackData: unknown = await fallbackRes.json().catch(() => ({}));
@@ -41,7 +43,12 @@ export default function RegisterPage() {
       return false;
     }
 
-    const fallbackSignIn = await signIn("credentials", { email, password, redirect: false });
+    const fallbackSignIn = await signIn("credentials", {
+      email,
+      password,
+      captcha: captchaProof ?? "",
+      redirect: false,
+    });
     if (fallbackSignIn?.error) {
       setError("Account created but sign-in failed. Please go to the login page.");
       return false;
@@ -64,8 +71,15 @@ export default function RegisterPage() {
 
     setLoading(true);
     setError("");
+    // One solve covers every server call this attempt makes, including the
+    // fallback path reached from the catch below.
+    let captchaProof: string | null | undefined = null;
 
     try {
+      const solved = await captcha.getProof();
+      if (!solved.ok) return;
+      captchaProof = solved.proof;
+
       // Create Firebase user
       const credential = await createUserWithEmailAndPassword(getFirebaseAuth(), email, password);
       await updateProfile(credential.user, { displayName: name });
@@ -75,7 +89,7 @@ export default function RegisterPage() {
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ idToken, name }),
+        body: JSON.stringify({ idToken, name, captcha: captchaProof }),
       });
 
       if (!res.ok) {
@@ -88,7 +102,7 @@ export default function RegisterPage() {
         if (shouldFallbackToPasswordRegistration(message)) {
           // If Admin SDK is not configured, use local password registration fallback.
           await credential.user.delete().catch(() => undefined);
-          await registerWithPasswordFallback();
+          await registerWithPasswordFallback(captchaProof);
           return;
         }
 
@@ -99,7 +113,11 @@ export default function RegisterPage() {
       }
 
       // Sign in via Next-Auth
-      const result = await signIn("credentials", { idToken, redirect: false });
+      const result = await signIn("credentials", {
+        idToken,
+        captcha: captchaProof ?? "",
+        redirect: false,
+      });
       if (result?.error) {
         setError("Account created but sign-in failed. Please go to the login page.");
       } else {
@@ -114,7 +132,7 @@ export default function RegisterPage() {
       } else if (code === "auth/weak-password") {
         setError("Password is too weak. Use at least 6 characters.");
       } else {
-        await registerWithPasswordFallback();
+        await registerWithPasswordFallback(captchaProof);
       }
     } finally {
       setLoading(false);
@@ -181,6 +199,7 @@ export default function RegisterPage() {
               className="input-dark"
             />
           </div>
+          {captcha.element}
           {error && <p className="text-red-600 text-sm">{error}</p>}
           <button
             type="submit"

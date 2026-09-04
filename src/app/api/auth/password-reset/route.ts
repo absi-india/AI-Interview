@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendTemporaryPasswordEmail } from "@/lib/mailer";
+import { captchaEnabled, verifyCaptchaProof } from "@/lib/captcha";
 
 function generateTemporaryPassword() {
   return randomBytes(9).toString("base64url");
@@ -15,6 +16,16 @@ export async function POST(req: NextRequest) {
 
     if (!email || !email.includes("@")) {
       return NextResponse.json({ error: "Enter a valid email address" }, { status: 400 });
+    }
+
+    // This endpoint replaces the account's password, so left open it lets
+    // anyone reset a colleague's password repeatedly just by knowing their
+    // address. Skipped when no captcha is configured.
+    if (captchaEnabled() && !verifyCaptchaProof(body?.captcha)) {
+      return NextResponse.json(
+        { error: "Please complete the verification and try again." },
+        { status: 400 },
+      );
     }
 
     const user = await prisma.user.findUnique({ where: { email } });

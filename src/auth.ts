@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { authConfig } from "./auth.config";
 import { firebaseAdmin } from "@/lib/firebase-admin";
+import { captchaEnabled, verifyCaptchaProof } from "@/lib/captcha";
 
 const devFallbackSecret =
   process.env.NODE_ENV === "production" ? undefined : "local-dev-auth-secret-change-me";
@@ -19,8 +20,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         // Legacy bcrypt flow: pass email + password
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
+        // Proof that a captcha was solved, when one is configured.
+        captcha: { label: "Captcha", type: "text" },
       },
       async authorize(credentials) {
+        // Only ever an extra hurdle: with no captcha keys set this is skipped
+        // entirely and sign-in behaves exactly as it did before.
+        if (captchaEnabled() && !verifyCaptchaProof(credentials?.captcha)) return null;
+
         const idToken = credentials?.idToken as string | undefined;
 
         // ── Firebase ID token path ──────────────────────────────────────
