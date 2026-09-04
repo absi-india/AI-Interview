@@ -158,6 +158,16 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
   const questionStartedAtMs = useRef<number>(Date.now());
   const uploadingRef = useRef(false);
   const recordingUnavailableRef = useRef(false);
+  // Desktop records each answer separately so every file opens on its own
+  // keyframe and actually plays. Phones keep one recorder for the whole
+  // interview: restarting a MediaRecorder on the same stream makes them emit
+  // empty blobs, and losing the recording outright is worse than losing the
+  // picture. Decided once at the start so it cannot change mid-interview.
+  const perQuestionRecordingRef = useRef(false);
+  // The finished recording for the answer being uploaded. Capturing drains the
+  // recorder, so a retry must reuse what was already captured rather than ask
+  // for it again and find nothing.
+  const pendingBlobRef = useRef<Blob | null>(null);
   const nextLockRef = useRef(false);
   // Mirror of currentIdx in a ref so timer callbacks always read the current value
   // even when captured in a stale closure.
@@ -556,7 +566,8 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
       try { await requestFullscreenEl(document.documentElement); } catch { /* ignore */ }
     }
     setPhase("interview");
-    startContinuousRecording();
+    perQuestionRecordingRef.current = !detectMobileInterview();
+    startRecorder();
     setShowStartWarning(true);
     // startTimer() and startRecordingForQuestion() are called when the candidate
     // dismisses the start warning, so Q1's 3-minute clock doesn't tick while they read it.
@@ -611,11 +622,25 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
     }
   }
 
-  // Start ONE recorder for the whole interview. Never stopped between questions —
-  // only snapshotted. This prevents phones from producing empty blobs when a new
-  // MediaRecorder is created on the same stream after the previous one stopped.
-  function startContinuousRecording() {
+  /**
+   * Begin recording. On desktop this runs once per answer; on phones it runs
+   * once for the whole interview and is only ever snapshotted, because creating
+   * a second MediaRecorder on the same stream leaves them producing empty blobs.
+   */
+  function startRecorder() {
     if (!streamRef.current) return;
+    // Retire any recorder still running, otherwise two of them write into the
+    // same buffer and the interleaved data will not decode.
+    const existing = recorderRef.current;
+    if (existing && existing.state !== "inactive") {
+      existing.ondataavailable = null;
+      existing.onstop = null;
+      try {
+        existing.stop();
+      } catch {
+        /* already gone */
+      }
+    }
     chunksRef.current = [];
     initSegmentRef.current = null;
     recorderRef.current = null;
@@ -653,6 +678,11 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
       setCodeResponse("");
     }
     setUploadError("");
+    // A new question gets its own recording on desktop, so the file begins on a
+    // keyframe and the picture decodes. Recovery restarts (resetAnswer false)
+    // must never do this — that would cut the answer in half.
+    if (resetAnswer) pendingBlobRef.current = null;
+    if (resetAnswer && perQuestionRecordingRef.current) startRecorder();
     if (resetAnswer) startQuestionTimer();
     // Only a genuinely new question restarts the how-long-did-they-take clock.
     // Recording also restarts mid-answer when the recogniser drops, and resetting
@@ -668,9 +698,54 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
     attachPreviewStream();
   }, [attachPreviewStream, cameraReady, phase, currentIdx]);
 
+  /**
+   * Close off this answer's recording and hand back the finished file.
+   *
+   * Used on desktop, where each answer has its own recorder. Stopping flushes
+   * the remaining data and yields a self-contained file that starts on a
+   * keyframe — which is what a player needs to show a picture. Slicing one long
+   * recording could not do that: every slice after the first began mid-sequence,
+   * so the audio played while the video stayed black.
+   */
+  function stopRecorderAndCollect(): Promise<Blob | null> {
+    return new Promise((resolve) => {
+      const recorder = recorderRef.current;
+      const build = () => {
+        const chunks = [...chunksRef.current];
+        chunksRef.current = [];
+        initSegmentRef.current = null;
+        if (chunks.length === 0) return null;
+        const type = recorder?.mimeType || chunks[0]?.type || "video/webm";
+        const blob = new Blob(chunks, { type });
+        return blob.size > 0 ? blob : null;
+      };
+
+      if (!recorder || recorder.state === "inactive") {
+        resolve(build());
+        return;
+      }
+
+      let settled = false;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        resolve(build());
+      };
+      recorder.onstop = finish;
+      // Never hang the interview waiting for a recorder that will not stop.
+      setTimeout(finish, 2000);
+      try {
+        recorder.stop();
+      } catch {
+        finish();
+      }
+    });
+  }
+
   // Snapshot the accumulated chunks for the current question WITHOUT stopping the
-  // recorder. The recorder keeps running so the next question always has video.
+  // recorder. Used on phones, where the recorder must keep running.
   function snapshotRecording(): Promise<Blob | null> {
+    if (perQuestionRecordingRef.current) return stopRecorderAndCollect();
     return new Promise((resolve) => {
       if (!recorderRef.current || recorderRef.current.state !== "recording") {
         if (chunksRef.current.length > 0) {
@@ -765,7 +840,8 @@ export function InterviewExperience({ inviteToken, candidateName, jobTitle, leve
 
     try {
       stopSpeechRecognition();
-      const blob = await snapshotRecording();
+      const blob = pendingBlobRef.current ?? (await snapshotRecording());
+      if (blob) pendingBlobRef.current = blob;
       const speechTranscript = `${transcriptRef.current} ${interimTranscriptRef.current}`.replace(/\s+/g, " ").trim();
       const cleanTranscript = speechTranscript;
       const cleanCodeResponse = codeResponse.trim();
