@@ -66,7 +66,7 @@ function divideAfterC(sheet: ExcelJS.Worksheet, top: number, bottom: number) {
 export function writePayslipSheet(sheet: ExcelJS.Worksheet, p: Payslip, logo: number | null) {
   sheet.columns = [
     { width: 22 }, { width: 16 }, { width: 14 },
-    { width: 20 }, { width: 16 }, { width: 14 },
+    { width: 20 }, { width: 17 }, { width: 16 },
   ];
 
   sheet.mergeCells("A1:F1");
@@ -198,8 +198,12 @@ export function writePayslipSheet(sheet: ExcelJS.Worksheet, p: Payslip, logo: nu
   sheet.mergeCells("C21:F21");
   const words = sheet.getCell("C21");
   words.value = p.netPayInWords;
-  words.font = { name: FONT, size: 10, bold: true };
-  words.alignment = { horizontal: "left", vertical: "middle", wrapText: false };
+  // A merged cell clips rather than overflowing, so a long amount loses its
+  // ending. The wording must read in full on one line, so it is sized to the
+  // space it has: roughly seventy characters fit across C to F at ten point.
+  const wordsSize = p.netPayInWords.length > 96 ? 7 : p.netPayInWords.length > 78 ? 8 : p.netPayInWords.length > 66 ? 9 : 10;
+  words.font = { name: FONT, size: wordsSize, bold: true };
+  words.alignment = { horizontal: "left", vertical: "middle", wrapText: false, shrinkToFit: true };
   boxRange(sheet, 21, 21, 1, 6);
 
   sheet.pageSetup = {
