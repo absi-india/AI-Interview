@@ -1,4 +1,5 @@
 import { auth } from "@/auth";
+import { canSeeRecruiting } from "@/lib/roles";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { BrandLogo } from "@/components/BrandLogo";
@@ -9,6 +10,7 @@ export const metadata = { title: "Resume Formatting · ABSI TIP" };
 export default async function ResumeFormattingPage() {
   const session = await auth();
   if (!session) redirect("/login");
+  if (!canSeeRecruiting(session.user.role)) redirect("/payroll");
 
   return (
     <div className="min-h-screen bg-[#f4f6f9]">

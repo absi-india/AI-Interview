@@ -1,4 +1,5 @@
 import { auth } from "@/auth";
+import { canSeeRecruiting } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
 import { isHttpUrl, parseResumeFileRef } from "@/lib/resume";
 import { redirect, notFound } from "next/navigation";
@@ -36,6 +37,7 @@ export default async function CandidateProfilePage({
 }) {
   const session = await auth();
   if (!session) redirect("/login");
+  if (!canSeeRecruiting(session.user.role)) redirect("/payroll");
 
   const { id } = await params;
   const candidate = await prisma.candidate.findUnique({

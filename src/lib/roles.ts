@@ -23,3 +23,17 @@ export function isRole(value: unknown): value is Role {
 export function canSeePayroll(role: string | undefined): boolean {
   return role === "ADMIN" || role === "ACCOUNTS";
 }
+
+/**
+ * Candidates, interviews and resumes. The accounts team has no part in hiring,
+ * so this is not merely hidden from them: candidate records are none of their
+ * business.
+ */
+export function canSeeRecruiting(role: string | undefined): boolean {
+  return role === "ADMIN" || role === "RECRUITER";
+}
+
+/** Where a person should land, given what they are allowed to see. */
+export function homePathFor(role: string | undefined): string {
+  return canSeeRecruiting(role) ? "/dashboard" : "/payroll";
+}

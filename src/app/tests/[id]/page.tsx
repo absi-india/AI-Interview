@@ -1,4 +1,5 @@
 import { auth } from "@/auth";
+import { canSeeRecruiting } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
@@ -16,6 +17,7 @@ export default async function TestResultsPage({
 }) {
   const session = await auth();
   if (!session) redirect("/login");
+  if (!canSeeRecruiting(session.user.role)) redirect("/payroll");
 
   const { id } = await params;
   const test = await prisma.test.findUnique({

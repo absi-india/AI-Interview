@@ -1,6 +1,6 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { canSeePayroll } from "@/lib/roles";
+import { canSeePayroll, canSeeRecruiting } from "@/lib/roles";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { BrandLogo } from "@/components/BrandLogo";
@@ -64,6 +64,7 @@ export default async function DashboardPage({
 }) {
   const session = await auth();
   if (!session) redirect("/login");
+  if (!canSeeRecruiting(session.user.role)) redirect("/payroll");
 
   const currentUser = await prisma.user.findUnique({
     where: { id: session.user.id },

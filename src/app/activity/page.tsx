@@ -1,4 +1,5 @@
 import { auth } from "@/auth";
+import { canSeeRecruiting } from "@/lib/roles";
 import { prisma } from "@/lib/prisma";
 import { buildAppDomain } from "@/lib/mailer";
 import { CopyLinkButton } from "@/components/CopyLinkButton";
@@ -68,6 +69,7 @@ export default async function ActivityPage({
 }) {
   const session = await auth();
   if (!session) redirect("/login");
+  if (!canSeeRecruiting(session.user.role)) redirect("/payroll");
 
   const currentUser = await prisma.user.findUnique({
     where: { id: session.user.id },

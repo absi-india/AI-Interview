@@ -118,7 +118,7 @@ export default function LoginPage() {
   }
 
   async function signInWithCredentials(loginEmail: string, loginPassword: string) {
-    const dashboardCallbackUrl = `${window.location.origin}/dashboard`;
+    const dashboardCallbackUrl = `${window.location.origin}/`;
     const result = await signIn("credentials", {
       email: loginEmail,
       password: loginPassword,
@@ -131,7 +131,7 @@ export default function LoginPage() {
       return false;
     }
 
-    router.push("/dashboard");
+    router.push("/");
     return true;
   }
 
@@ -150,7 +150,7 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     setError("");
-    const dashboardCallbackUrl = `${window.location.origin}/dashboard`;
+    const dashboardCallbackUrl = `${window.location.origin}/`;
 
     try {
       if (!hasFirebaseClientConfig()) {
@@ -173,7 +173,7 @@ export default function LoginPage() {
         // Fall back to local bcrypt credentials.
         await signInWithPassword();
       } else {
-        router.push("/dashboard");
+        router.push("/");
       }
     } catch (err: unknown) {
       const code = (err as { code?: string }).code;
