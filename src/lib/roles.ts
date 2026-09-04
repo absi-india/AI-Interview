@@ -30,7 +30,11 @@ export function canSeePayroll(role: string | undefined): boolean {
  * business.
  */
 export function canSeeRecruiting(role: string | undefined): boolean {
-  return role === "ADMIN" || role === "RECRUITER";
+  // Only the accounts team is kept out of hiring. Anything else counts as
+  // recruiting, including a role this list does not know about, so an account
+  // created before these roles existed still has somewhere to land instead of
+  // being bounced between two guards and locked out.
+  return role !== "ACCOUNTS";
 }
 
 /** Where a person should land, given what they are allowed to see. */
