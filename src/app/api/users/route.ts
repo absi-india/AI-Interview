@@ -1,6 +1,7 @@
 import { auth } from "@/auth";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { isRole } from "@/lib/roles";
 import bcrypt from "bcryptjs";
 
 export async function GET() {
@@ -43,7 +44,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
-    const normalizedRole = role === "ADMIN" ? "ADMIN" : "RECRUITER";
+    const normalizedRole = isRole(role) ? role : "RECRUITER";
 
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) return NextResponse.json({ error: "Email already in use" }, { status: 409 });

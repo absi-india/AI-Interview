@@ -1,6 +1,7 @@
 import { auth } from "@/auth";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { isRole } from "@/lib/roles";
 
 export async function PATCH(
   req: NextRequest,
@@ -18,7 +19,7 @@ export async function PATCH(
 
     const data: { isActive?: boolean; role?: string } = {};
     if (typeof isActive === "boolean") data.isActive = isActive;
-    if (role === "ADMIN" || role === "RECRUITER") {
+    if (isRole(role)) {
       if (id === session.user.id) {
         return NextResponse.json({ error: "You cannot change your own role." }, { status: 400 });
       }

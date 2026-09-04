@@ -1,4 +1,5 @@
 import { auth } from "@/auth";
+import { canSeePayroll } from "@/lib/roles";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { BrandLogo } from "@/components/BrandLogo";
@@ -11,8 +12,7 @@ export default async function PayrollPage() {
   const session = await auth();
   if (!session) redirect("/login");
 
-  const role = session.user.role;
-  if (role !== "ADMIN" && role !== "ACCOUNTS") {
+  if (!canSeePayroll(session.user.role)) {
     return (
       <div className="min-h-screen bg-[#f4f6f9]">
         <header className="flex h-[62px] items-center justify-between gap-4 border-b border-[#e1e7f0] bg-white px-5 sm:px-6">

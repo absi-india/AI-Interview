@@ -1,4 +1,5 @@
 import { auth } from "@/auth";
+import { canSeePayroll } from "@/lib/roles";
 import { NextRequest, NextResponse } from "next/server";
 import { parseEdrWorkbook } from "@/lib/payroll/parseEdr";
 import { buildPayslip } from "@/lib/payroll/payslip";
@@ -8,11 +9,6 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 const MAX_SIZE_BYTES = 15 * 1024 * 1024;
-
-/** Payroll carries salary, PAN and bank details; recruiters have no business here. */
-export function canSeePayroll(role: string | undefined): boolean {
-  return role === "ADMIN" || role === "ACCOUNTS";
-}
 
 function isFileLike(value: FormDataEntryValue | null): value is File {
   if (!value || typeof value === "string") return false;

@@ -1,5 +1,6 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { canSeePayroll } from "@/lib/roles";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { BrandLogo } from "@/components/BrandLogo";
@@ -143,7 +144,7 @@ export default async function DashboardPage({
     { label: "Overview", href: "/dashboard", active: true },
     { label: "Activity", href: "/activity" },
     { label: "Resume Formatting", href: "/resume" },
-    ...(role === "ADMIN" || role === "ACCOUNTS" ? [{ label: "Payslips", href: "/payroll" }] : []),
+    ...(canSeePayroll(role) ? [{ label: "Payslips", href: "/payroll" }] : []),
     ...(role === "ADMIN" ? [{ label: "Admin Panel", href: "/admin" }] : []),
   ];
 

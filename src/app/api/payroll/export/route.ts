@@ -1,4 +1,5 @@
 import { auth } from "@/auth";
+import { canSeePayroll } from "@/lib/roles";
 import { NextRequest, NextResponse } from "next/server";
 import { buildPayslipWorkbook } from "@/lib/payroll/excel";
 import { buildPayslipPdf, buildPayslipPdfBundle, pdfFileName } from "@/lib/payroll/pdf";
@@ -6,10 +7,6 @@ import type { Payslip } from "@/lib/payroll/types";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
-
-function canSeePayroll(role: string | undefined): boolean {
-  return role === "ADMIN" || role === "ACCOUNTS";
-}
 
 /**
  * Produce the selected payslips.

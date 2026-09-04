@@ -1,0 +1,25 @@
+/**
+ * Who a person is in the system.
+ *
+ * ACCOUNTS exists so the payroll team can reach payslips without being made an
+ * administrator, which would also hand them every candidate and the ability to
+ * manage other users.
+ */
+export const ROLES = ["ADMIN", "RECRUITER", "ACCOUNTS"] as const;
+
+export type Role = (typeof ROLES)[number];
+
+export const ROLE_LABEL: Record<Role, string> = {
+  ADMIN: "Admin",
+  RECRUITER: "Recruiter",
+  ACCOUNTS: "Accounts",
+};
+
+export function isRole(value: unknown): value is Role {
+  return typeof value === "string" && (ROLES as readonly string[]).includes(value);
+}
+
+/** Payslips carry salary, PAN and bank details. */
+export function canSeePayroll(role: string | undefined): boolean {
+  return role === "ADMIN" || role === "ACCOUNTS";
+}

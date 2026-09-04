@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { BrandLogo } from "@/components/BrandLogo";
 import { showToast } from "@/components/ui/Toaster";
+import { ROLES, ROLE_LABEL, type Role } from "@/lib/roles";
 
 type User = { id: string; name: string; email: string; role: string; isActive: boolean; testCount: number };
 type Test = { id: string; jobTitle: string; level: string; status: string; createdAt: string; candidate: { name: string }; recruiter: { name: string }; overallScore: number | null };
@@ -59,7 +60,7 @@ export default function AdminPage() {
       return;
     }
     setUsers((u) => u.map((x) => x.id === userId ? { ...x, role } : x));
-    showToast(role === "ADMIN" ? "User promoted to Admin" : "User changed to Recruiter");
+    showToast(`Role changed to ${ROLE_LABEL[role as Role] ?? role}`);
   }
 
   async function createUser(e: React.FormEvent) {
@@ -75,7 +76,7 @@ export default function AdminPage() {
     setUsers((u) => [{ ...data.user, testCount: 0 }, ...u]);
     setShowCreateUser(false);
     setNewUser({ name: "", email: "", password: "", role: "RECRUITER" });
-    showToast(`${data.user.role === "ADMIN" ? "Admin" : "Recruiter"} account created`);
+    showToast(`${ROLE_LABEL[data.user.role as Role] ?? data.user.role} account created`);
   }
 
   const STATUS_COLOR: Record<string, string> = {
@@ -146,8 +147,9 @@ export default function AdminPage() {
                   <input placeholder="Email" type="email" required value={newUser.email} onChange={(e) => setNewUser((n) => ({ ...n, email: e.target.value }))} className="input-dark" />
                   <input placeholder="Password" type="password" required value={newUser.password} onChange={(e) => setNewUser((n) => ({ ...n, password: e.target.value }))} className="input-dark" />
                   <select value={newUser.role} onChange={(e) => setNewUser((n) => ({ ...n, role: e.target.value }))} className="input-dark">
-                    <option value="RECRUITER">Recruiter</option>
-                    <option value="ADMIN">Admin</option>
+                    {ROLES.map((r) => (
+                      <option key={r} value={r}>{ROLE_LABEL[r]}</option>
+                    ))}
                   </select>
                   {createError && <p className="col-span-2 sm:col-span-4 text-red-600 text-sm">{createError}</p>}
                   <div className="col-span-2 sm:col-span-4 flex gap-2">
@@ -196,7 +198,7 @@ export default function AdminPage() {
                       <td className="font-medium text-[#0f172a]">{u.name}</td>
                       <td className="font-mono text-[12.5px] text-[#64748b]">{u.email}</td>
                       <td>
-                        <span className={`badge ${u.role === "ADMIN" ? "bg-[#e0e7ff] text-[#4f46e5]" : "bg-[#f1f5f9] text-[#475569]"}`}>{u.role}</span>
+                        <span className={`badge ${u.role === "ADMIN" ? "bg-[#e0e7ff] text-[#4f46e5]" : u.role === "ACCOUNTS" ? "bg-[#dcfce7] text-[#15803d]" : "bg-[#f1f5f9] text-[#475569]"}`}>{ROLE_LABEL[u.role as Role] ?? u.role}</span>
                       </td>
                       <td className="font-mono font-semibold text-[#334155]">{u.testCount}</td>
                       <td>
@@ -206,12 +208,16 @@ export default function AdminPage() {
                       </td>
                       <td>
                         <div className="flex gap-3.5">
-                          <button
-                            onClick={() => changeRole(u.id, u.role === "ADMIN" ? "RECRUITER" : "ADMIN")}
-                            className="text-sm font-medium text-[#4f46e5] hover:text-[#4338ca] transition-colors"
+                          <select
+                            value={u.role}
+                            onChange={(e) => changeRole(u.id, e.target.value)}
+                            aria-label={`Role for ${u.name}`}
+                            className="rounded-md border border-[#dce2ea] bg-white px-2 py-1 text-sm text-[#334155]"
                           >
-                            {u.role === "ADMIN" ? "Make Recruiter" : "Make Admin"}
-                          </button>
+                            {ROLES.map((r) => (
+                              <option key={r} value={r}>{ROLE_LABEL[r]}</option>
+                            ))}
+                          </select>
                           <button
                             onClick={() => toggleUser(u.id, !u.isActive)}
                             className={`text-sm font-medium transition-colors ${u.isActive ? "text-[#dc2626] hover:text-[#b91c1c]" : "text-[#15803d] hover:text-[#166534]"}`}
