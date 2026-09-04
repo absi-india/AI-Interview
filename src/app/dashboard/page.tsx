@@ -143,6 +143,7 @@ export default async function DashboardPage({
     { label: "Overview", href: "/dashboard", active: true },
     { label: "Activity", href: "/activity" },
     { label: "Resume Formatting", href: "/resume" },
+    ...(role === "ADMIN" || role === "ACCOUNTS" ? [{ label: "Payslips", href: "/payroll" }] : []),
     ...(role === "ADMIN" ? [{ label: "Admin Panel", href: "/admin" }] : []),
   ];
 
