@@ -188,7 +188,10 @@ export default async function DashboardPage({
             <div className="text-[13px] font-semibold text-white truncate">{displayName}</div>
             <div className="font-mono text-[10px] text-[#64748b] tracking-wide">{role}</div>
           </div>
-          <SignOutButton className="text-xs text-[#94a3b8] hover:text-[#f87171] transition-colors font-medium" />
+          <div className="flex flex-col items-end gap-1">
+            <Link href="/account" className="text-xs font-medium text-[#94a3b8] transition-colors hover:text-[#e2e8f0]">Password</Link>
+            <SignOutButton className="text-xs text-[#94a3b8] hover:text-[#f87171] transition-colors font-medium" />
+          </div>
         </div>
       </aside>
 

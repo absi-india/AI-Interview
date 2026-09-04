@@ -58,7 +58,10 @@ export default async function PayrollPage() {
               {ROLE_LABEL[role as Role] ?? role}
             </div>
           </div>
-          <SignOutButton className="text-xs font-medium text-[#94a3b8] transition-colors hover:text-[#f87171]" />
+          <div className="flex flex-col items-end gap-1">
+            <Link href="/account" className="text-xs font-medium text-[#94a3b8] transition-colors hover:text-[#e2e8f0]">Password</Link>
+            <SignOutButton className="text-xs font-medium text-[#94a3b8] transition-colors hover:text-[#f87171]" />
+          </div>
         </div>
       </aside>
 
