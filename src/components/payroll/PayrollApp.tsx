@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { showToast } from "@/components/ui/Toaster";
 import { amountInWords } from "@/lib/payroll/words";
 import type { Payslip, PayrollWarning } from "@/lib/payroll/types";
@@ -45,6 +45,7 @@ export function PayrollApp() {
   const forMonth = useMemo(() => payslips.filter((p) => p.month === month), [payslips, month]);
   const chosen = useMemo(() => forMonth.filter((p) => selected.has(keyOf(p))), [forMonth, selected]);
   const monthWarnings = useMemo(() => warnings.filter((w) => w.month === month), [warnings, month]);
+  const allChosen = forMonth.length > 0 && chosen.length === forMonth.length;
 
   function chooseFile(f: File | null) {
     if (!f) return;
@@ -95,6 +96,20 @@ export function PayrollApp() {
       const next = new Set(s);
       if (next.has(key)) next.delete(key);
       else next.add(key);
+      return next;
+    });
+  }
+
+  /** Tick or clear every employee shown for the month in one go. */
+  function toggleAll() {
+    setSelected((s) => {
+      const next = new Set(s);
+      // Only the rows on screen are touched, so a different month's choices
+      // survive switching back and forth.
+      for (const p of forMonth) {
+        if (allChosen) next.delete(keyOf(p));
+        else next.add(keyOf(p));
+      }
       return next;
     });
   }
@@ -222,7 +237,16 @@ export function PayrollApp() {
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-[#f8fafc] text-left font-mono text-[11px] uppercase tracking-wide text-[#94a3b8]">
-              <th className="px-3 py-2.5 w-8"></th>
+              <th className="px-3 py-2.5 w-8">
+                <SelectAllBox
+                  checked={allChosen}
+                  // Part-way through, the box shows a dash rather than claiming
+                  // everyone is either in or out.
+                  indeterminate={chosen.length > 0 && !allChosen}
+                  disabled={forMonth.length === 0}
+                  onChange={toggleAll}
+                />
+              </th>
               <th className="px-3 py-2.5">Employee</th>
               <th className="px-3 py-2.5 text-right">Gross</th>
               <th className="px-3 py-2.5 text-right">Earnings</th>
@@ -256,6 +280,38 @@ export function PayrollApp() {
         you start again from the workbook.
       </p>
     </div>
+  );
+}
+
+/**
+ * The header tick box. "Indeterminate" has no HTML attribute — it can only be
+ * set on the element — so it is applied here rather than in the markup.
+ */
+function SelectAllBox({
+  checked, indeterminate, disabled, onChange,
+}: {
+  checked: boolean;
+  indeterminate: boolean;
+  disabled: boolean;
+  onChange: () => void;
+}) {
+  const ref = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (ref.current) ref.current.indeterminate = indeterminate;
+  }, [indeterminate]);
+
+  return (
+    <input
+      ref={ref}
+      type="checkbox"
+      checked={checked}
+      disabled={disabled}
+      onChange={onChange}
+      aria-label={checked ? "Clear all" : "Select all"}
+      title={checked ? "Clear all" : "Select all"}
+      className="h-4 w-4 cursor-pointer accent-[#2563eb] disabled:cursor-not-allowed disabled:opacity-40"
+    />
   );
 }
 
