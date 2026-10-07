@@ -19,6 +19,12 @@ import type {
   TemplateId,
 } from "@/lib/resume-formatting/types";
 
+/** One point in the edit history: suggestion statuses plus hand edits. */
+interface EditSnapshot {
+  suggestions: Suggestion[];
+  details: ResumeModel | null;
+}
+
 type Step = "select" | "upload" | "editor";
 type ViewMode = "split" | "original" | "formatted";
 
@@ -60,8 +66,8 @@ export function ResumeFormattingApp() {
   // editor
   const [result, setResult] = useState<AnalyzeResult | null>(null);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
-  const [history, setHistory] = useState<Suggestion[][]>([]);
-  const [future, setFuture] = useState<Suggestion[][]>([]);
+  const [history, setHistory] = useState<EditSnapshot[]>([]);
+  const [future, setFuture] = useState<EditSnapshot[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [view, setView] = useState<ViewMode>("split");
   const [zoom, setZoom] = useState(1);
@@ -194,11 +200,24 @@ export function ResumeFormattingApp() {
     }
   }
 
-  // ── suggestion actions (with undo history) ──
+  // ── edits (with undo history) ──
+  // One snapshot covers both the suggestion statuses and the hand-edited
+  // model, so Undo steps back through accepting a suggestion and typing in the
+  // document in the order they actually happened.
+  function snapshot(): EditSnapshot {
+    return { suggestions, details };
+  }
   function mutate(next: Suggestion[]) {
-    setHistory((h) => [...h, suggestions]);
+    setHistory((h) => [...h, snapshot()]);
     setFuture([]);
     setSuggestions(next);
+  }
+
+  /** A hand edit made directly in the formatted preview. */
+  function editModel(next: ResumeModel) {
+    setHistory((h) => [...h, snapshot()]);
+    setFuture([]);
+    setDetails(next);
   }
   function setStatus(id: string, status: SuggestionStatus, editedText?: string) {
     mutate(
@@ -215,15 +234,17 @@ export function ResumeFormattingApp() {
     if (!history.length) return;
     const prev = history[history.length - 1];
     setHistory((h) => h.slice(0, -1));
-    setFuture((f) => [suggestions, ...f]);
-    setSuggestions(prev);
+    setFuture((f) => [snapshot(), ...f]);
+    setSuggestions(prev.suggestions);
+    setDetails(prev.details);
   }
   function redo() {
     if (!future.length) return;
     const nxt = future[0];
     setFuture((f) => f.slice(1));
-    setHistory((h) => [...h, suggestions]);
-    setSuggestions(nxt);
+    setHistory((h) => [...h, snapshot()]);
+    setSuggestions(nxt.suggestions);
+    setDetails(nxt.details);
   }
   function undoAll() {
     if (!result) return;
@@ -518,9 +539,12 @@ export function ResumeFormattingApp() {
           )}
           {view !== "original" && (
             <div className="min-w-0 flex-1 overflow-auto p-4">
-              <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-[#94a3b8]">Formatted preview · {TEMPLATES[templateId].name}</div>
+              <div className="mb-2 flex items-baseline gap-2">
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-[#94a3b8]">Formatted preview · {TEMPLATES[templateId].name}</span>
+                <span className="text-[10.5px] text-[#2563eb]">Click any text to edit it</span>
+              </div>
               <div style={{ transform: `scale(${zoom})`, transformOrigin: "top center" }}>
-                <ResumePreview model={appliedModel} tmplId={templateId} />
+                <ResumePreview model={appliedModel} tmplId={templateId} onChange={editModel} />
               </div>
             </div>
           )}

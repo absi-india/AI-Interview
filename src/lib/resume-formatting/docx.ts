@@ -29,6 +29,7 @@ import {
   labelFor,
   type CaiProgram,
   type SectionKey,
+  type TemplateDef,
 } from "./templates";
 import { splitBulletLabel } from "./segment";
 import type { ResumeModel, TemplateId } from "./types";
@@ -96,11 +97,10 @@ function contactLine(model: ResumeModel, hideDetails: boolean) {
 
 // ── Section heading variants ──
 /** Ohio ITSA heading: plain accent text, with no rule beneath it. */
-function plainHeading(text: string, color: string) {
-  return new Paragraph({
-    spacing: { before: 180, after: 60 },
-    children: [run(text.toUpperCase(), { bold: true, size: 32, color })],
-  });
+function plainHeading(text: string) {
+  // Look comes from the SectionHeading style, never from the run, so Word
+  // treats it as a heading and does not carry it into the next paragraph.
+  return new Paragraph({ style: "SectionHeading", children: [new TextRun(text.toUpperCase())] });
 }
 
 /**
@@ -109,20 +109,7 @@ function plainHeading(text: string, color: string) {
  * rules, not from a filled bar.
  */
 function underlinedHeading(text: string) {
-  return new Paragraph({
-    spacing: { before: 20, after: 60 },
-    keepNext: true,
-    children: [
-      new TextRun({
-        text: text.toUpperCase(),
-        bold: true,
-        underline: {},
-        size: 20,
-        color: "000000",
-        font: BODY_FONT,
-      }),
-    ],
-  });
+  return new Paragraph({ style: "SectionHeading", children: [new TextRun(text.toUpperCase())] });
 }
 
 /**
@@ -168,15 +155,87 @@ function covendisPageBorders(accent: string) {
  * reference resume. A shaded paragraph rather than a table, so it never affects
  * how the document paginates.
  */
-function boxedHeading(text: string, color: string) {
-  const edge = { style: BorderStyle.SINGLE, size: 4, color: "AFAFAF", space: 4 };
-  return new Paragraph({
-    shading: { type: ShadingType.SOLID, color: "E8E8E8", fill: "E8E8E8" },
-    border: { top: edge, bottom: edge, left: edge, right: edge },
-    spacing: { before: 180, after: 100 },
-    keepNext: true,
-    children: [run(text.toUpperCase(), { bold: true, size: 20, color })],
-  });
+function boxedHeading(text: string) {
+  return new Paragraph({ style: "SectionHeading", children: [new TextRun(text.toUpperCase())] });
+}
+
+/**
+ * Named styles, so the document survives being edited in Word.
+ *
+ * Without these, Word's own Normal style (Calibri 11pt) governs anything the
+ * recruiter types, and every heading's colour and rule is direct formatting
+ * that the next paragraph inherits when they press Enter — which is how a
+ * small edit ends up undoing the whole layout. Stating the body font here and
+ * giving each heading `next: Normal` means typed text matches what is around
+ * it and the heading's rule stops at the heading.
+ */
+function documentStyles(tmpl: TemplateDef) {
+  const accent = tmpl.cai ? CAI_NAVY : tmpl.accent;
+
+  // Each template has exactly one heading look, so one style covers it.
+  const headingRun = tmpl.cai
+    ? { bold: true, size: 24, color: CAI_NAVY }
+    : tmpl.underlinedHeadings
+      ? { bold: true, size: 20, color: "000000", underline: {} }
+      : tmpl.boxedHeadings
+        ? { bold: true, size: 20, color: accent }
+        : { bold: true, size: 32, color: accent };
+
+  const headingParagraph = tmpl.cai
+    ? {
+        spacing: { before: 200, after: 0 },
+        keepNext: true,
+        border: { bottom: { style: BorderStyle.SINGLE, size: 10, color: CAI_BLUE, space: 3 } },
+      }
+    : tmpl.underlinedHeadings
+      ? { spacing: { before: 20, after: 60 }, keepNext: true }
+      : tmpl.boxedHeadings
+        ? {
+            spacing: { before: 180, after: 100 },
+            keepNext: true,
+            shading: { type: ShadingType.SOLID, color: "E8E8E8", fill: "E8E8E8" },
+            border: {
+              top: { style: BorderStyle.SINGLE, size: 4, color: "AFAFAF", space: 4 },
+              bottom: { style: BorderStyle.SINGLE, size: 4, color: "AFAFAF", space: 4 },
+              left: { style: BorderStyle.SINGLE, size: 4, color: "AFAFAF", space: 4 },
+              right: { style: BorderStyle.SINGLE, size: 4, color: "AFAFAF", space: 4 },
+            },
+          }
+        : { spacing: { before: 180, after: 60 }, keepNext: true };
+
+  return {
+    default: {
+      document: {
+        run: { font: BODY_FONT, size: 20, color: "222222" },
+        paragraph: { spacing: { after: 40 } },
+      },
+    },
+    paragraphStyles: [
+      {
+        id: "SectionHeading",
+        name: "Section Heading",
+        basedOn: "Normal",
+        next: "Normal", // Enter at the end of a heading returns to body text.
+        quickFormat: true,
+        run: { ...headingRun, font: BODY_FONT },
+        paragraph: headingParagraph,
+      },
+      {
+        id: "DocTitle",
+        name: "Document Title",
+        basedOn: "Normal",
+        next: "Normal",
+        quickFormat: true,
+        run: { bold: true, size: 40, color: accent, font: BODY_FONT },
+        paragraph: {
+          spacing: { before: 60, after: 0 },
+          ...(tmpl.cai
+            ? { border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: CAI_BLUE, space: 4 } } }
+            : {}),
+        },
+      },
+    ],
+  };
 }
 
 // ── CAI letterhead ───────────────────────────────────────────────────────────
@@ -227,11 +286,7 @@ function caiHeaderBar(program: CaiProgram) {
 /** "CAI Resume Template" and the contract line beneath it, on page one only. */
 function caiTitleBlock(program: CaiProgram) {
   return [
-    new Paragraph({
-      spacing: { before: 60, after: 0 },
-      border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: CAI_BLUE, space: 4 } },
-      children: [run("CAI Resume Template", { bold: true, size: 40, color: CAI_NAVY })],
-    }),
+    new Paragraph({ style: "DocTitle", children: [new TextRun("CAI Resume Template")] }),
     new Paragraph({
       spacing: { before: 60, after: 120 },
       children: [run(program.contractLine, { bold: true, size: 18, color: CAI_BLUE })],
@@ -265,12 +320,7 @@ function caiContactBlock(program: CaiProgram) {
 
 /** CAI section heading: navy, with the blue rule the reference draws beneath. */
 function caiHeading(text: string) {
-  return new Paragraph({
-    spacing: { before: 200, after: 0 },
-    keepNext: true,
-    border: { bottom: { style: BorderStyle.SINGLE, size: 10, color: CAI_BLUE, space: 3 } },
-    children: [run(text, { bold: true, size: 24, color: CAI_NAVY })],
-  });
+  return new Paragraph({ style: "SectionHeading", children: [new TextRun(text)] });
 }
 
 function heading(key: SectionKey, tmplId: TemplateId): (Paragraph | Table)[] {
@@ -279,8 +329,8 @@ function heading(key: SectionKey, tmplId: TemplateId): (Paragraph | Table)[] {
   if (!label) return [];
   if (tmpl.cai) return [caiHeading(label)];
   if (tmpl.underlinedHeadings) return [underlinedHeading(label)];
-  if (tmpl.boxedHeadings) return [boxedHeading(label, tmpl.accent)];
-  return [plainHeading(label, tmpl.accent)];
+  if (tmpl.boxedHeadings) return [boxedHeading(label)];
+  return [plainHeading(label)];
 }
 
 // ── Body builders ──
@@ -671,6 +721,7 @@ export async function buildResumeDocx(model: ResumeModel, tmplId: TemplateId): P
 
   const doc = new Document({
     creator: "ABSI TIP — Resume Formatting",
+    styles: documentStyles(tmpl),
     sections: [
       {
         properties: {
