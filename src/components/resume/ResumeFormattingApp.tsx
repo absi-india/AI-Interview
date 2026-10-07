@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { showToast } from "@/components/ui/Toaster";
 import { ResumePreview } from "@/components/resume/ResumePreview";
-import { TEMPLATES } from "@/lib/resume-formatting/templates";
+import { CAI_BLUE, CAI_NAVY, CAI_TEAL, TEMPLATES } from "@/lib/resume-formatting/templates";
 import { buildSnapshot } from "@/lib/resume-formatting/snapshot";
 import {
   applyAcceptedSuggestions,
@@ -311,7 +311,23 @@ export function ResumeFormattingApp() {
           {Object.values(TEMPLATES).map((t) => (
             <div key={t.id} className="glass-card flex flex-col p-5">
               <div className="mb-3 flex h-28 items-center justify-center overflow-hidden rounded-lg border border-[#e7ebf0] bg-[#f8fafc]">
-                {t.repeatingLogo ? (
+                {t.cai ? (
+                  <div className="w-4/5">
+                    <div className="flex text-[5px] text-white">
+                      <div className="flex-1 px-1 py-0.5 font-bold" style={{ backgroundColor: `#${CAI_NAVY}` }}>CAI</div>
+                      <div className="px-1 py-0.5" style={{ backgroundColor: `#${CAI_TEAL}` }}>MSP</div>
+                    </div>
+                    <div className="mt-1 pb-0.5 text-[6px] font-bold" style={{ color: `#${CAI_NAVY}`, borderBottom: `1px solid #${CAI_BLUE}` }}>
+                      CAI Resume Template
+                    </div>
+                    <div className="mx-auto mt-1.5 h-1 w-1/2 rounded" style={{ backgroundColor: `#${CAI_NAVY}` }} />
+                    <div className="mt-1.5 pb-0.5" style={{ borderBottom: `1px solid #${CAI_BLUE}` }}>
+                      <div className="h-1 w-2/5 rounded" style={{ backgroundColor: `#${CAI_NAVY}` }} />
+                    </div>
+                    <div className="mt-1 h-0.5 w-full rounded bg-gray-300" />
+                    <div className="mt-0.5 h-0.5 w-3/4 rounded bg-gray-300" />
+                  </div>
+                ) : t.repeatingLogo ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src="/ohio-itsa-logo.png" alt="Ohio ITSA" className="h-7 w-auto object-contain" />
                 ) : t.underlinedHeadings ? (

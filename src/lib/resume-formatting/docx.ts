@@ -21,7 +21,15 @@ import {
   WidthType,
   convertInchesToTwip,
 } from "docx";
-import { getTemplate, SECTION_LABEL, type SectionKey } from "./templates";
+import {
+  CAI_BLUE,
+  CAI_NAVY,
+  CAI_TEAL,
+  getTemplate,
+  labelFor,
+  type CaiProgram,
+  type SectionKey,
+} from "./templates";
 import { splitBulletLabel } from "./segment";
 import type { ResumeModel, TemplateId } from "./types";
 
@@ -171,10 +179,105 @@ function boxedHeading(text: string, color: string) {
   });
 }
 
+// ── CAI letterhead ───────────────────────────────────────────────────────────
+/** No border at all, for the letterhead bar's own cells. */
+const NO_BORDER = { style: BorderStyle.NONE, size: 0, color: "FFFFFF" };
+const NO_BORDERS = {
+  top: NO_BORDER, bottom: NO_BORDER, left: NO_BORDER, right: NO_BORDER,
+  insideHorizontal: NO_BORDER, insideVertical: NO_BORDER,
+};
+
+/**
+ * The navy bar across the top of every CAI page: "CAI" and the contract name
+ * on the left, a teal "Managed Services Program" tab on the right. A header,
+ * so Word repeats it on each page as the reference letterhead does.
+ */
+function caiHeaderBar(program: CaiProgram) {
+  const cell = (fill: string, children: TextRun[], align: (typeof AlignmentType)[keyof typeof AlignmentType], width: number) =>
+    new TableCell({
+      shading: { type: ShadingType.SOLID, color: fill, fill },
+      width: { size: width, type: WidthType.PERCENTAGE },
+      margins: { top: 80, bottom: 80, left: 140, right: 140 },
+      children: [new Paragraph({ alignment: align, children })],
+    });
+
+  return new Header({
+    children: [
+      new Table({
+        width: { size: 100, type: WidthType.PERCENTAGE },
+        borders: NO_BORDERS,
+        rows: [
+          new TableRow({
+            children: [
+              cell(CAI_NAVY, [
+                run("CAI  ", { bold: true, size: 26, color: "FFFFFF" }),
+                run(`${program.headerLabel} — Resume Template`, { size: 18, color: "D8E3EF" }),
+              ], AlignmentType.LEFT, 68),
+              cell(CAI_TEAL, [
+                run("Managed Services Program", { size: 16, color: "FFFFFF" }),
+              ], AlignmentType.RIGHT, 32),
+            ],
+          }),
+        ],
+      }),
+    ],
+  });
+}
+
+/** "CAI Resume Template" and the contract line beneath it, on page one only. */
+function caiTitleBlock(program: CaiProgram) {
+  return [
+    new Paragraph({
+      spacing: { before: 60, after: 0 },
+      border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: CAI_BLUE, space: 4 } },
+      children: [run("CAI Resume Template", { bold: true, size: 40, color: CAI_NAVY })],
+    }),
+    new Paragraph({
+      spacing: { before: 60, after: 120 },
+      children: [run(program.contractLine, { bold: true, size: 18, color: CAI_BLUE })],
+    }),
+  ];
+}
+
+/** The named CAI people for this contract. Indiana lists none. */
+function caiContactBlock(program: CaiProgram) {
+  if (!program.contacts.length) return [];
+  const out: Paragraph[] = [
+    new Paragraph({
+      spacing: { before: 60, after: 40 },
+      children: [run("CAI Program Contact", { bold: true, size: 20, color: CAI_NAVY })],
+    }),
+  ];
+  program.contacts.forEach((c, i) => {
+    if (i > 0) {
+      out.push(new Paragraph({ spacing: { after: 20 }, children: [run("or", { size: 18, color: "808080" })] }));
+    }
+    out.push(new Paragraph({ spacing: { after: 10 }, children: [run(c.name, { bold: true, size: 18 })] }));
+    out.push(
+      new Paragraph({
+        spacing: { after: 30 },
+        children: [run(`Phone: ${c.phone}    Email: ${c.email}`, { size: 18, color: "222222" })],
+      }),
+    );
+  });
+  return out;
+}
+
+/** CAI section heading: navy, with the blue rule the reference draws beneath. */
+function caiHeading(text: string) {
+  return new Paragraph({
+    spacing: { before: 200, after: 0 },
+    keepNext: true,
+    border: { bottom: { style: BorderStyle.SINGLE, size: 10, color: CAI_BLUE, space: 3 } },
+    children: [run(text, { bold: true, size: 24, color: CAI_NAVY })],
+  });
+}
+
 function heading(key: SectionKey, tmplId: TemplateId): (Paragraph | Table)[] {
   const tmpl = getTemplate(tmplId);
-  const label = SECTION_LABEL[key];
+  const label = labelFor(key, tmplId);
   if (!label) return [];
+  if (tmpl.cai) return [caiHeading(label)];
   if (tmpl.underlinedHeadings) return [underlinedHeading(label)];
   if (tmpl.boxedHeadings) return [boxedHeading(label, tmpl.accent)];
   return [plainHeading(label, tmpl.accent)];
@@ -226,7 +329,7 @@ function skillsBlock(model: ResumeModel) {
   );
 }
 
-function experienceBlock(model: ResumeModel) {
+function experienceBlock(model: ResumeModel, environmentLabel = "Environment") {
   const out: Paragraph[] = [];
   for (const e of model.experience) {
     const dates = [e.startDate, e.endDate].filter(Boolean).join(" – ");
@@ -248,10 +351,90 @@ function experienceBlock(model: ResumeModel) {
     }
     e.bullets.forEach((b) => out.push(bullet(b)));
     if (e.environment) {
-      out.push(new Paragraph({ spacing: { after: 40 }, alignment: AlignmentType.JUSTIFIED, children: [run("Environment: ", { bold: true }), run(e.environment)] }));
+      out.push(new Paragraph({ spacing: { after: 40 }, alignment: AlignmentType.JUSTIFIED, children: [run(`${environmentLabel}: `, { bold: true }), run(e.environment)] }));
     }
   }
   return out;
+}
+
+/** A bordered table with a filled header row, as both CAI and PA ITSA use. */
+function gridTable(
+  headers: string[],
+  rows: (string | undefined)[][],
+  opts: { headerFill: string; headerColor: string; border: string },
+) {
+  const edge = { style: BorderStyle.SINGLE, size: 2, color: opts.border };
+  const borders = {
+    top: edge, bottom: edge, left: edge, right: edge,
+    insideHorizontal: edge, insideVertical: edge,
+  };
+  const margins = { top: 50, bottom: 50, left: 80, right: 80 };
+
+  const headerRow = new TableRow({
+    tableHeader: true,
+    children: headers.map(
+      (h) =>
+        new TableCell({
+          shading: { type: ShadingType.SOLID, color: opts.headerFill, fill: opts.headerFill },
+          margins,
+          children: [new Paragraph({ children: [run(h, { bold: true, size: 19, color: opts.headerColor })] })],
+        }),
+    ),
+  });
+
+  return new Table({
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    borders,
+    rows: [
+      headerRow,
+      ...rows.map(
+        (cells) =>
+          new TableRow({
+            children: cells.map(
+              (v) =>
+                new TableCell({
+                  margins,
+                  children: [new Paragraph({ children: [run(v || "", { size: 19 })] })],
+                }),
+            ),
+          }),
+      ),
+    ],
+  });
+}
+
+/**
+ * CAI's skill / years-of-experience grid. The years column is deliberately
+ * left blank: the resume does not state a figure per skill, and inventing one
+ * on a document the client relies on would be worse than a gap the recruiter
+ * fills in.
+ */
+function skillsYearsTable(model: ResumeModel) {
+  const rows: (string | undefined)[][] = [];
+  for (const group of model.skills) {
+    for (const skill of group.skills) rows.push([skill, ""]);
+  }
+  if (!rows.length) return [];
+  return [
+    gridTable(["Skill", "Years of Experience"], rows, {
+      headerFill: CAI_NAVY,
+      headerColor: "FFFFFF",
+      border: "CCCCCC",
+    }),
+  ];
+}
+
+/** PA ITSA's certification grid. Unstated columns stay empty, never guessed. */
+function certificationsTable(model: ResumeModel) {
+  if (!model.certifications.length) return [];
+  const rows = model.certifications.map((c) => [c.name, c.issuer, c.date, "", ""]);
+  return [
+    gridTable(
+      ["Certification", "Issued By", "Date Obtained (MM/YY)", "Certification Number", "Expiration Date"],
+      rows,
+      { headerFill: "F2F2F2", headerColor: "000000", border: "BFBFBF" },
+    ),
+  ];
 }
 
 function educationTable(model: ResumeModel) {
@@ -323,7 +506,7 @@ function simpleField(label: string, value: string | undefined) {
  * requisition aligned to the right margin, as the official form does. Labels on
  * the first line, values beneath them.
  */
-function titleAndRequisition(model: ResumeModel, color: string) {
+function titleAndRequisition(model: ResumeModel, color: string, requisitionLabel = "Requisition Number") {
   const tab = [{ type: TabStopType.RIGHT, position: FULL_WIDTH_TWIP }];
   return [
     new Paragraph({
@@ -332,7 +515,7 @@ function titleAndRequisition(model: ResumeModel, color: string) {
       keepNext: true,
       children: [
         run("Title/Role:", { bold: true, color }),
-        run("\tRequisition Number:", { bold: true, color }),
+        run(`\t${requisitionLabel}:`, { bold: true, color }),
       ],
     }),
     new Paragraph({
@@ -353,13 +536,21 @@ function sectionBody(key: SectionKey, model: ResumeModel, tmplId: TemplateId): (
     case "summary":
       return summaryPara(model);
     case "skills":
-      return skillsBlock(model);
+      return getTemplate(tmplId).skillsYearsTable ? skillsYearsTable(model) : skillsBlock(model);
     case "experience":
-      return experienceBlock(model);
-    case "education":
-      return getTemplate(tmplId).educationTable ? [educationTable(model)] : educationBlock(model);
-    case "certifications":
-      return certsBlock(model);
+      return experienceBlock(model, getTemplate(tmplId).environmentLabel);
+    case "education": {
+      const tmpl = getTemplate(tmplId);
+      const edu = tmpl.educationTable ? [educationTable(model)] : educationBlock(model);
+      // CAI gives education and certifications a single heading, so the
+      // certificates follow the degrees under it rather than standing alone.
+      return tmpl.educationWithCertifications ? [...edu, ...certsBlock(model)] : edu;
+    }
+    case "certifications": {
+      const tmpl = getTemplate(tmplId);
+      if (tmpl.educationWithCertifications) return []; // emitted with education
+      return tmpl.certificationsTable ? certificationsTable(model) : certsBlock(model);
+    }
     case "projects":
       return projectsBlock(model);
     case "additional":
@@ -375,10 +566,32 @@ function buildSection(key: SectionKey, model: ResumeModel, tmplId: TemplateId): 
   // Un-headed identity fields render the same way in every template.
   switch (key) {
     case "header":
-      return []; // handled by the running header
+      // CAI puts its title and programme contacts in the body; the navy bar
+      // above them is a running header. Ohio's logo is a running header too.
+      return tmpl.cai ? [...caiTitleBlock(tmpl.cai), ...caiContactBlock(tmpl.cai)] : [];
     case "name":
-      return [nameParagraph(model, tmpl.accent)];
+      return tmpl.cai
+        ? [
+            new Paragraph({
+              spacing: { before: 160, after: 20 },
+              alignment: AlignmentType.CENTER,
+              children: [run(model.name || "Candidate Name", { bold: true, size: 32, color: CAI_NAVY })],
+            }),
+          ]
+        : [nameParagraph(model, tmpl.accent)];
     case "contact": {
+      // CAI asks for the location alone, centred under the name.
+      if (tmpl.cai) {
+        return model.contact.location
+          ? [
+              new Paragraph({
+                spacing: { after: 60 },
+                alignment: AlignmentType.CENTER,
+                children: [run(model.contact.location, { bold: true, size: 22, color: CAI_BLUE })],
+              }),
+            ]
+          : [];
+      }
       const c = contactLine(model, tmpl.hideContactDetails);
       return c ? [c] : [];
     }
@@ -387,8 +600,8 @@ function buildSection(key: SectionKey, model: ResumeModel, tmplId: TemplateId): 
       return tmpl.titleAndRequisitionOnOneLine ? [] : simpleField("Title / Role", model.title);
     case "requisition":
       return tmpl.titleAndRequisitionOnOneLine
-        ? titleAndRequisition(model, tmpl.accent)
-        : simpleField("VectorVMS Requisition Number", model.requisitionNumber || "Not Available");
+        ? titleAndRequisition(model, tmpl.accent, tmpl.requisitionLabel)
+        : simpleField(tmpl.requisitionLabel ?? "VectorVMS Requisition Number", model.requisitionNumber || "Not Available");
     default:
       break;
   }
@@ -431,7 +644,10 @@ export async function buildResumeDocx(model: ResumeModel, tmplId: TemplateId): P
   // Ohio ITSA logo repeats on every page via a default header (no title page).
   let header: Header | undefined;
   let topMargin = convertInchesToTwip(0.5);
-  if (tmpl.repeatingLogo) {
+  if (tmpl.cai) {
+    header = caiHeaderBar(tmpl.cai);
+    topMargin = convertInchesToTwip(0.85); // clear the letterhead bar
+  } else if (tmpl.repeatingLogo) {
     const logo = await loadLogo();
     if (logo) {
       header = new Header({

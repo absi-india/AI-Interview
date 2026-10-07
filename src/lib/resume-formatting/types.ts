@@ -3,7 +3,16 @@
 // text extracted from the user's uploaded resume, or left empty for the user to
 // confirm.
 
-export type TemplateId = "vectorvms" | "covendis" | "absi";
+export type TemplateId =
+  | "vectorvms"
+  | "covendis"
+  | "absi"
+  | "paitsa"
+  // The CAI-managed state contracts. Same letterhead, different jurisdiction.
+  | "indiana"
+  | "virginia"
+  | "georgia"
+  | "iowa";
 
 export interface ContactInfo {
   location?: string;
@@ -129,7 +138,16 @@ export interface AnalyzeResult {
   fileName: string;
 }
 
-export const TEMPLATE_IDS: TemplateId[] = ["vectorvms", "covendis", "absi"];
+export const TEMPLATE_IDS: TemplateId[] = [
+  "vectorvms",
+  "covendis",
+  "absi",
+  "paitsa",
+  "indiana",
+  "virginia",
+  "georgia",
+  "iowa",
+];
 
 export function emptyResumeModel(): ResumeModel {
   return {
