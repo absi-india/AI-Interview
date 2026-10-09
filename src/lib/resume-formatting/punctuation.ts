@@ -54,7 +54,7 @@ const RULES: Rule[] = [
  * "SSIS ,and" needs both the space-before-comma and space-after-comma rules —
  * so a single pass per rule would leave the text half corrected.
  */
-function cleanSnippet(text: string): string {
+export function fixPunctuation(text: string): string {
   let out = text;
   for (let pass = 0; pass < 3; pass++) {
     const before = out;
@@ -100,7 +100,7 @@ function scanText(
       // The snippet must be locatable and uniquely replaceable later on.
       if (!original.trim() || seen.has(original)) continue;
 
-      const corrected = cleanSnippet(original);
+      const corrected = fixPunctuation(original);
       if (corrected === original) continue;
 
       seen.add(original);

@@ -11,7 +11,11 @@ const CANONICAL_ORIGIN = "https://tip.absi-usa.net";
 
 const nextConfig: NextConfig = {
   allowedDevOrigins: ["*.ngrok-free.app"],
-  serverExternalPackages: ["@napi-rs/canvas"],
+  // pdf-parse loads its pdf.js worker from its own package directory at
+  // runtime. Bundled into a chunk, that file is left behind and every PDF
+  // upload fails with "Setting up fake worker failed", so it has to stay a
+  // real dependency the server resolves from node_modules.
+  serverExternalPackages: ["@napi-rs/canvas", "pdf-parse"],
   experimental: {
     serverActions: {
       bodySizeLimit: "10mb",

@@ -100,7 +100,7 @@ Return ONE JSON object with a single key "suggestions": an array of at most 20 i
   "suggested": improved version preserving the original meaning,
   "reason": short explanation }
 
-Focus on the highest-value issues: spelling, grammar, weak/unclear/overly-long sentences, weak action verbs, repeated responsibilities, inconsistent verb tense, ATS wording, inconsistent date formats. "original" MUST appear verbatim in the resume text so it can be located. Prefer 10-20 strong suggestions over many trivial ones.
+Report EVERY misspelt word you find as its own "spelling" item, however small — those do not count towards the limit, and a rule-based pass already covers the common ones, so look for the rest. Beyond spelling, focus on the highest-value issues: grammar, weak/unclear/overly-long sentences, weak action verbs, repeated responsibilities, inconsistent verb tense, ATS wording, inconsistent date formats. "original" MUST appear verbatim in the resume text so it can be located. Prefer 10-20 strong suggestions over many trivial ones.
 
 Return only the JSON object.`;
 

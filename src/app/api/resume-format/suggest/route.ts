@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { reviewResume } from "@/lib/resume-formatting/analyze";
 import { punctuationSuggestions } from "@/lib/resume-formatting/punctuation";
+import { spellingSuggestions } from "@/lib/resume-formatting/spelling";
 import type { ResumeModel, Suggestion } from "@/lib/resume-formatting/types";
 
 export const runtime = "nodejs";
@@ -26,15 +27,28 @@ export async function POST(req: NextRequest) {
   const rawText = typeof body.rawText === "string" ? body.rawText : "";
   if (!rawText.trim()) return NextResponse.json({ suggestions: [] });
 
-  // Rule-based punctuation fixes run regardless of what the AI review returns,
-  // so mechanical errors like ".." are always caught.
+  // Rule-based spelling and punctuation fixes run regardless of what the AI
+  // review returns, so typos and mechanical errors like ".." are always
+  // caught rather than being dropped as too small to be worth a suggestion.
   let mechanical: Suggestion[] = [];
   if (body.model) {
-    try {
-      mechanical = punctuationSuggestions(body.model, () => randomUUID());
-    } catch (err) {
-      console.warn("[resume-format/suggest] punctuation scan failed", err);
-    }
+    const run = (name: string, scan: (m: ResumeModel, id: () => string) => Suggestion[]) => {
+      try {
+        return scan(body.model as ResumeModel, () => randomUUID());
+      } catch (err) {
+        console.warn(`[resume-format/suggest] ${name} scan failed`, err);
+        return [];
+      }
+    };
+
+    const spelling = run("spelling", spellingSuggestions);
+    // A spelling item rewrites a whole sentence and tidies its punctuation on
+    // the way, so a punctuation item quoting part of that sentence would no
+    // longer match once it was applied. Keep only the ones that do not overlap.
+    const punctuation = run("punctuation", punctuationSuggestions).filter(
+      (p) => !spelling.some((s) => s.original.includes(p.original)),
+    );
+    mechanical = [...spelling, ...punctuation];
   }
 
   let aiSuggestions: Suggestion[] = [];
