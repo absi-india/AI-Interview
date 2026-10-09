@@ -1,5 +1,7 @@
 import "server-only";
 
+import { createRequire } from "node:module";
+import path from "node:path";
 import mammoth from "mammoth";
 import { htmlToMarkedLines } from "./segment";
 
@@ -10,9 +12,68 @@ export function getExtension(fileName: string): string {
   return fileName.split(".").pop()?.toLowerCase() ?? "";
 }
 
+/**
+ * pdf.js is written for browsers and expects a few globals Node does not have.
+ *
+ * On the deployed runtime the package reaches for DOMMatrix while it is still
+ * being loaded, so the import itself throws "DOMMatrix is not defined" before
+ * a single PDF is read. It does not happen under a local run, where a
+ * different build of the package is resolved and the reference is never
+ * reached for a text-only read — which is why this survived earlier testing.
+ *
+ * pdf-parse already depends on @napi-rs/canvas, which implements all three, so
+ * they are borrowed from there rather than adding a dependency of our own.
+ */
+let pdfGlobals: Promise<void> | undefined;
+function ensurePdfGlobals(): Promise<void> {
+  pdfGlobals ??= (async () => {
+    const g = globalThis as Record<string, unknown>;
+    if (g.DOMMatrix && g.Path2D && g.ImageData) return;
+    try {
+      const canvas = await import("@napi-rs/canvas");
+      g.DOMMatrix ??= canvas.DOMMatrix;
+      g.Path2D ??= canvas.Path2D;
+      g.ImageData ??= canvas.ImageData;
+    } catch (err) {
+      // Carry on: a text-only read may never touch them, and failing here
+      // would turn a possible success into a certain failure.
+      console.warn("[resume-formatting] could not install pdf.js globals", err);
+    }
+  })();
+  return pdfGlobals;
+}
+
+interface PdfParseModule {
+  PDFParse: new (opts: { data: Uint8Array }) => {
+    getText: () => Promise<{ text: string }>;
+    destroy: () => Promise<void>;
+  };
+}
+
+/**
+ * Load the reader, insisting on a build meant for Node.
+ *
+ * This package lists its `browser` build first in its export map, and the
+ * deployed bundler picks it — that build is full of DOM calls and throws
+ * while it is still loading. Plain resolution is tried first because it is
+ * correct everywhere else; when it fails, the Node build is addressed by
+ * path, reached from the one subpath the export map does allow.
+ */
+async function loadPdfParse(): Promise<PdfParseModule> {
+  try {
+    return (await import("pdf-parse")) as unknown as PdfParseModule;
+  } catch (err) {
+    console.warn("[resume-formatting] pdf-parse default entry failed, using the Node build", err);
+    const require = createRequire(path.join(process.cwd(), "package.json"));
+    const nodeEntry = require.resolve("pdf-parse/node");
+    return require(path.join(path.dirname(nodeEntry), "../../pdf-parse/cjs/index.cjs"));
+  }
+}
+
 async function extractPdfText(buffer: Buffer): Promise<string> {
   // Mirrors the existing candidate-resume extraction in resumeContext.ts.
-  const { PDFParse } = await import("pdf-parse");
+  await ensurePdfGlobals();
+  const { PDFParse } = await loadPdfParse();
   const parser = new PDFParse({ data: new Uint8Array(buffer) });
   try {
     const result = await parser.getText();

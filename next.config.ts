@@ -22,7 +22,14 @@ const nextConfig: NextConfig = {
   // checking for it under .next/standalone after a build — a local `next
   // start` cannot catch this, because it still has the whole node_modules.
   outputFileTracingIncludes: {
-    "/api/resume-format/analyze": ["./node_modules/pdf-parse/dist/**/pdf.worker.mjs"],
+    "/api/resume-format/analyze": [
+      // The reader, its worker, and the Node entry the fallback resolves
+      // through. The browser build is deliberately left out: nothing should
+      // load it on a server, and it is what breaks when something does.
+      "./node_modules/pdf-parse/dist/pdf-parse/cjs/**/*",
+      "./node_modules/pdf-parse/dist/pdf-parse/esm/**/*",
+      "./node_modules/pdf-parse/dist/node/**/*",
+    ],
   },
   experimental: {
     serverActions: {
