@@ -41,19 +41,18 @@ export async function POST(req: NextRequest) {
   }
 
   const buffer = Buffer.from(await file.arrayBuffer());
-  const { text, needsManualText } = await extractResumeText(buffer, file.name);
+  const { text, needsManualText, failure } = await extractResumeText(buffer, file.name);
 
   if (needsManualText || !text) {
-    return NextResponse.json(
-      {
-        error:
-          ext === "doc"
-            ? "This looks like a legacy .doc file we couldn't read. Please save it as .docx or PDF and upload again."
-            : "We couldn't extract text from this file. If it's a scanned image, please upload a text-based PDF or a DOCX.",
-        needsManualText: true,
-      },
-      { status: 422 },
-    );
+    // A reader that threw is our problem, not the file's. Saying so stops the
+    // user retrying a perfectly good resume in a dozen different formats.
+    const message =
+      ext === "doc"
+        ? "This looks like a legacy .doc file we couldn't read. Please save it as .docx or PDF and upload again."
+        : failure
+          ? `The reader failed on this file, which is a fault on our side rather than a problem with your resume. Please report this: ${failure}`
+          : "We couldn't extract text from this file. If it's a scanned image, please upload a text-based PDF or a DOCX.";
+    return NextResponse.json({ error: message, needsManualText: true }, { status: 422 });
   }
 
   const result = await analyzeResume(text, file.name);

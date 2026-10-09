@@ -84,6 +84,15 @@ export interface ExtractionResult {
   text: string;
   /** True when we could not extract usable text (e.g. legacy .doc or a scanned PDF). */
   needsManualText: boolean;
+  /**
+   * Why the reader failed, when it threw rather than simply finding no text.
+   *
+   * A missing pdf.js worker reads to the user as "this file has no text in
+   * it", which sent them looking at a perfectly good resume instead of at the
+   * build. Keeping the real reason means the next failure of this kind can be
+   * told apart from a genuinely scanned PDF.
+   */
+  failure?: string;
 }
 
 /**
@@ -125,6 +134,11 @@ export async function extractResumeText(
     }
   } catch (err) {
     console.warn("[resume-formatting] extraction failed", err);
+    return {
+      text: "",
+      needsManualText: true,
+      failure: err instanceof Error ? err.message : String(err),
+    };
   }
 
   return { text: "", needsManualText: true };

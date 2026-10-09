@@ -16,6 +16,14 @@ const nextConfig: NextConfig = {
   // upload fails with "Setting up fake worker failed", so it has to stay a
   // real dependency the server resolves from node_modules.
   serverExternalPackages: ["@napi-rs/canvas", "pdf-parse"],
+  // Leaving it external is not enough on its own: the worker is reached by a
+  // path built at runtime, so file tracing cannot see the reference and drops
+  // it from the deployed bundle. Naming it here puts it back. Verified by
+  // checking for it under .next/standalone after a build — a local `next
+  // start` cannot catch this, because it still has the whole node_modules.
+  outputFileTracingIncludes: {
+    "/api/resume-format/analyze": ["./node_modules/pdf-parse/dist/**/pdf.worker.mjs"],
+  },
   experimental: {
     serverActions: {
       bodySizeLimit: "10mb",
