@@ -356,3 +356,31 @@ export const SECTION_LABEL: Record<SectionKey, string> = {
 export function getTemplate(id: TemplateId): TemplateDef {
   return TEMPLATES[id];
 }
+
+/** Every section that can carry the candidate's own content. */
+const CONTENT_SECTIONS: SectionKey[] = [
+  "summary",
+  "skills",
+  "experience",
+  "projects",
+  "education",
+  "certifications",
+  "additional",
+];
+
+/**
+ * The order a template renders in, with any section it does not list appended.
+ *
+ * A client form prescribes the sections it wants, but a section it happens not
+ * to mention is still the candidate's work. Six of these formats name no
+ * Projects section and Iowa names no skills section, so a resume carrying
+ * either had that part of it quietly deleted on the way to the client — which
+ * is the kind of loss that costs a placement. Whatever the template leaves out
+ * is now rendered after the sections it does define: the prescribed layout is
+ * kept, and nothing is thrown away. Sections with no content still render
+ * nothing, so no empty headings appear.
+ */
+export function renderOrder(tmplId: TemplateId): SectionKey[] {
+  const listed = new Set(getTemplate(tmplId).order);
+  return [...getTemplate(tmplId).order, ...CONTENT_SECTIONS.filter((k) => !listed.has(k))];
+}

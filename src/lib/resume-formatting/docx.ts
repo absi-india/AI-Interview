@@ -27,6 +27,7 @@ import {
   CAI_TEAL,
   getTemplate,
   labelFor,
+  renderOrder,
   type CaiProgram,
   type SectionKey,
   type TemplateDef,
@@ -674,7 +675,7 @@ export async function buildResumeDocx(model: ResumeModel, tmplId: TemplateId): P
     const IDENTITY: SectionKey[] = ["header", "name", "contact", "title", "requisition"];
     const above: (Paragraph | Table)[] = [];
     const sections: (Paragraph | Table)[][] = [];
-    for (const key of tmpl.order) {
+    for (const key of renderOrder(tmplId)) {
       const parts = buildSection(key, model, tmplId);
       if (!parts.length) continue;
       if (IDENTITY.includes(key)) above.push(...parts);
@@ -686,7 +687,7 @@ export async function buildResumeDocx(model: ResumeModel, tmplId: TemplateId): P
       children.push(...parts);
     });
   } else {
-    for (const key of tmpl.order) {
+    for (const key of renderOrder(tmplId)) {
       children.push(...buildSection(key, model, tmplId));
     }
   }

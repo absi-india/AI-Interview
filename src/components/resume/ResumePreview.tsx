@@ -7,6 +7,7 @@ import {
   CAI_TEAL,
   getTemplate,
   labelFor,
+  renderOrder,
   type SectionKey,
 } from "@/lib/resume-formatting/templates";
 import { splitBulletLabel } from "@/lib/resume-formatting/segment";
@@ -757,10 +758,10 @@ export function ResumePreview({
              page — so here it wraps the page content, with a rule between
              sections. */
           <div className="border p-3" style={{ borderColor: `#${tmpl.accent}` }}>
-            {tmpl.order.filter((k) => IDENTITY_KEYS.includes(k)).map((k) => (
+            {renderOrder(tmplId).filter((k) => IDENTITY_KEYS.includes(k)).map((k) => (
               <Section key={k} k={k} model={model} tmplId={tmplId} />
             ))}
-            {tmpl.order
+            {renderOrder(tmplId)
               .filter((k) => !IDENTITY_KEYS.includes(k) && hasBody(k, model, tmplId))
               .map((k, i) => (
                 <div key={k} className={i > 0 ? "mt-2 border-t pt-2" : "mt-2"} style={{ borderColor: `#${tmpl.accent}` }}>
@@ -769,7 +770,7 @@ export function ResumePreview({
               ))}
           </div>
         ) : (
-          tmpl.order.map((k) => <Section key={k} k={k} model={model} tmplId={tmplId} />)
+          renderOrder(tmplId).map((k) => <Section key={k} k={k} model={model} tmplId={tmplId} />)
         )}
       </div>
     </EditContext.Provider>
