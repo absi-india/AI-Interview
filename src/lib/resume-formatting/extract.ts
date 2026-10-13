@@ -3,7 +3,7 @@ import "server-only";
 import { createRequire } from "node:module";
 import path from "node:path";
 import mammoth from "mammoth";
-import { htmlToMarkedLines } from "./segment";
+import { htmlToMarkedLines, normalizeBulletLines } from "./segment";
 
 /** Uploaded file types we accept for formatting. */
 export const ACCEPTED_EXTENSIONS = ["pdf", "doc", "docx"] as const;
@@ -172,12 +172,15 @@ export async function extractResumeText(
   try {
     if (ext === "pdf") {
       const text = await extractPdfText(buffer);
-      const clean = text.trim();
+      // A PDF carries whatever bullet glyph the author typed. Everything
+      // downstream — including the guarantee that no bullet is lost — looks
+      // for one marker, so they are all rewritten to it here.
+      const clean = normalizeBulletLines(text).trim();
       return { text: clean, needsManualText: clean.length < 30 };
     }
 
     if (ext === "docx") {
-      const clean = await extractDocxText(buffer);
+      const clean = normalizeBulletLines(await extractDocxText(buffer)).trim();
       return { text: clean, needsManualText: clean.length < 30 };
     }
 

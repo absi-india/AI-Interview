@@ -112,5 +112,17 @@ export function repairExperienceBullets(model: ResumeModel, experienceText: stri
     console.info(`[resume-formatting] restored ${restored} bullet(s) dropped during extraction`);
   }
 
-  return { ...model, experience };
+  // Last check: every bullet in the upload should now be on the page. If one
+  // is not — a role the extraction named so differently that it could not be
+  // matched — say so rather than letting it disappear quietly. A recruiter
+  // who is told to look can fix it; a silent omission reaches the client.
+  const placed = new Set(experience.flatMap((e) => e.bullets.map(fingerprint)));
+  const unplaced = jobs
+    .flatMap((j) => j.bullets)
+    .filter((b) => fingerprint(b) && !placed.has(fingerprint(b)));
+  if (unplaced.length) {
+    console.warn(`[resume-formatting] ${unplaced.length} source bullet(s) could not be placed`);
+  }
+
+  return { ...model, experience, unplacedBullets: unplaced.length || undefined };
 }

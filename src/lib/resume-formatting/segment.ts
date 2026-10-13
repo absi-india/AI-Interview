@@ -91,6 +91,64 @@ export function htmlToMarkedLines(html: string): string[] {
 }
 
 /**
+ * Glyphs a resume uses to start a list item. A PDF hands back whichever
+ * character the document was written with; only DOCX arrives already marked.
+ */
+const STRONG_BULLET = /^[•·●○◦▪▫‣⁃∙*]\s*/;
+/** Dashes also start lists, but can begin an ordinary line, so they are checked. */
+const WEAK_BULLET = /^[-–—]\s+/;
+/** A second bullet glyph part-way through a line, where a list ran together. */
+const INLINE_BULLET = /\s*[•·●○◦▪▫‣⁃∙]\s+/g;
+
+/**
+ * Rewrite every list item to start with the same marker.
+ *
+ * Only the DOCX path produced this marker, because it can see <li> elements. A
+ * PDF arrives with whatever glyph the author typed, so nothing downstream
+ * recognised its bullets: the guarantee that no bullet is lost (see
+ * repair.ts) silently did nothing for PDF uploads, and anything the extraction
+ * dropped was dropped for good. Headers are left alone — a line carrying a
+ * date range is a role, not a list item, however it begins.
+ */
+export function normalizeBulletLines(text: string): string {
+  const out: string[] = [];
+
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line) {
+      out.push("");
+      continue;
+    }
+
+    const strong = STRONG_BULLET.test(line);
+    // A dash only starts a list when the line is not a role header.
+    const weak = !strong && WEAK_BULLET.test(line) && !isJobHeader(line);
+    if (!strong && !weak) {
+      out.push(line);
+      continue;
+    }
+
+    const body = line.replace(strong ? STRONG_BULLET : WEAK_BULLET, "");
+    // "— EDUCATION" is a decorated section heading, not a list item. Marking it
+    // as a bullet would stop it being recognised and fold the whole section
+    // into whichever one came before it.
+    if (matchHeading(body.trim())) {
+      out.push(body.trim());
+      continue;
+    }
+    // Extracted PDFs often run a whole list onto one line, each item divided by
+    // the same glyph. Those are separate bullets and have to be split back out,
+    // or the entire role arrives as a single unreadable paragraph.
+    for (const part of body.split(INLINE_BULLET)) {
+      const piece = part.trim();
+      if (piece) out.push(`${BULLET_MARK}${piece}`);
+    }
+  }
+
+  return out.join("\n");
+}
+
+/**
  * Split a bullet into its lead-in label and the rest, e.g.
  * "Payments Modernization: Architected …". Resumes use the label as a scannable
  * heading, so it is emboldened as in the source. A colon appearing late, or
@@ -327,7 +385,7 @@ const HEADING_KEYWORDS: { key: SegmentKey; re: RegExp }[] = [
   { key: "additional", re: /\badditional\b|\bawards?\b|\bpublications?\b|\blanguages?\b|\binterests\b/i },
 ];
 
-function matchHeading(line: string): SegmentKey | null {
+function matchHeading(line: string, allowLoose = true): SegmentKey | null {
   const raw = line.trim();
   // Bullets are body text, never headings.
   if (!raw || raw.startsWith(BULLET_MARK.trim())) return null;
@@ -340,6 +398,8 @@ function matchHeading(line: string): SegmentKey | null {
     if (re.test(cleaned)) return key;
   }
 
+  if (!allowLoose) return null;
+
   // Strip trailing separators/colons and any leading numbering before the
   // looser check, so "Education –" and "1. Skills:" still register.
   const stripped = cleaned
@@ -349,6 +409,21 @@ function matchHeading(line: string): SegmentKey | null {
   if (!stripped || stripped.length > 45) return null;
   // A heading is a label, not a sentence.
   if (/[.!?]$/.test(stripped) || stripped.split(/\s+/).length > 6) return null;
+
+  /*
+   * The loose check may only fire on something shaped like a label.
+   *
+   * "Technical Writer/ Technology Policy Analyst" is a job title, but it
+   * contains a heading word, so it was being read as the start of the skills
+   * section — which ended the experience section at the first role and sent
+   * every remaining bullet of the resume into skills. A label announces
+   * itself: it ends with a separator, or it is set in capitals, or it is two
+   * or three words. A five-word title in sentence case is none of those.
+   */
+  const words = stripped.split(/\s+/).length;
+  const labelShaped =
+    /[:–—-]\s*$/.test(cleaned) || stripped === stripped.toUpperCase() || words <= 3;
+  if (!labelShaped) return null;
 
   for (const { key, re } of HEADING_KEYWORDS) {
     if (re.test(stripped)) return key;
@@ -372,14 +447,22 @@ export function segmentResume(rawText: string): ResumeSegments {
   let current: SegmentKey | "head" = "head";
   const buckets: Record<string, string[]> = {};
 
+  // The line straight after a role header is that role's job title. Titles
+  // carry words like "Technology" and "Projects", and reading one as a section
+  // heading ended the experience section at the first role. Only the exact
+  // headings are honoured in that position.
+  let afterRoleHeader = false;
+
   for (const line of lines) {
-    const heading = matchHeading(line);
+    const heading = matchHeading(line, !afterRoleHeader);
     if (heading) {
       current = heading;
+      afterRoleHeader = false;
       // Education & Certifications often share one heading; keep the text in
       // education and let the extractor pull certifications out of it.
       continue;
     }
+    if (line.trim()) afterRoleHeader = isJobHeader(line);
     (buckets[current] ??= []).push(line);
   }
 

@@ -519,6 +519,19 @@ export function ResumeFormattingApp() {
         </div>
       </div>
 
+      {/* Content from the upload that could not be placed under any role.
+          Losing a candidate's experience without saying so is the one failure
+          worth interrupting the screen for. */}
+      {appliedModel?.unplacedBullets ? (
+        <div className="border-b border-[#fecaca] bg-[#fef2f2] px-4 py-2 text-[12px] text-[#991b1b]">
+          <span className="font-semibold">
+            {appliedModel.unplacedBullets} point{appliedModel.unplacedBullets === 1 ? "" : "s"} from the upload
+            could not be matched to a role.
+          </span>{" "}
+          Compare against the original on the left before sending this to a client.
+        </div>
+      ) : null}
+
       <div className="flex min-h-0 flex-1">
         {/* split panels */}
         <div ref={splitRef} className="relative flex min-w-0 flex-1 bg-[#eef1f6]">

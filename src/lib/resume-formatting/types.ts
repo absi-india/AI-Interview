@@ -76,6 +76,12 @@ export interface ResumeModel {
   certifications: CertificationEntry[];
   projects: ProjectEntry[];
   additional?: string;
+  /**
+   * Bullets found in the upload that could not be placed under any role.
+   * Set only when something is genuinely missing, so the screen can say so
+   * instead of letting the omission reach the client unnoticed.
+   */
+  unplacedBullets?: number;
 }
 
 export type SuggestionType =
