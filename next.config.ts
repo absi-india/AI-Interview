@@ -15,7 +15,7 @@ const nextConfig: NextConfig = {
   // runtime. Bundled into a chunk, that file is left behind and every PDF
   // upload fails with "Setting up fake worker failed", so it has to stay a
   // real dependency the server resolves from node_modules.
-  serverExternalPackages: ["@napi-rs/canvas", "pdf-parse"],
+  serverExternalPackages: ["@napi-rs/canvas", "pdf-parse", "pdfjs-dist"],
   // Leaving it external is not enough on its own: the worker is reached by a
   // path built at runtime, so file tracing cannot see the reference and drops
   // it from the deployed bundle. Naming it here puts it back. Verified by
@@ -29,6 +29,17 @@ const nextConfig: NextConfig = {
       "./node_modules/pdf-parse/dist/pdf-parse/cjs/**/*",
       "./node_modules/pdf-parse/dist/pdf-parse/esm/**/*",
       "./node_modules/pdf-parse/dist/node/**/*",
+      // The reader hands off to pdf.js, which loads its own worker the same
+      // way — by a path assembled at runtime that tracing cannot see. Verified
+      // by running the built output from outside the project, where there is
+      // no node_modules above it to fall back on; running it in place passes
+      // whether the file shipped or not, which is how this was missed twice.
+      "./node_modules/pdfjs-dist/legacy/build/**/*",
+      "./node_modules/pdfjs-dist/build/**/*",
+      // The reader hands off to pdf.js, which loads its own worker the same
+      // way — by a path assembled at runtime that tracing cannot see.
+      "./node_modules/pdfjs-dist/legacy/build/**/*",
+      "./node_modules/pdfjs-dist/build/**/*",
     ],
   },
   experimental: {
