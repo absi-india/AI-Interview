@@ -20,6 +20,15 @@ import type {
 } from "@/lib/resume-formatting/types";
 
 /** One point in the edit history: suggestion statuses plus hand edits. */
+/**
+ * Formats that carry phone, email and LinkedIn. Derived rather than written
+ * down: the note telling recruiters where their details went named a format
+ * that strips them, which is worse than saying nothing.
+ */
+const FORMATS_SHOWING_CONTACT = Object.values(TEMPLATES)
+  .filter((t) => !t.hideContactDetails)
+  .map((t) => t.shortName);
+
 interface EditSnapshot {
   suggestions: Suggestion[];
   details: ResumeModel | null;
@@ -834,7 +843,9 @@ function DetailsForm({
       {field("Current location", model.contact.location, (v) => setContact({ location: v }))}
       {hidesContact && (
         <p className="rounded-md border border-[#dbe6ff] bg-[#eff4ff] px-2 py-1.5 text-[10.5px] leading-snug text-[#1d4ed8]">
-          Phone, email and LinkedIn are kept out of the {TEMPLATES[templateId].shortName} resume. They stay saved here and reappear if you switch to Covendis or ABSI.
+          Phone, email and LinkedIn are kept out of the {TEMPLATES[templateId].shortName} resume —
+          that contract asks for submissions without them. Only the location is sent. They stay
+          saved here and appear on {FORMATS_SHOWING_CONTACT.join(", ")}.
         </p>
       )}
       {field("Phone", model.contact.phone, (v) => setContact({ phone: v }))}
