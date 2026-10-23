@@ -65,19 +65,46 @@ function checkFirebase(): Check {
   return { ok: true, message: "Optional in local dev (Firebase auth disabled until configured)" };
 }
 
+/**
+ * The key the application actually uses.
+ *
+ * This checked GEMINI_API_KEY and ANTHROPIC_API_KEY, neither of which appears
+ * anywhere else in the codebase — question generation, scoring, transcription
+ * and resume analysis all read OPENAI_API_KEY. So it reported a healthy AI
+ * setup from a Gemini key while every one of those features was dead, which is
+ * worse than having no check at all.
+ */
 function checkAI(): Check {
-  const gemini = process.env.GEMINI_API_KEY;
-  const anthropic = process.env.ANTHROPIC_API_KEY;
+  if (process.env.OPENAI_API_KEY) return { ok: true, message: "OPENAI_API_KEY set" };
 
-  if (!gemini && !anthropic) {
-    if (isProduction) {
-      return { ok: false, message: "No AI API key set (GEMINI_API_KEY or ANTHROPIC_API_KEY)" };
-    }
-    return { ok: true, message: "Optional in local dev (AI features disabled until configured)" };
+  if (isProduction) {
+    return { ok: false, message: "OPENAI_API_KEY not set — scoring, transcription and resume analysis will fail" };
   }
+  return { ok: true, message: "Optional in local dev (AI features disabled until configured)" };
+}
 
-  const provider = anthropic ? "Anthropic" : "Gemini";
-  return { ok: true, message: `${provider} key present` };
+/**
+ * Where interview recordings and resumes will be written.
+ *
+ * Uploads try object storage first and fall back to a blob column in the
+ * database, catching the error on the way. That fallback is invisible: the
+ * upload succeeds, so nothing anywhere reports that videos are being written
+ * into the database instead. This states plainly which one is in use.
+ */
+function checkStorage(): Check {
+  const endPoint = process.env.MINIO_ENDPOINT;
+  const configured = Boolean(endPoint) && endPoint !== "localhost" && endPoint !== "127.0.0.1";
+
+  if (configured) return { ok: true, message: "Object storage configured — recordings go to MinIO" };
+
+  if (isProduction) {
+    return {
+      ok: false,
+      message:
+        "MINIO_ENDPOINT not configured — every recording and resume is being stored as a blob inside the database",
+    };
+  }
+  return { ok: true, message: "No object storage locally; recordings are written to public/uploads" };
 }
 
 function checkAuth(): Check {
@@ -99,12 +126,19 @@ export async function GET() {
     Promise.resolve(checkAI()),
     Promise.resolve(checkAuth()),
   ]);
+  const storage = checkStorage();
 
-  const checks = { db, firebase, ai, auth };
-  const allOk = Object.values(checks).every((check) => check.ok);
+  const checks = { db, firebase, ai, auth, storage };
+  // Storage is reported but does not fail the endpoint: uploads still succeed
+  // when it is unconfigured, they just land somewhere expensive. Turning a
+  // working service red would be its own kind of untruth.
+  const allOk = [db, firebase, ai, auth].every((check) => check.ok);
+  const warnings = Object.entries(checks)
+    .filter(([, check]) => !check.ok)
+    .map(([name, check]) => `${name}: ${check.message}`);
 
   return NextResponse.json(
-    { ok: allOk, checks, node: process.version },
+    { ok: allOk, checks, ...(warnings.length ? { warnings } : {}), node: process.version },
     { status: allOk ? 200 : 503 },
   );
 }
