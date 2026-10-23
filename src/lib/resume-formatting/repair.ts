@@ -68,8 +68,19 @@ function matchIndex(job: SourceJob, model: ResumeModel, usedIndexes: Set<number>
   return bestScore >= 2 ? bestIdx : -1;
 }
 
-export function repairExperienceBullets(model: ResumeModel, experienceText: string): ResumeModel {
-  const jobs = splitSourceJobs(experienceText);
+export function repairExperienceBullets(
+  model: ResumeModel,
+  experienceText: string,
+  wholeResume?: string,
+): ResumeModel {
+  let jobs = splitSourceJobs(experienceText);
+
+  // If the experience section was not recognised at all — an unfamiliar
+  // heading, or none — every role is somewhere else in the document and this
+  // pass would silently do nothing, which is exactly when it is needed most.
+  // Scanning the whole resume still finds roles, because a role is identified
+  // by a date range rather than by the section it sits in.
+  if (!jobs.length && wholeResume) jobs = splitSourceJobs(wholeResume);
   if (!jobs.length) return model;
 
   const experience = model.experience.map((e) => ({ ...e, bullets: [...e.bullets] }));
@@ -116,6 +127,24 @@ export function repairExperienceBullets(model: ResumeModel, experienceText: stri
   // is not — a role the extraction named so differently that it could not be
   // matched — say so rather than letting it disappear quietly. A recruiter
   // who is told to look can fix it; a silent omission reaches the client.
+  // A bullet that belongs to a job must not also sit in the summary.
+  //
+  // When the sections are not cleanly separated the extraction files some of a
+  // role's responsibilities under the professional summary — one resume had
+  // nineteen of SUNY's bullets, nine of Human Bioscience's and two of Jumio's
+  // listed there instead of under their employers. Restoring them to the right
+  // role above would otherwise leave them printed twice.
+  const sourceBullets = new Set(jobs.flatMap((j) => j.bullets.map(fingerprint)));
+  const summaryBullets = (model.summaryBullets ?? []).filter(
+    (b) => !sourceBullets.has(fingerprint(b)),
+  );
+  const movedOutOfSummary = (model.summaryBullets?.length ?? 0) - summaryBullets.length;
+  if (movedOutOfSummary) {
+    console.info(
+      `[resume-formatting] moved ${movedOutOfSummary} bullet(s) out of the summary and back under their employer`,
+    );
+  }
+
   const placed = new Set(experience.flatMap((e) => e.bullets.map(fingerprint)));
   const unplaced = jobs
     .flatMap((j) => j.bullets)
@@ -124,5 +153,10 @@ export function repairExperienceBullets(model: ResumeModel, experienceText: stri
     console.warn(`[resume-formatting] ${unplaced.length} source bullet(s) could not be placed`);
   }
 
-  return { ...model, experience, unplacedBullets: unplaced.length || undefined };
+  return {
+    ...model,
+    experience,
+    summaryBullets,
+    unplacedBullets: unplaced.length || undefined,
+  };
 }

@@ -369,7 +369,7 @@ export async function analyzeResume(rawText: string, fileName: string): Promise<
     }
 
     // Restore any bullet the model failed to return.
-    model = repairExperienceBullets(model, seg.experience);
+    model = repairExperienceBullets(model, seg.experience, rawText);
 
     const avg = (pick: (s: QualityScores) => number) =>
       scoreSets.length ? Math.round(scoreSets.reduce((a, s) => a + pick(s), 0) / scoreSets.length) : 0;

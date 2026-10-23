@@ -220,6 +220,27 @@ function roleStartIndex(lines: string[], dateLineIdx: number): number {
 }
 
 /**
+ * The employer where it is written *under* the title instead of above it:
+ *
+ *   Sr. Technical Project Manager            Jan '25 – Till Date
+ *   Florida Department of Agriculture and Consumer Services – FL, USA
+ *
+ * Without taking that line into the header, the role is identified by its
+ * dates alone, and matching a role back to the right employer — which is what
+ * keeps one company's responsibilities from being filed under another — has
+ * almost nothing to go on.
+ */
+function employerBelowIndex(lines: string[], dateLineIdx: number): number {
+  const next = lines[dateLineIdx + 1]?.trim();
+  if (!next) return dateLineIdx;
+  if (next.startsWith(BULLET_MARK.trim())) return dateLineIdx; // body text
+  if (DATE_RANGE.test(next)) return dateLineIdx; // the next role
+  if (next.length > 90) return dateLineIdx; // a sentence, not a company line
+  if (/[.!?]$/.test(next)) return dateLineIdx; // prose
+  return dateLineIdx + 1;
+}
+
+/**
  * Chunk the experience section on role boundaries.
  *
  * Splitting on blank lines could cut a role in half, leaving a chunk that opens
@@ -234,8 +255,8 @@ export function chunkExperienceByJob(experienceText: string, maxChars: number): 
   if (text.length <= maxChars) return [text];
 
   const lines = text.split(/\r?\n/);
-  const blocks: { header: string; lines: string[] }[] = [];
-  let current: { header: string; lines: string[] } | null = null;
+  const blocks: { header: string; lines: string[]; headerCount: number }[] = [];
+  let current: { header: string; lines: string[]; headerCount: number } | null = null;
   let consumedIdx = -1;
 
   for (let i = 0; i < lines.length; i++) {
@@ -248,7 +269,20 @@ export function chunkExperienceByJob(experienceText: string, maxChars: number): 
       // not just the title and dates.
       const headerLines = start < i ? [lines[start], line] : [line];
       if (start < i && current) current.lines.pop(); // it belonged here, not above
-      current = { header: headerLines.map((l) => l.trim()).join(" — "), lines: [...headerLines] };
+      if (start === i) {
+        // Employer written underneath the title instead of above it. Without
+        // it the chunk sent for extraction names no company at all.
+        const below = employerBelowIndex(lines, i);
+        if (below > i) {
+          headerLines.push(lines[below]);
+          consumedIdx = below;
+        }
+      }
+      current = {
+        header: headerLines.map((l) => l.trim()).join(" — "),
+        lines: [...headerLines],
+        headerCount: headerLines.length,
+      };
       blocks.push(current);
       continue;
     }
@@ -256,7 +290,7 @@ export function chunkExperienceByJob(experienceText: string, maxChars: number): 
       current.lines.push(line);
     } else {
       // Preamble before the first role.
-      if (!blocks.length) blocks.push({ header: "", lines: [] });
+      if (!blocks.length) blocks.push({ header: "", lines: [], headerCount: 0 });
       blocks[0].lines.push(line);
     }
   }
@@ -277,7 +311,9 @@ export function chunkExperienceByJob(experienceText: string, maxChars: number): 
       // made each piece read as a fresh role, inventing employers that do not
       // exist. Continuation pieces are labelled instead, so the extractor knows
       // the bullets belong to the role already described.
-      const headerLineCount = block.header && block.lines.length ? (block.header.includes(" — ") ? 2 : 1) : 0;
+      // Counted when the block was built: a header can be one line, two, or
+      // three when the employer sits under the title as well.
+      const headerLineCount = block.lines.length ? block.headerCount : 0;
       const headerLines = block.lines.slice(0, headerLineCount);
       const contMarker = `${CONTINUATION_MARK}${block.header}`;
       let piece: string[] = [...headerLines];
@@ -326,20 +362,35 @@ export function splitSourceJobs(experienceText: string): SourceJob[] {
       const start = roleStartIndex(lines, i);
       // Carry the employer line into the header so the role is identified by
       // the company rather than by a word from its job title.
-      const header = start < i ? `${lines[start].trim()} ${line}` : line;
+      let header = start < i ? `${lines[start].trim()} ${line}` : line;
       if (start < i && current) {
         // That line was provisionally part of the previous role; take it back.
         current.bullets = current.bullets.filter((b) => b !== lines[start].trim());
+      }
+      if (start === i) {
+        // Nothing usable above, so look underneath.
+        const below = employerBelowIndex(lines, i);
+        if (below > i) {
+          header = `${line} ${lines[below].trim()}`;
+          consumedIdx = below;
+        }
       }
       current = { header, bullets: [] };
       jobs.push(current);
       continue;
     }
     if (!current) continue;
-    if (isBullet) {
-      const text = line.replace(/^[•\-*•●▪]\s*/, "").trim();
-      if (text) current.bullets.push(text);
-    }
+
+    // Marked or not, a line sitting under a role is that role's work.
+    //
+    // Only marked lines were collected, and resumes routinely lose the marker
+    // on some lines — a paragraph typed without one, or a bullet the
+    // conversion flattened. Those lines were invisible here, so they were
+    // neither protected from being dropped nor recognised when the extraction
+    // filed them under the summary instead. Headings and employer lines have
+    // already been taken out above, so what remains is body text.
+    const text = isBullet ? line.replace(/^[•\-*●▪]\s*/, "").trim() : line;
+    if (text.length > 2) current.bullets.push(text);
   }
 
   return jobs;
@@ -363,7 +414,12 @@ type SegmentKey = Exclude<keyof ResumeSegments, "head">;
 const HEADING_PATTERNS: { key: SegmentKey; re: RegExp }[] = [
   { key: "summary", re: /^(professional\s+summary|career\s+summary|executive\s+summary|summary\s+of\s+qualifications|profile|summary|objective)\s*:?\s*$/i },
   { key: "skills", re: /^(technical\s+skills?|core\s+competenc(?:y|ies)|skill\s*set|skills?\s*(&|and)\s*(tools|technologies)|technical\s+expertise|areas\s+of\s+expertise|skills?)\s*:?\s*$/i },
-  { key: "experience", re: /^(professional\s+experience|work\s+experience|employment\s+history|work\s+history|experience|professional\s+background|relevant\s+experience)\s*:?\s*$/i },
+  // "Career" on its own heads the work history in plenty of resumes. It was
+  // missing here, and an unrecognised heading does not merely lose its own
+  // name — everything beneath it is filed under whatever came before, so one
+  // resume's entire employment history sat outside the experience section and
+  // the guarantee that no bullet is lost had nothing to work on.
+  { key: "experience", re: /^(professional\s+experience|work\s+experience|employment\s+history|work\s+history|employment|experience|career(\s+(history|profile|details|highlights))?|professional\s+career|professional\s+background|relevant\s+experience)\s*:?\s*$/i },
   { key: "education", re: /^(education(\s*(&|and)\s*certifications?)?|academic\s+background|academics?|educational\s+qualifications?)\s*:?\s*$/i },
   { key: "certifications", re: /^(certifications?|licenses?\s*(&|and)\s*certifications?|professional\s+certifications?)\s*:?\s*$/i },
   { key: "projects", re: /^(projects?|key\s+projects?|selected\s+projects?|project\s+experience)\s*:?\s*$/i },
@@ -384,6 +440,48 @@ const HEADING_KEYWORDS: { key: SegmentKey; re: RegExp }[] = [
   { key: "summary", re: /\bsummary\b|\bprofile\b|\bobjective\b|\bsynopsis\b/i },
   { key: "additional", re: /\badditional\b|\bawards?\b|\bpublications?\b|\blanguages?\b|\binterests\b/i },
 ];
+
+/** Only the exact section names, with none of the looser guessing. */
+function exactHeading(line: string): SegmentKey | null {
+  const cleaned = line.trim().replace(/[_*]+/g, "").trim();
+  if (!cleaned || cleaned.length > 40) return null;
+  for (const { key, re } of HEADING_PATTERNS) if (re.test(cleaned)) return key;
+  return null;
+}
+
+/**
+ * Split "Summary<tab>PMP-certified project manager with 18 years…" into the
+ * heading and the text beneath it.
+ *
+ * Word's two-column layouts put the section name in the left cell and the
+ * section itself in the right, and extraction returns them as a single line.
+ * That line is far too long to read as a heading, so the section is never
+ * recognised and everything below it is filed under whatever came before.
+ *
+ * Only the exact section names are split this way. A skills line reading
+ * "Project Management: Agile, Waterfall" must stay as it is — splitting on any
+ * label that happened to contain a section word would invent headings in the
+ * middle of a list.
+ */
+function splitLabelledSections(lines: string[]): string[] {
+  const out: string[] = [];
+  for (const line of lines) {
+    const m = line.match(/^([A-Za-z&/ ]{3,40}?)\s*(?:[:|]|\t| {2,})\s*(\S.*)$/);
+    const label = m?.[1]?.trim();
+    const key = label ? exactHeading(label) : null;
+    // "Project: Medicaid MMIS Modernization" names the engagement a role was
+    // delivered under, not a Projects section. Splitting it started a new
+    // section in the middle of the work history and sent every role after it
+    // out of the experience section. A standalone "Projects" line is still
+    // read as a heading in the ordinary way; only this rewrite declines it.
+    if (m && label && key && key !== "projects") {
+      out.push(label, m[2].trim());
+      continue;
+    }
+    out.push(line);
+  }
+  return out;
+}
 
 function matchHeading(line: string, allowLoose = true): SegmentKey | null {
   const raw = line.trim();
@@ -443,7 +541,7 @@ export function segmentResume(rawText: string): ResumeSegments {
     additional: "",
   };
 
-  const lines = rawText.split(/\r?\n/);
+  const lines = splitLabelledSections(rawText.split(/\r?\n/));
   let current: SegmentKey | "head" = "head";
   const buckets: Record<string, string[]> = {};
 
